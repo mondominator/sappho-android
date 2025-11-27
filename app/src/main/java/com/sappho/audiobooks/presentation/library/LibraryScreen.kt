@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -794,8 +795,10 @@ fun AuthorListCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -808,7 +811,8 @@ fun AuthorListCard(
                     Text(
                         text = "$bookCount",
                         fontSize = 12.sp,
-                        color = Color(0xFF9ca3af)
+                        color = Color(0xFF9ca3af),
+                        maxLines = 1
                     )
                 }
                 if (seriesCount > 0) {
@@ -823,7 +827,8 @@ fun AuthorListCard(
                         Text(
                             text = "$seriesCount",
                             fontSize = 12.sp,
-                            color = Color(0xFF9ca3af)
+                            color = Color(0xFF9ca3af),
+                            maxLines = 1
                         )
                     }
                 }
@@ -838,7 +843,8 @@ fun AuthorListCard(
                     Text(
                         text = "${totalDuration / 3600}h",
                         fontSize = 12.sp,
-                        color = Color(0xFF9ca3af)
+                        color = Color(0xFF9ca3af),
+                        maxLines = 1
                     )
                 }
             }
