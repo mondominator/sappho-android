@@ -120,9 +120,9 @@ fun ProfileScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // Avatar Section
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             // Avatar with edit overlay
                             Box(
@@ -175,58 +175,59 @@ fun ProfileScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            // Name, Role, and Avatar Actions
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = user?.displayName ?: user?.username ?: "User",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                // Role badge
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            if (user?.isAdmin == 1) Color(0xFF10b981).copy(alpha = 0.2f)
-                                            else Color(0xFF3b82f6).copy(alpha = 0.2f),
-                                            RoundedCornerShape(4.dp)
-                                        )
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                            // Avatar action buttons - directly under photo
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                TextButton(
+                                    onClick = { imagePickerLauncher.launch("image/*") },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
-                                    Text(
-                                        text = if (user?.isAdmin == 1) "Administrator" else "User",
-                                        fontSize = 12.sp,
-                                        color = if (user?.isAdmin == 1) Color(0xFF10b981) else Color(0xFF3b82f6),
-                                        fontWeight = FontWeight.Medium
-                                    )
+                                    Text("Upload", fontSize = 12.sp, color = Color(0xFF3b82f6))
                                 }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                // Avatar action buttons
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (user?.avatar != null || avatarUri != null) {
                                     TextButton(
-                                        onClick = { imagePickerLauncher.launch("image/*") },
+                                        onClick = {
+                                            selectedAvatarFile = null
+                                            viewModel.setAvatarUri(null)
+                                            if (user?.avatar != null) {
+                                                viewModel.deleteAvatar()
+                                            }
+                                        },
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
-                                        Text("Upload", fontSize = 12.sp, color = Color(0xFF3b82f6))
-                                    }
-                                    if (user?.avatar != null || avatarUri != null) {
-                                        TextButton(
-                                            onClick = {
-                                                selectedAvatarFile = null
-                                                viewModel.setAvatarUri(null)
-                                                if (user?.avatar != null) {
-                                                    viewModel.deleteAvatar()
-                                                }
-                                            },
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text("Remove", fontSize = 12.sp, color = Color(0xFFef4444))
-                                        }
+                                        Text("Remove", fontSize = 12.sp, color = Color(0xFFef4444))
                                     }
                                 }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Name
+                            Text(
+                                text = user?.displayName ?: user?.username ?: "User",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // Role badge
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        if (user?.isAdmin == 1) Color(0xFF10b981).copy(alpha = 0.2f)
+                                        else Color(0xFF3b82f6).copy(alpha = 0.2f),
+                                        RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (user?.isAdmin == 1) "Administrator" else "User",
+                                    fontSize = 12.sp,
+                                    color = if (user?.isAdmin == 1) Color(0xFF10b981) else Color(0xFF3b82f6),
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
                         }
 
