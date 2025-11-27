@@ -1,0 +1,105 @@
+name: Build and Release APK
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: 'Release name (optional, defaults to date)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+
+    - name: Build Release APK
+      run: ./gradlew assembleRelease
+
+    - name: Upload Debug APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sappho-debug-apk
+        path: app/build/outputs/apk/debug/*.apk
+        retention-days: 30
+
+    - name: Upload Release APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sappho-release-apk
+        path: app/build/outputs/apk/release/*.apk
+        retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - name: Download Debug APK
+      uses: actions/download-artifact@v4
+      with:
+        name: sappho-debug-apk
+        path: ./apk/debug
+
+    - name: Download Release APK
+      uses: actions/download-artifact@v4
+      with:
+        name: sappho-release-apk
+        path: ./apk/release
+
+    - name: Get release name
+      id: release_name
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ -n "${{ inputs.release_name }}" ]; then
+            echo "name=${{ inputs.release_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=Build $(date +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
+          fi
+          echo "tag=v$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+        else
+          echo "name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Rename APKs
+      run: |
+        mv ./apk/debug/*.apk ./apk/sappho-debug-${{ steps.release_name.outputs.tag }}.apk
+        mv ./apk/release/*.apk ./apk/sappho-release-${{ steps.release_name.outputs.tag }}.apk
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: ${{ steps.release_name.outputs.name }}
+        tag_name: ${{ steps.release_name.outputs.tag }}
+        generate_release_notes: true
+        files: |
+          ./apk/sappho-debug-*.apk
+          ./apk/sappho-release-*.apk
+        draft: false
+        prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
