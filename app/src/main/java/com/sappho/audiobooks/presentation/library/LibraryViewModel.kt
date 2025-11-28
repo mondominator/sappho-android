@@ -20,9 +20,54 @@ class LibraryViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        // Genre consolidation matching Audible's categories
+        // Genre consolidation into 6 main categories
         val genreConsolidation = mapOf(
-            // Science Fiction & Fantasy
+            // Literary Classics
+            "classics" to "Literary Classics",
+            "classic" to "Literary Classics",
+            "literary classics" to "Literary Classics",
+            "literature" to "Literary Classics",
+            "literary" to "Literary Classics",
+            "literary fiction" to "Literary Classics",
+            "literature & fiction" to "Literary Classics",
+            "fiction" to "Literary Classics",
+            "general fiction" to "Literary Classics",
+            "contemporary" to "Literary Classics",
+            "historical fiction" to "Literary Classics",
+            "romance" to "Literary Classics",
+            "romantic" to "Literary Classics",
+            "mystery" to "Literary Classics",
+            "mysteries" to "Literary Classics",
+            "detective" to "Literary Classics",
+            "thriller" to "Literary Classics",
+            "thrillers" to "Literary Classics",
+            "suspense" to "Literary Classics",
+            "psychological thriller" to "Literary Classics",
+            "horror" to "Literary Classics",
+            "scary" to "Literary Classics",
+            "dark" to "Literary Classics",
+            "action" to "Literary Classics",
+            "adventure" to "Literary Classics",
+            "action & adventure" to "Literary Classics",
+            "action and adventure" to "Literary Classics",
+            "military" to "Literary Classics",
+            "war" to "Literary Classics",
+            "espionage" to "Literary Classics",
+            "crime" to "Literary Classics",
+            "comedy" to "Literary Classics",
+            "humor" to "Literary Classics",
+            "humour" to "Literary Classics",
+            "funny" to "Literary Classics",
+            "satire" to "Literary Classics",
+            "young adult" to "Literary Classics",
+            "ya" to "Literary Classics",
+            "teen" to "Literary Classics",
+            "children" to "Literary Classics",
+            "children's" to "Literary Classics",
+            "kids" to "Literary Classics",
+            "love" to "Literary Classics",
+
+            // Science Fiction
             "sci-fi" to "Science Fiction",
             "scifi" to "Science Fiction",
             "science fiction" to "Science Fiction",
@@ -30,6 +75,14 @@ class LibraryViewModel @Inject constructor(
             "space opera" to "Science Fiction",
             "cyberpunk" to "Science Fiction",
             "dystopian" to "Science Fiction",
+            "post-apocalyptic" to "Science Fiction",
+            "time travel" to "Science Fiction",
+            "alien" to "Science Fiction",
+            "aliens" to "Science Fiction",
+            "robots" to "Science Fiction",
+            "futuristic" to "Science Fiction",
+
+            // Fantasy
             "fantasy" to "Fantasy",
             "epic fantasy" to "Fantasy",
             "urban fantasy" to "Fantasy",
@@ -43,170 +96,103 @@ class LibraryViewModel @Inject constructor(
             "paranormal" to "Fantasy",
             "magic" to "Fantasy",
             "wizards" to "Fantasy",
-
-            // Mystery & Thriller
-            "mystery" to "Mystery",
-            "mysteries" to "Mystery",
-            "detective" to "Mystery",
-            "thriller" to "Thriller",
-            "thrillers" to "Thriller",
-            "suspense" to "Thriller",
-            "psychological thriller" to "Thriller",
-
-            // Romance
-            "romance" to "Romance",
-            "romantic" to "Romance",
-            "love" to "Romance",
-
-            // Horror
-            "horror" to "Horror",
-            "scary" to "Horror",
-            "supernatural" to "Horror",
-            "dark" to "Horror",
-
-            // Literature & Fiction
-            "fiction" to "Fiction",
-            "literary fiction" to "Literature",
-            "literature" to "Literature",
-            "literary" to "Literature",
-            "literature & fiction" to "Literature",
-            "classics" to "Classics",
-            "classic" to "Classics",
-            "literary classics" to "Classics",
-            "contemporary" to "Fiction",
-            "general fiction" to "Fiction",
-
-            // Action & Adventure
-            "action" to "Action",
-            "adventure" to "Adventure",
-            "action & adventure" to "Adventure",
-            "action and adventure" to "Adventure",
-            "military" to "Military",
-            "war" to "Military",
-            "espionage" to "Thriller",
-
-            // Biographies & Memoirs
-            "biography" to "Biographies",
-            "biographies" to "Biographies",
-            "memoir" to "Memoir",
-            "memoirs" to "Memoir",
-            "autobiography" to "Biographies",
-            "biographies & memoirs" to "Biographies",
-
-            // History
-            "history" to "History",
-            "historical" to "History",
-            "historical fiction" to "Historical Fiction",
-            "world history" to "History",
-
-            // Self Development
-            "self-help" to "Self Development",
-            "self help" to "Self Development",
-            "self-development" to "Self Development",
-            "personal development" to "Self Development",
-            "motivation" to "Self Development",
-            "personal success" to "Self Development",
-            "self-esteem" to "Self Development",
-            "creativity" to "Self Development",
-            "inspirational" to "Self Development",
-            "mindfulness" to "Self Development",
-
-            // Business
-            "business" to "Business",
-            "finance" to "Business",
-            "economics" to "Business",
-            "entrepreneurship" to "Business",
-            "management" to "Business",
-            "leadership" to "Business",
-            "money" to "Business",
-            "investing" to "Business",
-            "career" to "Business",
+            "supernatural" to "Fantasy",
+            "vampires" to "Fantasy",
+            "werewolves" to "Fantasy",
+            "witches" to "Fantasy",
+            "fairy tales" to "Fantasy",
+            "mythology" to "Fantasy",
+            "gods" to "Fantasy",
 
             // Non-Fiction
             "non-fiction" to "Non-Fiction",
             "nonfiction" to "Non-Fiction",
+            "biography" to "Non-Fiction",
+            "biographies" to "Non-Fiction",
+            "memoir" to "Non-Fiction",
+            "memoirs" to "Non-Fiction",
+            "autobiography" to "Non-Fiction",
+            "biographies & memoirs" to "Non-Fiction",
+            "history" to "Non-Fiction",
+            "historical" to "Non-Fiction",
+            "world history" to "Non-Fiction",
+            "self-help" to "Non-Fiction",
+            "self help" to "Non-Fiction",
+            "self-development" to "Non-Fiction",
+            "personal development" to "Non-Fiction",
+            "motivation" to "Non-Fiction",
+            "personal success" to "Non-Fiction",
+            "self-esteem" to "Non-Fiction",
+            "creativity" to "Non-Fiction",
+            "inspirational" to "Non-Fiction",
+            "mindfulness" to "Non-Fiction",
+            "business" to "Non-Fiction",
+            "finance" to "Non-Fiction",
+            "economics" to "Non-Fiction",
+            "entrepreneurship" to "Non-Fiction",
+            "management" to "Non-Fiction",
+            "leadership" to "Non-Fiction",
+            "money" to "Non-Fiction",
+            "investing" to "Non-Fiction",
+            "career" to "Non-Fiction",
+            "health" to "Non-Fiction",
+            "wellness" to "Non-Fiction",
+            "fitness" to "Non-Fiction",
+            "diet" to "Non-Fiction",
+            "medical" to "Non-Fiction",
+            "nutrition" to "Non-Fiction",
+            "science" to "Non-Fiction",
+            "technology" to "Non-Fiction",
+            "tech" to "Non-Fiction",
+            "computers" to "Non-Fiction",
+            "engineering" to "Non-Fiction",
+            "relationships" to "Non-Fiction",
+            "dating" to "Non-Fiction",
+            "marriage" to "Non-Fiction",
+            "family" to "Non-Fiction",
+            "parenting" to "Non-Fiction",
+            "arts" to "Non-Fiction",
+            "entertainment" to "Non-Fiction",
+            "music" to "Non-Fiction",
+            "film" to "Non-Fiction",
+            "performing arts" to "Non-Fiction",
+            "home" to "Non-Fiction",
+            "lifestyle" to "Non-Fiction",
+            "travel" to "Non-Fiction",
+            "education" to "Non-Fiction",
+            "learning" to "Non-Fiction",
+            "reference" to "Non-Fiction",
+            "language" to "Non-Fiction",
+            "politics" to "Non-Fiction",
+            "political" to "Non-Fiction",
+            "sociology" to "Non-Fiction",
+            "psychology" to "Non-Fiction",
+            "social science" to "Non-Fiction",
+            "sports" to "Non-Fiction",
+            "outdoors" to "Non-Fiction",
+            "nature" to "Non-Fiction",
+            "true crime" to "Non-Fiction",
+            "religion" to "Non-Fiction",
+            "spirituality" to "Non-Fiction",
+            "spiritual" to "Non-Fiction",
+            "christian" to "Non-Fiction",
+            "new age" to "Non-Fiction",
+            "meditation" to "Non-Fiction",
 
-            // Kids & Young Adult
-            "young adult" to "Young Adult",
-            "ya" to "Young Adult",
-            "teen" to "Young Adult",
-            "children" to "Children's",
-            "children's" to "Children's",
-            "kids" to "Children's",
-
-            // Comedy
-            "comedy" to "Comedy",
-            "humor" to "Comedy",
-            "humour" to "Comedy",
-            "funny" to "Comedy",
-            "satire" to "Comedy",
-
-            // True Crime
-            "true crime" to "True Crime",
-            "crime" to "Crime",
-
-            // Religion & Spirituality
-            "religion" to "Religion",
-            "spirituality" to "Spirituality",
-            "spiritual" to "Spirituality",
-            "christian" to "Religion",
+            // Philosophy
             "philosophy" to "Philosophy",
-            "new age" to "Spirituality",
-            "meditation" to "Spirituality",
+            "philosophical" to "Philosophy",
+            "ethics" to "Philosophy",
+            "stoicism" to "Philosophy",
+            "existentialism" to "Philosophy",
 
-            // Health & Wellness
-            "health" to "Health",
-            "wellness" to "Health",
-            "fitness" to "Health",
-            "diet" to "Health",
-            "medical" to "Health",
-            "nutrition" to "Health",
-
-            // Science & Technology
-            "science" to "Science",
-            "technology" to "Technology",
-            "tech" to "Technology",
-            "computers" to "Technology",
-            "engineering" to "Technology",
-
-            // Relationships
-            "relationships" to "Relationships",
-            "dating" to "Relationships",
-            "marriage" to "Relationships",
-            "family" to "Relationships",
-            "parenting" to "Relationships",
-
-            // Arts & Entertainment
-            "arts" to "Arts",
-            "entertainment" to "Entertainment",
-            "music" to "Arts",
-            "film" to "Arts",
-            "performing arts" to "Arts",
-
-            // Home & Lifestyle
+            // Cooking
             "cooking" to "Cooking",
             "food" to "Cooking",
-            "home" to "Home",
-            "lifestyle" to "Lifestyle",
-            "travel" to "Travel",
-
-            // Education
-            "education" to "Education",
-            "learning" to "Education",
-            "reference" to "Education",
-            "language" to "Education",
-
-            // Politics & Social Sciences
-            "politics" to "Politics",
-            "political" to "Politics",
-            "sociology" to "Social Science",
-            "psychology" to "Psychology",
-            "social science" to "Social Science",
-
-            // Sports
-            "sports" to "Sports",
-            "outdoors" to "Sports",
-            "nature" to "Science"
+            "recipes" to "Cooking",
+            "culinary" to "Cooking",
+            "baking" to "Cooking",
+            "cuisine" to "Cooking"
         )
 
         fun normalizeGenre(genre: String): String {
