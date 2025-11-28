@@ -195,6 +195,9 @@ class LibraryViewModel @Inject constructor(
             "cuisine" to "Cooking"
         )
 
+        // Default category for unmapped genres
+        private const val DEFAULT_CATEGORY = "Literary Classics"
+
         fun normalizeGenre(genre: String): String {
             // First try exact match
             genreConsolidation[genre.lowercase()]?.let { return it }
@@ -208,8 +211,8 @@ class LibraryViewModel @Inject constructor(
                 genreConsolidation[part]?.let { return it }
             }
 
-            // If no match, use the first part capitalized
-            return parts.firstOrNull()?.replaceFirstChar { it.uppercase() } ?: genre
+            // If no match, default to Literary Classics
+            return DEFAULT_CATEGORY
         }
 
         fun getAllNormalizedGenres(genre: String): List<String> {
@@ -217,8 +220,9 @@ class LibraryViewModel @Inject constructor(
                 .map { it.trim().lowercase() }
                 .filter { it.isNotEmpty() }
 
-            return parts.mapNotNull { part ->
-                genreConsolidation[part] ?: part.replaceFirstChar { it.uppercase() }
+            // Map each part to a category, defaulting to Literary Classics
+            return parts.map { part ->
+                genreConsolidation[part] ?: DEFAULT_CATEGORY
             }.distinct()
         }
     }
