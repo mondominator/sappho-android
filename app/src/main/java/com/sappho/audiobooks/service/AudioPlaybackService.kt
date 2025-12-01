@@ -86,6 +86,7 @@ class AudioPlaybackService : MediaLibraryService() {
         // Custom command actions
         const val ACTION_SKIP_FORWARD = "com.sappho.audiobooks.SKIP_FORWARD"
         const val ACTION_SKIP_BACKWARD = "com.sappho.audiobooks.SKIP_BACKWARD"
+        const val ACTION_PLAY_PAUSE = "com.sappho.audiobooks.PLAY_PAUSE"
 
         var instance: AudioPlaybackService? = null
             private set
@@ -103,6 +104,18 @@ class AudioPlaybackService : MediaLibraryService() {
         }
     }
 
+    private inner class NotificationActionReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                ACTION_SKIP_FORWARD -> skipForward()
+                ACTION_SKIP_BACKWARD -> skipBackward()
+                ACTION_PLAY_PAUSE -> togglePlayPause()
+            }
+        }
+    }
+
+    private var notificationActionReceiver: NotificationActionReceiver? = null
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -110,6 +123,32 @@ class AudioPlaybackService : MediaLibraryService() {
         createNotificationChannel()
         initializePlayer()
         registerNoisyReceiver()
+        registerNotificationActionReceiver()
+    }
+
+    private fun registerNotificationActionReceiver() {
+        notificationActionReceiver = NotificationActionReceiver()
+        val filter = IntentFilter().apply {
+            addAction(ACTION_SKIP_FORWARD)
+            addAction(ACTION_SKIP_BACKWARD)
+            addAction(ACTION_PLAY_PAUSE)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(notificationActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(notificationActionReceiver, filter)
+        }
+    }
+
+    private fun unregisterNotificationActionReceiver() {
+        notificationActionReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (e: Exception) {
+                // Receiver may not be registered
+            }
+        }
+        notificationActionReceiver = null
     }
 
     private fun createNotificationChannel() {
@@ -1004,6 +1043,27 @@ class AudioPlaybackService : MediaLibraryService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Create action intents
+        val skipBackwardIntent = PendingIntent.getBroadcast(
+            this, 1,
+            Intent(ACTION_SKIP_BACKWARD).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val playPauseIntent = PendingIntent.getBroadcast(
+            this, 2,
+            Intent(ACTION_PLAY_PAUSE).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val skipForwardIntent = PendingIntent.getBroadcast(
+            this, 3,
+            Intent(ACTION_SKIP_FORWARD).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val isPlaying = player?.isPlaying == true
+        val playPauseIcon = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+        val playPauseText = if (isPlaying) "Pause" else "Play"
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(audiobook?.title ?: "Sappho Audiobooks")
             .setContentText(audiobook?.author ?: "")
@@ -1015,6 +1075,9 @@ class AudioPlaybackService : MediaLibraryService() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setShowWhen(false)
+            .addAction(R.drawable.ic_replay_15, "Rewind", skipBackwardIntent)
+            .addAction(playPauseIcon, playPauseText, playPauseIntent)
+            .addAction(R.drawable.ic_forward_15, "Forward", skipForwardIntent)
             .setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()
                     .setMediaSession(session.sessionCompatToken)
@@ -1040,6 +1103,7 @@ class AudioPlaybackService : MediaLibraryService() {
         playerState.clear()
         abandonAudioFocus()
         unregisterNoisyReceiver()
+        unregisterNotificationActionReceiver()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -1059,6 +1123,7 @@ class AudioPlaybackService : MediaLibraryService() {
         positionUpdateJob?.cancel()
         abandonAudioFocus()
         unregisterNoisyReceiver()
+        unregisterNotificationActionReceiver()
         super.onDestroy()
     }
 }
