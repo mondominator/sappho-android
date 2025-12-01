@@ -22,6 +22,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -121,6 +122,15 @@ class AudioPlaybackService : MediaLibraryService() {
         instance = this
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         createNotificationChannel()
+
+        // Use Media3's default notification provider for proper system media controls
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setChannelId(CHANNEL_ID)
+                .setChannelName(R.string.app_name)
+                .build()
+        )
+
         initializePlayer()
         registerNoisyReceiver()
         registerNotificationActionReceiver()
@@ -842,6 +852,10 @@ class AudioPlaybackService : MediaLibraryService() {
             playerState.updateAudiobook(audiobook)
             playerState.updateLoadingState(true)
 
+            // Get server URL and token
+            val serverUrl = authRepository.getServerUrlSync()
+            val token = authRepository.getTokenSync()
+
             // Check if we have a downloaded copy
             val localFilePath = downloadManager.getLocalFilePath(audiobook.id)
             val mediaUri: Uri
@@ -852,8 +866,6 @@ class AudioPlaybackService : MediaLibraryService() {
                 mediaUri = Uri.fromFile(File(localFilePath))
             } else {
                 // Stream from server
-                val serverUrl = authRepository.getServerUrlSync()
-                val token = authRepository.getTokenSync()
                 if (serverUrl == null || token == null) {
                     android.util.Log.e("AudioPlaybackService", "No server URL or token available")
                     playerState.updateLoadingState(false)
@@ -863,7 +875,27 @@ class AudioPlaybackService : MediaLibraryService() {
                 mediaUri = Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream?token=$token")
             }
 
-            val mediaItem = MediaItem.fromUri(mediaUri)
+            // Build cover art URI for notification
+            val coverArtUri = if (audiobook.coverImage != null && !serverUrl.isNullOrEmpty() && !token.isNullOrEmpty()) {
+                Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token")
+            } else {
+                null
+            }
+
+            val mediaItem = MediaItem.Builder()
+                .setUri(mediaUri)
+                .setMediaId(audiobook.id.toString())
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(audiobook.title)
+                        .setArtist(audiobook.author)
+                        .setAlbumTitle(audiobook.series)
+                        .setArtworkUri(coverArtUri)
+                        .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
+                        .build()
+                )
+                .build()
+
             exoPlayer.setMediaItem(mediaItem)
             exoPlayer.prepare()
 
@@ -873,7 +905,6 @@ class AudioPlaybackService : MediaLibraryService() {
 
             exoPlayer.play()
             startProgressSync()
-            startForeground(NOTIFICATION_ID, createNotification())
 
             // Try to sync any pending offline progress when we start playback
             syncPendingProgress()
