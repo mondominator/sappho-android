@@ -297,6 +297,29 @@ class DownloadManager @Inject constructor(
         _downloadStates.value = currentStates
     }
 
+    // Called by DownloadService to update state
+    fun updateDownloadStateExternal(audiobookId: Int, state: DownloadState) {
+        updateDownloadState(audiobookId, state)
+    }
+
+    // Called by DownloadService to save a completed download
+    fun saveDownloadedBook(
+        audiobook: Audiobook,
+        filePath: String,
+        fileSize: Long,
+        chapters: List<com.sappho.audiobooks.domain.model.Chapter>
+    ) {
+        val downloadedBook = DownloadedBook(
+            audiobook = audiobook,
+            filePath = filePath,
+            fileSize = fileSize,
+            downloadedAt = System.currentTimeMillis(),
+            chapters = chapters
+        )
+        _downloadedBooks.value = _downloadedBooks.value + downloadedBook
+        saveDownloadedBooks()
+    }
+
     // Pending progress management for offline sync
     private fun loadPendingProgress() {
         try {

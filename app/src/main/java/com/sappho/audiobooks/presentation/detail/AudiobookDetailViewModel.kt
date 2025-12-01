@@ -1,5 +1,6 @@
 package com.sappho.audiobooks.presentation.detail
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.SapphoApi
@@ -8,10 +9,12 @@ import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.domain.model.AudiobookFile
 import com.sappho.audiobooks.domain.model.Chapter
 import com.sappho.audiobooks.domain.model.Progress
+import com.sappho.audiobooks.service.DownloadService
 import com.sappho.audiobooks.service.PlayerState
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.util.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -20,6 +23,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AudiobookDetailViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val api: SapphoApi,
     private val authRepository: AuthRepository,
     val playerState: PlayerState,
@@ -170,10 +174,9 @@ class AudiobookDetailViewModel @Inject constructor(
     }
 
     fun downloadAudiobook() {
-        viewModelScope.launch {
-            _audiobook.value?.let { book ->
-                downloadManager.downloadAudiobook(book)
-            }
+        _audiobook.value?.let { book ->
+            // Use foreground service for downloads to prevent cancellation on background
+            DownloadService.startDownload(context, book)
         }
     }
 

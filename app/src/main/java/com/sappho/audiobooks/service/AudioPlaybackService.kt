@@ -17,6 +17,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -116,6 +117,50 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private var notificationActionReceiver: NotificationActionReceiver? = null
+
+    /**
+     * ForwardingPlayer that intercepts previous/next commands and converts them to seek back/forward.
+     * This makes the system media controls (lock screen, notification) perform 15-second skips
+     * instead of track navigation, which is more appropriate for audiobooks.
+     */
+    private inner class AudiobookForwardingPlayer(player: Player) : ForwardingPlayer(player) {
+        override fun getAvailableCommands(): Player.Commands {
+            // Expose SEEK_TO_PREVIOUS/NEXT so system shows previous/next buttons
+            // We intercept these to perform 15-second skips instead of track navigation
+            return super.getAvailableCommands().buildUpon()
+                .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .add(Player.COMMAND_SEEK_TO_NEXT)
+                .build()
+        }
+
+        override fun isCommandAvailable(command: Int): Boolean {
+            return when (command) {
+                Player.COMMAND_SEEK_TO_PREVIOUS,
+                Player.COMMAND_SEEK_TO_NEXT -> true
+                else -> super.isCommandAvailable(command)
+            }
+        }
+
+        override fun seekToPrevious() {
+            // Instead of going to previous track, seek back 15 seconds
+            seekBack()
+        }
+
+        override fun seekToNext() {
+            // Instead of going to next track, seek forward 15 seconds
+            seekForward()
+        }
+
+        override fun seekToPreviousMediaItem() {
+            seekBack()
+        }
+
+        override fun seekToNextMediaItem() {
+            seekForward()
+        }
+    }
+
+    private var forwardingPlayer: AudiobookForwardingPlayer? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -311,21 +356,31 @@ class AudioPlaybackService : MediaLibraryService() {
             })
         }
 
-        // Create custom command buttons for notification
+        // Create command buttons for notification using standard player commands
+        // This helps the notification provider recognize them as seek buttons
         val seekBackButton = CommandButton.Builder()
             .setDisplayName("Rewind 15s")
             .setIconResId(R.drawable.ic_replay_15)
-            .setSessionCommand(SessionCommand(ACTION_SKIP_BACKWARD, Bundle.EMPTY))
+            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+            .build()
+
+        val playPauseButton = CommandButton.Builder()
+            .setDisplayName("Play/Pause")
+            .setIconResId(R.drawable.ic_play)
+            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
             .build()
 
         val seekForwardButton = CommandButton.Builder()
             .setDisplayName("Forward 15s")
             .setIconResId(R.drawable.ic_forward_15)
-            .setSessionCommand(SessionCommand(ACTION_SKIP_FORWARD, Bundle.EMPTY))
+            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
             .build()
 
-        mediaLibrarySession = MediaLibrarySession.Builder(this, player!!, MediaLibrarySessionCallback())
-            .setCustomLayout(listOf(seekBackButton, seekForwardButton))
+        // Wrap the player with ForwardingPlayer to intercept previous/next as seek back/forward
+        forwardingPlayer = AudiobookForwardingPlayer(player!!)
+
+        mediaLibrarySession = MediaLibrarySession.Builder(this, forwardingPlayer!!, MediaLibrarySessionCallback())
+            .setCustomLayout(listOf(seekBackButton, playPauseButton, seekForwardButton))
             .build()
     }
 
@@ -341,7 +396,8 @@ class AudioPlaybackService : MediaLibraryService() {
                 .add(SessionCommand(ACTION_SKIP_BACKWARD, Bundle.EMPTY))
                 .build()
 
-            // Enable all player commands including seek
+            // Enable player commands including SEEK_TO_PREVIOUS/NEXT for system media controls
+            // The ForwardingPlayer intercepts these and performs 15-second skips
             val playerCommands = Player.Commands.Builder()
                 .addAll(
                     Player.COMMAND_PLAY_PAUSE,
@@ -350,15 +406,12 @@ class AudioPlaybackService : MediaLibraryService() {
                     Player.COMMAND_SEEK_TO_PREVIOUS,
                     Player.COMMAND_SEEK_TO_NEXT,
                     Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
-                    Player.COMMAND_SEEK_TO_MEDIA_ITEM,
                     Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
                     Player.COMMAND_GET_TIMELINE,
-                    Player.COMMAND_GET_MEDIA_ITEMS_METADATA,
                     Player.COMMAND_SET_MEDIA_ITEM,
                     Player.COMMAND_STOP,
                     Player.COMMAND_SET_SPEED_AND_PITCH,
-                    Player.COMMAND_GET_AUDIO_ATTRIBUTES,
-                    Player.COMMAND_SET_AUDIO_ATTRIBUTES
+                    Player.COMMAND_GET_AUDIO_ATTRIBUTES
                 )
                 .build()
 
@@ -920,15 +973,8 @@ class AudioPlaybackService : MediaLibraryService() {
             exoPlayer.play()
             startProgressSync()
 
-            // Start foreground service to keep playback alive
-            // Media3's notification provider will handle the notification content
-            val notification = NotificationCompat.Builder(this@AudioPlaybackService, CHANNEL_ID)
-                .setContentTitle(audiobook.title)
-                .setContentText(audiobook.author ?: "")
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setOngoing(true)
-                .build()
-            startForeground(NOTIFICATION_ID, notification)
+            // Start foreground with our custom MediaStyle notification
+            startForeground(NOTIFICATION_ID, createNotification())
 
             // Try to sync any pending offline progress when we start playback
             syncPendingProgress()
