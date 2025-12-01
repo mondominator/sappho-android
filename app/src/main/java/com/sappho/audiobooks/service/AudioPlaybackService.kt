@@ -311,7 +311,21 @@ class AudioPlaybackService : MediaLibraryService() {
             })
         }
 
+        // Create custom command buttons for notification
+        val seekBackButton = CommandButton.Builder()
+            .setDisplayName("Rewind 15s")
+            .setIconResId(R.drawable.ic_replay_15)
+            .setSessionCommand(SessionCommand(ACTION_SKIP_BACKWARD, Bundle.EMPTY))
+            .build()
+
+        val seekForwardButton = CommandButton.Builder()
+            .setDisplayName("Forward 15s")
+            .setIconResId(R.drawable.ic_forward_15)
+            .setSessionCommand(SessionCommand(ACTION_SKIP_FORWARD, Bundle.EMPTY))
+            .build()
+
         mediaLibrarySession = MediaLibrarySession.Builder(this, player!!, MediaLibrarySessionCallback())
+            .setCustomLayout(listOf(seekBackButton, seekForwardButton))
             .build()
     }
 
@@ -905,6 +919,16 @@ class AudioPlaybackService : MediaLibraryService() {
 
             exoPlayer.play()
             startProgressSync()
+
+            // Start foreground service to keep playback alive
+            // Media3's notification provider will handle the notification content
+            val notification = NotificationCompat.Builder(this@AudioPlaybackService, CHANNEL_ID)
+                .setContentTitle(audiobook.title)
+                .setContentText(audiobook.author ?: "")
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setOngoing(true)
+                .build()
+            startForeground(NOTIFICATION_ID, notification)
 
             // Try to sync any pending offline progress when we start playback
             syncPendingProgress()
