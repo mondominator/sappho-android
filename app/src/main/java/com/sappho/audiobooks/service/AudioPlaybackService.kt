@@ -252,7 +252,10 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private fun initializePlayer() {
-        player = ExoPlayer.Builder(this).build().apply {
+        player = ExoPlayer.Builder(this)
+            .setSeekBackIncrementMs(15000)  // 15 seconds
+            .setSeekForwardIncrementMs(15000)  // 15 seconds
+            .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     when (playbackState) {
@@ -314,8 +317,30 @@ class AudioPlaybackService : MediaLibraryService() {
                 .add(SessionCommand(ACTION_SKIP_BACKWARD, Bundle.EMPTY))
                 .build()
 
+            // Enable all player commands including seek
+            val playerCommands = Player.Commands.Builder()
+                .addAll(
+                    Player.COMMAND_PLAY_PAUSE,
+                    Player.COMMAND_SEEK_BACK,
+                    Player.COMMAND_SEEK_FORWARD,
+                    Player.COMMAND_SEEK_TO_PREVIOUS,
+                    Player.COMMAND_SEEK_TO_NEXT,
+                    Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+                    Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+                    Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
+                    Player.COMMAND_GET_TIMELINE,
+                    Player.COMMAND_GET_MEDIA_ITEMS_METADATA,
+                    Player.COMMAND_SET_MEDIA_ITEM,
+                    Player.COMMAND_STOP,
+                    Player.COMMAND_SET_SPEED_AND_PITCH,
+                    Player.COMMAND_GET_AUDIO_ATTRIBUTES,
+                    Player.COMMAND_SET_AUDIO_ATTRIBUTES
+                )
+                .build()
+
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
+                .setAvailablePlayerCommands(playerCommands)
                 .build()
         }
 
