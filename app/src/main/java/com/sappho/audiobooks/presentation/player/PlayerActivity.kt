@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,6 +91,7 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
+
     private fun finishWithNoAnimation() {
         finish()
         // Disable the default activity transition animation
@@ -115,7 +117,6 @@ fun PlayerScreen(
     val serverUrl by viewModel.serverUrl.collectAsState()
     var showChapters by remember { mutableStateOf(false) }
     var showPlaybackSpeed by remember { mutableStateOf(false) }
-    var showCastDialog by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
 
     // Load audiobook details if not already loaded
@@ -131,17 +132,31 @@ fun PlayerScreen(
     // Determine playing state based on whether we're casting or using local playback
     val localIsPlaying = playerState?.isPlaying?.collectAsState()?.value ?: false
     val castIsPlaying = castHelper.isPlayingFlow.collectAsState().value
-    val isCasting = castHelper.isCasting()
-    val isPlaying = if (isCasting) {
+    val isCastConnected = castHelper.isConnected.collectAsState().value
+    val isPlaying = if (isCastConnected) {
         castIsPlaying
     } else {
         localIsPlaying
     }
-    val currentPosition = playerState?.currentPosition?.collectAsState()?.value ?: 0L
+    val localPosition = playerState?.currentPosition?.collectAsState()?.value ?: 0L
     val duration = playerState?.duration?.collectAsState()?.value ?: 0L
     val isLoading = playerState?.isLoading?.collectAsState()?.value ?: false
     val playbackSpeed = playerState?.playbackSpeed?.collectAsState()?.value ?: 1.0f
     val sleepTimerRemaining = playerState?.sleepTimerRemaining?.collectAsState()?.value
+
+    // When casting, poll the Cast position periodically
+    var castPosition by remember { mutableStateOf(0L) }
+    LaunchedEffect(isCastConnected) {
+        if (isCastConnected) {
+            while (true) {
+                castPosition = castHelper.getCurrentPosition()
+                kotlinx.coroutines.delay(1000) // Update every second
+            }
+        }
+    }
+
+    // Use Cast position when casting, local position otherwise
+    val currentPosition = if (isCastConnected) castPosition else localPosition
 
     // Find current chapter based on position
     val currentChapter = remember(chapters, currentPosition) {
@@ -208,12 +223,106 @@ fun PlayerScreen(
                     )
                 }
 
+                // Cast button - shows our custom dialog
+                var showCastDialog by remember { mutableStateOf(false) }
                 IconButton(onClick = { showCastDialog = true }) {
                     Icon(
                         imageVector = Icons.Default.Cast,
                         contentDescription = "Cast",
-                        tint = if (castHelper.isCasting()) Color(0xFF3b82f6) else Color(0xFF9ca3af),
+                        tint = if (isCastConnected) Color(0xFF3b82f6) else Color(0xFF9ca3af),
                         modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Cast Dialog
+                if (showCastDialog) {
+                    var isScanning by remember { mutableStateOf(true) }
+                    val availableRoutes by castHelper.availableRoutes.collectAsState()
+
+                    LaunchedEffect(Unit) {
+                        castHelper.startDiscovery(context)
+                        kotlinx.coroutines.delay(2000)
+                        isScanning = false
+                    }
+
+                    AlertDialog(
+                        onDismissRequest = { showCastDialog = false },
+                        title = { Text("Cast to Device", color = Color.White) },
+                        text = {
+                            Column {
+                                if (isCastConnected) {
+                                    Text(
+                                        "Currently casting",
+                                        color = Color(0xFF10b981),
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            castHelper.disconnectCast()
+                                            showCastDialog = false
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Disconnect", color = Color(0xFFef4444))
+                                    }
+                                } else if (isScanning) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = Color(0xFF3b82f6),
+                                            strokeWidth = 2.dp
+                                        )
+                                        Text("Scanning for Cast devices...", color = Color(0xFF9ca3af))
+                                    }
+                                } else if (availableRoutes.isEmpty()) {
+                                    Text("No Cast devices found.", color = Color(0xFF9ca3af))
+                                } else {
+                                    Text("Select a device:", color = Color(0xFF9ca3af), modifier = Modifier.padding(bottom = 8.dp))
+                                    availableRoutes.forEachIndexed { index, route ->
+                                        TextButton(
+                                            onClick = {
+                                                android.util.Log.d("PlayerActivity", "User clicked index=$index, name=${route.name}, id=${route.id}")
+
+                                                // Stop local playback
+                                                if (localIsPlaying) {
+                                                    AudioPlaybackService.instance?.togglePlayPause()
+                                                }
+
+                                                // Queue audiobook
+                                                audiobook?.let { book ->
+                                                    serverUrl?.let { url ->
+                                                        castHelper.castAudiobook(
+                                                            audiobook = book,
+                                                            streamUrl = "$url/api/audiobooks/${book.id}/stream",
+                                                            coverUrl = if (book.coverImage != null) "$url/api/audiobooks/${book.id}/cover" else null,
+                                                            currentPosition = currentPosition
+                                                        )
+                                                    }
+                                                }
+
+                                                // Select route via CastHelper for better device selection
+                                                android.util.Log.d("PlayerActivity", "Calling castHelper.selectRoute() for: ${route.name}")
+                                                castHelper.selectRoute(context, route)
+                                                showCastDialog = false
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(route.name, color = Color.White)
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showCastDialog = false }) {
+                                Text("Cancel", color = Color(0xFF3b82f6))
+                            }
+                        },
+                        containerColor = Color(0xFF1e293b)
                     )
                 }
             }
@@ -401,11 +510,14 @@ fun PlayerScreen(
                                     indication = null
                                 ) {
                                     // Check if we're currently casting
-                                    if (castHelper.isCasting()) {
+                                    android.util.Log.d("PlayerActivity", "Play/Pause tapped: isCastConnected=$isCastConnected, isPlaying=$isPlaying, castIsPlaying=$castIsPlaying, localIsPlaying=$localIsPlaying")
+                                    if (isCastConnected) {
                                         // Control the Cast receiver
                                         if (isPlaying) {
+                                            android.util.Log.d("PlayerActivity", "Calling castHelper.pause()")
                                             castHelper.pause()
                                         } else {
+                                            android.util.Log.d("PlayerActivity", "Calling castHelper.play()")
                                             castHelper.play()
                                         }
                                     } else {
@@ -925,108 +1037,6 @@ fun PlayerScreen(
             )
         }
 
-        // Cast Dialog
-        if (showCastDialog) {
-            val isCasting = castHelper.isCasting()
-            val availableRoutes = remember { castHelper.getAvailableRoutes(context) }
-
-            AlertDialog(
-                onDismissRequest = { showCastDialog = false },
-                title = { Text("Cast to Device", color = Color.White) },
-                text = {
-                    Column {
-                        if (isCasting) {
-                            Text(
-                                "Currently casting",
-                                color = Color(0xFF10b981),
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            TextButton(
-                                onClick = {
-                                    castHelper.disconnectCast()
-                                    showCastDialog = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Disconnect", color = Color(0xFFef4444))
-                            }
-                        } else if (availableRoutes.isEmpty()) {
-                            Text(
-                                "No Cast devices found on your network. Make sure your Cast devices are powered on and connected to the same WiFi network.",
-                                color = Color(0xFF9ca3af)
-                            )
-                        } else {
-                            Text(
-                                "Select a device:",
-                                color = Color(0xFF9ca3af),
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            availableRoutes.forEach { route ->
-                                TextButton(
-                                    onClick = {
-                                        castHelper.selectRoute(context, route)
-
-                                        // Pause local playback when starting to cast
-                                        if (isPlaying) {
-                                            AudioPlaybackService.instance?.togglePlayPause()
-                                        }
-
-                                        // After connecting, send the current audiobook to Cast
-                                        audiobook?.let { book ->
-                                            serverUrl?.let { url ->
-                                                val streamUrl = "$url/api/audiobooks/${book.id}/stream"
-                                                val coverUrl = if (book.coverImage != null) {
-                                                    "$url/api/audiobooks/${book.id}/cover"
-                                                } else null
-
-                                                // Give Cast a moment to connect, then send media
-                                                val currentPos = currentPosition
-                                                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                                                    android.util.Log.d("PlayerActivity", "Attempting to cast audiobook after delay")
-                                                    castHelper.castAudiobook(
-                                                        audiobook = book,
-                                                        streamUrl = streamUrl,
-                                                        coverUrl = coverUrl,
-                                                        currentPosition = currentPos
-                                                    )
-                                                }, 2000) // Increased delay to 2 seconds
-                                            }
-                                        }
-
-                                        showCastDialog = false
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = route.name ?: "Unknown Device",
-                                            color = Color.White
-                                        )
-                                        Icon(
-                                            imageVector = Icons.Default.Cast,
-                                            contentDescription = null,
-                                            tint = Color(0xFF9ca3af),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showCastDialog = false }) {
-                        Text("Cancel", color = Color(0xFF3b82f6))
-                    }
-                },
-                containerColor = Color(0xFF1e293b)
-            )
-        }
     }
 }
 

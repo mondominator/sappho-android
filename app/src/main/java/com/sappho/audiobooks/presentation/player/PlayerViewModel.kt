@@ -11,6 +11,7 @@ import com.sappho.audiobooks.domain.model.Chapter
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.service.PlayerState
+import com.sappho.audiobooks.cast.CastHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,8 @@ class PlayerViewModel @Inject constructor(
     private val api: SapphoApi,
     private val authRepository: AuthRepository,
     private val sharedPlayerState: PlayerState,
-    private val downloadManager: DownloadManager
+    private val downloadManager: DownloadManager,
+    private val castHelper: CastHelper
 ) : AndroidViewModel(application) {
 
     private val _audiobook = MutableStateFlow<Audiobook?>(null)
@@ -73,16 +75,35 @@ class PlayerViewModel @Inject constructor(
 
             book?.let {
                 android.util.Log.d("PlayerViewModel", "About to start playback with actualStartPosition: $actualStartPosition (original was: $startPosition)")
-                // Start the service
-                val context = getApplication<Application>()
-                val serviceIntent = Intent(context, AudioPlaybackService::class.java)
-                context.startForegroundService(serviceIntent)
 
-                // Wait a moment for service to be created
-                kotlinx.coroutines.delay(500)
+                // Check if we're currently casting
+                if (castHelper.isCasting()) {
+                    android.util.Log.d("PlayerViewModel", "Currently casting - loading new book on Cast device")
+                    val serverUrl = authRepository.getServerUrlSync()
+                    if (serverUrl != null) {
+                        // Load the new audiobook on the Cast device
+                        castHelper.castAudiobook(
+                            audiobook = it,
+                            streamUrl = "$serverUrl/api/audiobooks/${it.id}/stream",
+                            coverUrl = if (it.coverImage != null) "$serverUrl/api/audiobooks/${it.id}/cover" else null,
+                            currentPosition = actualStartPosition.toLong()
+                        )
+                        // Also update the shared player state with the new audiobook info
+                        sharedPlayerState.updateAudiobook(it)
+                    }
+                } else {
+                    // Not casting - use local playback
+                    // Start the service
+                    val context = getApplication<Application>()
+                    val serviceIntent = Intent(context, AudioPlaybackService::class.java)
+                    context.startForegroundService(serviceIntent)
 
-                // Load and play through the service
-                AudioPlaybackService.instance?.loadAndPlay(it, actualStartPosition)
+                    // Wait a moment for service to be created
+                    kotlinx.coroutines.delay(500)
+
+                    // Load and play through the service
+                    AudioPlaybackService.instance?.loadAndPlay(it, actualStartPosition)
+                }
             }
         }
     }

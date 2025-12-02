@@ -44,13 +44,25 @@ fun MinimizedPlayerBar(
 ) {
     val audiobook by playerState.currentAudiobook.collectAsState()
     val localIsPlaying by playerState.isPlaying.collectAsState()
-    val currentPosition by playerState.currentPosition.collectAsState()
+    val localPosition by playerState.currentPosition.collectAsState()
     val duration by playerState.duration.collectAsState()
 
-    // Check cast state
-    val isCasting = castHelper.isCasting()
+    // Check cast state - use reactive StateFlow
+    val isCastConnected by castHelper.isConnected.collectAsState()
     val castIsPlaying by castHelper.isPlayingFlow.collectAsState()
-    val isPlaying = if (isCasting) castIsPlaying else localIsPlaying
+    val isPlaying = if (isCastConnected) castIsPlaying else localIsPlaying
+
+    // Poll Cast position when connected for smooth time updates
+    var castPosition by remember { mutableStateOf(0L) }
+    LaunchedEffect(isCastConnected) {
+        if (isCastConnected) {
+            while (true) {
+                castPosition = castHelper.getCurrentPosition()
+                delay(1000)
+            }
+        }
+    }
+    val currentPosition = if (isCastConnected) castPosition else localPosition
 
     audiobook?.let { book ->
         Surface(
@@ -156,7 +168,7 @@ fun MinimizedPlayerBar(
                     Icon(
                         imageVector = Icons.Default.Cast,
                         contentDescription = "Cast",
-                        tint = if (isCasting) Color(0xFF3b82f6) else Color(0xFF9ca3af),
+                        tint = if (isCastConnected) Color(0xFF3b82f6) else Color(0xFF9ca3af),
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -220,7 +232,7 @@ fun MinimizedPlayerBar(
                             interactionSource = playInteractionSource,
                             indication = null
                         ) {
-                            if (isCasting) {
+                            if (isCastConnected) {
                                 if (isPlaying) {
                                     castHelper.pause()
                                 } else {
