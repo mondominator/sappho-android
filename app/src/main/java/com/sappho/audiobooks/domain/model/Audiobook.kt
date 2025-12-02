@@ -82,6 +82,23 @@ data class GenreInfo(
     @SerializedName("cover_ids") val coverIds: List<Int>
 )
 
+// Genre mappings response from server
+data class GenreMappingsResponse(
+    val genres: Map<String, GenreCategoryData>,
+    val defaults: GenreMetadata
+)
+
+data class GenreCategoryData(
+    val keywords: List<String>,
+    val colors: List<String>,
+    val icon: String
+)
+
+data class GenreMetadata(
+    val colors: List<String>,
+    val icon: String
+)
+
 data class AudiobooksResponse(
     val audiobooks: List<Audiobook>
 )
