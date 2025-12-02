@@ -489,15 +489,47 @@ fun PlayerScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Progress slider - MOVED BELOW BUTTONS
+                    // Use local state for smooth dragging, only seek on release
+                    var isDragging by remember { mutableStateOf(false) }
+                    var dragPosition by remember { mutableStateOf(0f) }
+
+                    // The displayed position: use drag position while dragging, actual position otherwise
+                    val displayedPosition = if (isDragging) dragPosition else currentPosition.toFloat()
+
                     Column(modifier = Modifier.fillMaxWidth()) {
+                        // Time popup while dragging
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isDragging) {
+                                // Show popup with seek time while dragging
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF1e293b))
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = formatTime(dragPosition.toLong()),
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF3b82f6)
+                                    )
+                                }
+                            }
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = formatTime(currentPosition),
+                                text = formatTime(displayedPosition.toLong()),
                                 fontSize = 13.sp,
-                                color = Color(0xFF9ca3af)
+                                color = if (isDragging) Color(0xFF3b82f6) else Color(0xFF9ca3af)
                             )
                             Text(
                                 text = formatTime(duration),
@@ -507,8 +539,16 @@ fun PlayerScreen(
                         }
 
                         Slider(
-                            value = if (duration > 0) currentPosition.toFloat() else 0f,
-                            onValueChange = { AudioPlaybackService.instance?.seekTo(it.toLong()) },
+                            value = if (duration > 0) displayedPosition else 0f,
+                            onValueChange = { newValue ->
+                                isDragging = true
+                                dragPosition = newValue
+                            },
+                            onValueChangeFinished = {
+                                // Only seek when user releases the slider
+                                AudioPlaybackService.instance?.seekTo(dragPosition.toLong())
+                                isDragging = false
+                            },
                             valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
                             colors = SliderDefaults.colors(
                                 thumbColor = Color(0xFF3b82f6),
