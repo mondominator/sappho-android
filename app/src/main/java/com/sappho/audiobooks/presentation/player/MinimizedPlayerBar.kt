@@ -19,10 +19,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -277,26 +279,39 @@ fun MarqueeText(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    var shouldAnimate by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
-    val infiniteTransition = rememberInfiniteTransition(label = "marquee")
 
-    // Animate translation for continuous marquee effect
-    val offsetX by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = if (shouldAnimate) -1000f else 0f, // Will be overridden when we know actual width
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 15000,
-                easing = LinearEasing
-            ),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "marqueeOffset"
-    )
+    // Start scrolling after a short delay to let layout complete
+    LaunchedEffect(text) {
+        delay(500) // Wait for layout
+        while (true) {
+            if (scrollState.maxValue > 0) {
+                // Scroll to end
+                scrollState.animateScrollTo(
+                    scrollState.maxValue,
+                    animationSpec = tween(
+                        durationMillis = (scrollState.maxValue * 20).coerceIn(2000, 10000),
+                        easing = LinearEasing
+                    )
+                )
+                delay(1500) // Pause at end
+                // Scroll back to start
+                scrollState.animateScrollTo(
+                    0,
+                    animationSpec = tween(
+                        durationMillis = (scrollState.maxValue * 20).coerceIn(2000, 10000),
+                        easing = LinearEasing
+                    )
+                )
+                delay(1500) // Pause at start
+            } else {
+                delay(500) // Check again later
+            }
+        }
+    }
 
-    Box(
-        modifier = modifier.fillMaxWidth()
+    Row(
+        modifier = modifier.horizontalScroll(scrollState, enabled = false)
     ) {
         Text(
             text = text,
@@ -304,18 +319,7 @@ fun MarqueeText(
             fontWeight = fontWeight,
             color = color,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            onTextLayout = { textLayoutResult ->
-                // Check if text is wider than container
-                shouldAnimate = textLayoutResult.didOverflowWidth
-            },
-            modifier = if (shouldAnimate) {
-                Modifier.graphicsLayer {
-                    translationX = offsetX
-                }
-            } else {
-                Modifier
-            }
+            softWrap = false
         )
     }
 }

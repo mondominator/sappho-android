@@ -852,9 +852,14 @@ fun PlayerScreen(
                 onDismissRequest = { showChapters = false },
                 title = { Text("Chapters", color = Color.White) },
                 text = {
-                    androidx.compose.foundation.lazy.LazyColumn(state = listState) {
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        state = listState,
+                        modifier = Modifier.heightIn(max = 400.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         items(chapters.size) { index ->
                             val chapter = chapters[index]
+                            val isCurrentChapter = chapter == currentChapter
                             androidx.compose.material3.TextButton(
                                 onClick = {
                                     AudioPlaybackService.instance?.seekToAndPlay(chapter.startTime.toLong())
@@ -864,13 +869,29 @@ fun PlayerScreen(
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = chapter.title ?: "Chapter ${index + 1}",
-                                        color = if (chapter == currentChapter) Color(0xFF3b82f6) else Color.White,
-                                        fontWeight = if (chapter == currentChapter) FontWeight.Bold else FontWeight.Normal
-                                    )
+                                    if (isCurrentChapter) {
+                                        // Use marquee for current chapter
+                                        MarqueeText(
+                                            text = chapter.title ?: "Chapter ${index + 1}",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF3b82f6),
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                        )
+                                    } else {
+                                        // Use ellipsis for other chapters
+                                        Text(
+                                            text = chapter.title ?: "Chapter ${index + 1}",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Normal,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                        )
+                                    }
                                     Text(
                                         text = formatTime(chapter.startTime.toLong()),
                                         color = Color(0xFF9ca3af),
