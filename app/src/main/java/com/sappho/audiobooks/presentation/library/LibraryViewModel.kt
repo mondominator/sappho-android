@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.domain.model.AuthorInfo
+import com.sappho.audiobooks.domain.model.GenreCategoryData
 import com.sappho.audiobooks.domain.model.GenreInfo
+import com.sappho.audiobooks.domain.model.GenreMetadata
 import com.sappho.audiobooks.domain.model.SeriesInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,17 +23,21 @@ class LibraryViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        // Genre mappings fetched from server, cached here
-        private var genreMappings: Map<String, List<String>> = emptyMap()
+        // Genre mappings fetched from server, cached here (includes keywords, colors, icons)
+        private var genreCategories: Map<String, GenreCategoryData> = emptyMap()
+        private var defaultGenreMetadata: GenreMetadata = GenreMetadata(
+            colors = listOf("#10b981", "#059669"),
+            icon = "category"
+        )
 
         fun normalizeGenre(genre: String): String {
-            if (genreMappings.isEmpty()) return genre
+            if (genreCategories.isEmpty()) return genre
 
             val lowerGenre = genre.lowercase()
 
             // Try to find a matching category
-            for ((category, keywords) in genreMappings) {
-                for (keyword in keywords) {
+            for ((category, data) in genreCategories) {
+                for (keyword in data.keywords) {
                     if (lowerGenre == keyword || lowerGenre.contains(keyword)) {
                         return category
                     }
@@ -42,7 +48,7 @@ class LibraryViewModel @Inject constructor(
         }
 
         fun getAllNormalizedGenres(genre: String): List<String> {
-            if (genreMappings.isEmpty()) return listOf(genre)
+            if (genreCategories.isEmpty()) return listOf(genre)
 
             val parts = genre.split(",", ";", "&", " and ")
                 .map { it.trim().lowercase() }
@@ -50,8 +56,8 @@ class LibraryViewModel @Inject constructor(
 
             val normalized = mutableSetOf<String>()
             for (part in parts) {
-                for ((category, keywords) in genreMappings) {
-                    for (keyword in keywords) {
+                for ((category, data) in genreCategories) {
+                    for (keyword in data.keywords) {
                         if (part == keyword || part.contains(keyword)) {
                             normalized.add(category)
                             break
@@ -61,6 +67,20 @@ class LibraryViewModel @Inject constructor(
             }
 
             return if (normalized.isEmpty()) listOf(genre) else normalized.toList()
+        }
+
+        /**
+         * Get colors for a genre category (returns hex color strings)
+         */
+        fun getGenreColors(genre: String): List<String> {
+            return genreCategories[genre]?.colors ?: defaultGenreMetadata.colors
+        }
+
+        /**
+         * Get icon name for a genre category
+         */
+        fun getGenreIcon(genre: String): String {
+            return genreCategories[genre]?.icon ?: defaultGenreMetadata.icon
         }
     }
 
@@ -93,11 +113,15 @@ class LibraryViewModel @Inject constructor(
             try {
                 Log.d("LibraryViewModel", "Loading categories...")
 
-                // Load genre mappings from server first
+                // Load genre mappings from server first (includes keywords, colors, icons)
                 val mappingsResponse = api.getGenreMappings()
                 if (mappingsResponse.isSuccessful) {
-                    genreMappings = mappingsResponse.body() ?: emptyMap()
-                    Log.d("LibraryViewModel", "Loaded ${genreMappings.size} genre categories from server")
+                    val response = mappingsResponse.body()
+                    if (response != null) {
+                        genreCategories = response.genres
+                        defaultGenreMetadata = response.defaults
+                        Log.d("LibraryViewModel", "Loaded ${genreCategories.size} genre categories with colors/icons from server")
+                    }
                 }
 
                 // Load genres from server (already normalized)

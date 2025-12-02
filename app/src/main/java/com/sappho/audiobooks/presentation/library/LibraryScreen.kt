@@ -32,6 +32,60 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 
+/**
+ * Parse a hex color string (e.g., "#06b6d4") to a Compose Color
+ */
+private fun parseHexColor(hex: String): Color {
+    return try {
+        val colorString = hex.removePrefix("#")
+        Color(android.graphics.Color.parseColor("#$colorString"))
+    } catch (e: Exception) {
+        Color(0xFF10b981) // Default green if parsing fails
+    }
+}
+
+/**
+ * Get colors for a genre from server data
+ */
+private fun getGenreColorsFromServer(genre: String): List<Color> {
+    val hexColors = LibraryViewModel.getGenreColors(genre)
+    return hexColors.map { parseHexColor(it) }
+}
+
+/**
+ * Map server icon name to Material Icon
+ */
+private fun getGenreIconFromServer(genre: String): ImageVector {
+    return when (LibraryViewModel.getGenreIcon(genre)) {
+        "search" -> Icons.Default.Search
+        "rocket" -> Icons.Default.Rocket
+        "auto_awesome" -> Icons.Default.AutoAwesome
+        "favorite" -> Icons.Default.Favorite
+        "visibility" -> Icons.Default.Visibility
+        "castle" -> Icons.Default.Castle
+        "person" -> Icons.Default.Person
+        "psychology" -> Icons.Default.Psychology
+        "trending_up" -> Icons.Default.TrendingUp
+        "history_edu" -> Icons.Default.HistoryEdu
+        "science" -> Icons.Default.Science
+        "favorite_border" -> Icons.Default.FavoriteBorder
+        "self_improvement" -> Icons.Default.SelfImprovement
+        "gavel" -> Icons.Default.Gavel
+        "sentiment_very_satisfied" -> Icons.Default.SentimentVerySatisfied
+        "face" -> Icons.Default.Face
+        "child_care" -> Icons.Default.ChildCare
+        "menu_book" -> Icons.Default.MenuBook
+        "edit_note" -> Icons.Default.EditNote
+        "theater_comedy" -> Icons.Default.TheaterComedy
+        "explore" -> Icons.Default.Explore
+        "landscape" -> Icons.Default.Landscape
+        "sports_esports" -> Icons.Default.SportsEsports
+        "local_fire_department" -> Icons.Default.LocalFireDepartment
+        "category" -> Icons.Default.Category
+        else -> Icons.Default.Category
+    }
+}
+
 enum class LibraryView {
     CATEGORIES, SERIES, SERIES_BOOKS, AUTHORS, AUTHOR_BOOKS, GENRES, GENRE_BOOKS, ALL_BOOKS
 }
@@ -135,7 +189,7 @@ fun LibraryScreen(
             }
             LibraryView.GENRES -> {
                 GenresListView(
-                    genres = genres,
+                    genres = genres.map { it.genre },
                     allBooks = allBooks,
                     serverUrl = viewModel.serverUrl.collectAsState().value,
                     onBackClick = { currentView = LibraryView.CATEGORIES },
@@ -896,46 +950,7 @@ fun GenresListView(
     onBackClick: () -> Unit,
     onGenreClick: (String) -> Unit
 ) {
-    val genreColors = mapOf(
-        "science fiction" to listOf(Color(0xFF06b6d4), Color(0xFF0891b2)),
-        "fantasy" to listOf(Color(0xFF8b5cf6), Color(0xFF6d28d9)),
-        "mystery" to listOf(Color(0xFF6366f1), Color(0xFF4338ca)),
-        "thriller" to listOf(Color(0xFF4f46e5), Color(0xFF4338ca)),
-        "romance" to listOf(Color(0xFFec4899), Color(0xFFdb2777)),
-        "horror" to listOf(Color(0xFF991b1b), Color(0xFF7f1d1d)),
-        "fiction" to listOf(Color(0xFF3b82f6), Color(0xFF1d4ed8)),
-        "literature" to listOf(Color(0xFF6366f1), Color(0xFF4f46e5)),
-        "classics" to listOf(Color(0xFFa78bfa), Color(0xFF7c3aed)),
-        "action" to listOf(Color(0xFFf97316), Color(0xFFea580c)),
-        "adventure" to listOf(Color(0xFFf59e0b), Color(0xFFd97706)),
-        "historical fiction" to listOf(Color(0xFFa1887f), Color(0xFF8d6e63)),
-        "non-fiction" to listOf(Color(0xFF64748b), Color(0xFF475569)),
-        "biographies" to listOf(Color(0xFF14b8a6), Color(0xFF0d9488)),
-        "memoir" to listOf(Color(0xFF0d9488), Color(0xFF0f766e)),
-        "history" to listOf(Color(0xFF78716c), Color(0xFF57534e)),
-        "self development" to listOf(Color(0xFF10b981), Color(0xFF059669)),
-        "business" to listOf(Color(0xFF0d9488), Color(0xFF0f766e)),
-        "true crime" to listOf(Color(0xFF71717a), Color(0xFF52525b)),
-        "crime" to listOf(Color(0xFF64748b), Color(0xFF52525b)),
-        "health" to listOf(Color(0xFF22c55e), Color(0xFF16a34a)),
-        "cooking" to listOf(Color(0xFFef4444), Color(0xFFdc2626)),
-        "travel" to listOf(Color(0xFF0ea5e9), Color(0xFF0284c7)),
-        "lifestyle" to listOf(Color(0xFFf472b6), Color(0xFFec4899)),
-        "young adult" to listOf(Color(0xFFa855f7), Color(0xFF9333ea)),
-        "children's" to listOf(Color(0xFFfbbf24), Color(0xFFf59e0b)),
-        "comedy" to listOf(Color(0xFFfcd34d), Color(0xFFfbbf24)),
-        "religion" to listOf(Color(0xFF8b5cf6), Color(0xFF7c3aed)),
-        "spirituality" to listOf(Color(0xFFa78bfa), Color(0xFF8b5cf6)),
-        "philosophy" to listOf(Color(0xFFf59e0b), Color(0xFFd97706)),
-        "science" to listOf(Color(0xFF06b6d4), Color(0xFF0891b2)),
-        "technology" to listOf(Color(0xFF3b82f6), Color(0xFF2563eb)),
-        "psychology" to listOf(Color(0xFFec4899), Color(0xFFdb2777)),
-        "politics" to listOf(Color(0xFFef4444), Color(0xFFdc2626)),
-        "education" to listOf(Color(0xFF10b981), Color(0xFF059669)),
-        "sports" to listOf(Color(0xFF22c55e), Color(0xFF16a34a)),
-        "arts" to listOf(Color(0xFFf472b6), Color(0xFFec4899))
-    )
-    val defaultColors = listOf(Color(0xFF10b981), Color(0xFF059669))
+    // Colors and icons are now fetched from server via LibraryViewModel
 
     Column(
         modifier = Modifier
@@ -982,47 +997,9 @@ fun GenresListView(
                 }
                 val bookCount = genreBooks.size
                 val totalDuration = genreBooks.sumOf { it.duration ?: 0 }
-                val colors = genreColors[genre.lowercase()] ?: defaultColors
-                val genreIcon = when (genre.lowercase()) {
-                    "science fiction" -> Icons.Default.Rocket
-                    "fantasy" -> Icons.Default.AutoAwesome
-                    "mystery" -> Icons.Default.Search
-                    "thriller" -> Icons.Default.Bolt
-                    "romance" -> Icons.Default.Favorite
-                    "horror" -> Icons.Default.Visibility
-                    "fiction" -> Icons.Default.AutoStories
-                    "literature" -> Icons.Default.MenuBook
-                    "classics" -> Icons.Default.MenuBook
-                    "action" -> Icons.Default.Bolt
-                    "adventure" -> Icons.Default.Explore
-                    "historical fiction" -> Icons.Default.Castle
-                    "non-fiction" -> Icons.Default.School
-                    "biographies" -> Icons.Default.Person
-                    "memoir" -> Icons.Default.PersonOutline
-                    "history" -> Icons.Default.HistoryEdu
-                    "self development" -> Icons.Default.Psychology
-                    "business" -> Icons.Default.TrendingUp
-                    "true crime" -> Icons.Default.Gavel
-                    "crime" -> Icons.Default.Gavel
-                    "health" -> Icons.Default.FavoriteBorder
-                    "cooking" -> Icons.Default.Restaurant
-                    "travel" -> Icons.Default.Flight
-                    "lifestyle" -> Icons.Default.Spa
-                    "young adult" -> Icons.Default.Face
-                    "children's" -> Icons.Default.ChildCare
-                    "comedy" -> Icons.Default.SentimentVerySatisfied
-                    "religion" -> Icons.Default.Church
-                    "spirituality" -> Icons.Default.SelfImprovement
-                    "philosophy" -> Icons.Default.Lightbulb
-                    "science" -> Icons.Default.Science
-                    "technology" -> Icons.Default.Computer
-                    "psychology" -> Icons.Default.Psychology
-                    "politics" -> Icons.Default.HowToVote
-                    "education" -> Icons.Default.School
-                    "sports" -> Icons.Default.SportsBasketball
-                    "arts" -> Icons.Default.Palette
-                    else -> Icons.Default.Category
-                }
+                // Get colors and icon from server data
+                val colors = getGenreColorsFromServer(genre)
+                val genreIcon = getGenreIconFromServer(genre)
 
                 GenreListCard(
                     genreName = genre,
@@ -2043,90 +2020,9 @@ fun GenreBooksView(
     val seriesCount = books.mapNotNull { it.series }.distinct().size
     val completedBooks = books.count { it.progress?.completed == 1 }
 
-    // Genre-specific colors
-    val genreColors = mapOf(
-        "science fiction" to listOf(Color(0xFF06b6d4), Color(0xFF0891b2)),
-        "fantasy" to listOf(Color(0xFF8b5cf6), Color(0xFF6d28d9)),
-        "mystery" to listOf(Color(0xFF6366f1), Color(0xFF4338ca)),
-        "thriller" to listOf(Color(0xFF4f46e5), Color(0xFF4338ca)),
-        "romance" to listOf(Color(0xFFec4899), Color(0xFFdb2777)),
-        "horror" to listOf(Color(0xFF991b1b), Color(0xFF7f1d1d)),
-        "fiction" to listOf(Color(0xFF3b82f6), Color(0xFF1d4ed8)),
-        "literature" to listOf(Color(0xFF6366f1), Color(0xFF4f46e5)),
-        "classics" to listOf(Color(0xFFa78bfa), Color(0xFF7c3aed)),
-        "action" to listOf(Color(0xFFf97316), Color(0xFFea580c)),
-        "adventure" to listOf(Color(0xFFf59e0b), Color(0xFFd97706)),
-        "historical fiction" to listOf(Color(0xFFa1887f), Color(0xFF8d6e63)),
-        "non-fiction" to listOf(Color(0xFF64748b), Color(0xFF475569)),
-        "biographies" to listOf(Color(0xFF14b8a6), Color(0xFF0d9488)),
-        "memoir" to listOf(Color(0xFF0d9488), Color(0xFF0f766e)),
-        "history" to listOf(Color(0xFF78716c), Color(0xFF57534e)),
-        "self development" to listOf(Color(0xFF10b981), Color(0xFF059669)),
-        "business" to listOf(Color(0xFF0d9488), Color(0xFF0f766e)),
-        "true crime" to listOf(Color(0xFF71717a), Color(0xFF52525b)),
-        "crime" to listOf(Color(0xFF64748b), Color(0xFF52525b)),
-        "health" to listOf(Color(0xFF22c55e), Color(0xFF16a34a)),
-        "cooking" to listOf(Color(0xFFef4444), Color(0xFFdc2626)),
-        "travel" to listOf(Color(0xFF0ea5e9), Color(0xFF0284c7)),
-        "lifestyle" to listOf(Color(0xFFf472b6), Color(0xFFec4899)),
-        "young adult" to listOf(Color(0xFFa855f7), Color(0xFF9333ea)),
-        "children's" to listOf(Color(0xFFfbbf24), Color(0xFFf59e0b)),
-        "comedy" to listOf(Color(0xFFfcd34d), Color(0xFFfbbf24)),
-        "religion" to listOf(Color(0xFF8b5cf6), Color(0xFF7c3aed)),
-        "spirituality" to listOf(Color(0xFFa78bfa), Color(0xFF8b5cf6)),
-        "philosophy" to listOf(Color(0xFFf59e0b), Color(0xFFd97706)),
-        "science" to listOf(Color(0xFF06b6d4), Color(0xFF0891b2)),
-        "technology" to listOf(Color(0xFF3b82f6), Color(0xFF2563eb)),
-        "psychology" to listOf(Color(0xFFec4899), Color(0xFFdb2777)),
-        "politics" to listOf(Color(0xFFef4444), Color(0xFFdc2626)),
-        "education" to listOf(Color(0xFF10b981), Color(0xFF059669)),
-        "sports" to listOf(Color(0xFF22c55e), Color(0xFF16a34a)),
-        "arts" to listOf(Color(0xFFf472b6), Color(0xFFec4899))
-    )
-    val defaultColors = listOf(Color(0xFF10b981), Color(0xFF059669))
-    val colors = genreColors[genreName.lowercase()] ?: defaultColors
-
-    // Genre icons
-    val genreIcon = when (genreName.lowercase()) {
-        "science fiction" -> Icons.Default.Rocket
-        "fantasy" -> Icons.Default.AutoAwesome
-        "mystery" -> Icons.Default.Search
-        "thriller" -> Icons.Default.Bolt
-        "romance" -> Icons.Default.Favorite
-        "horror" -> Icons.Default.Visibility
-        "fiction" -> Icons.Default.AutoStories
-        "literature" -> Icons.Default.MenuBook
-        "classics" -> Icons.Default.MenuBook
-        "action" -> Icons.Default.Bolt
-        "adventure" -> Icons.Default.Explore
-        "historical fiction" -> Icons.Default.Castle
-        "non-fiction" -> Icons.Default.School
-        "biographies" -> Icons.Default.Person
-        "memoir" -> Icons.Default.PersonOutline
-        "history" -> Icons.Default.HistoryEdu
-        "self development" -> Icons.Default.Psychology
-        "business" -> Icons.Default.TrendingUp
-        "true crime" -> Icons.Default.Gavel
-        "crime" -> Icons.Default.Gavel
-        "health" -> Icons.Default.FavoriteBorder
-        "cooking" -> Icons.Default.Restaurant
-        "travel" -> Icons.Default.Flight
-        "lifestyle" -> Icons.Default.Spa
-        "young adult" -> Icons.Default.Face
-        "children's" -> Icons.Default.ChildCare
-        "comedy" -> Icons.Default.SentimentVerySatisfied
-        "religion" -> Icons.Default.Church
-        "spirituality" -> Icons.Default.SelfImprovement
-        "philosophy" -> Icons.Default.Lightbulb
-        "science" -> Icons.Default.Science
-        "technology" -> Icons.Default.Computer
-        "psychology" -> Icons.Default.Psychology
-        "politics" -> Icons.Default.HowToVote
-        "education" -> Icons.Default.School
-        "sports" -> Icons.Default.SportsBasketball
-        "arts" -> Icons.Default.Palette
-        else -> Icons.Default.Category
-    }
+    // Get colors and icon from server data
+    val colors = getGenreColorsFromServer(genreName)
+    val genreIcon = getGenreIconFromServer(genreName)
 
     LazyColumn(
         modifier = Modifier

@@ -47,7 +47,7 @@ interface SapphoApi {
     suspend fun getGenres(): Response<List<GenreInfo>>
 
     @GET("api/audiobooks/meta/genre-mappings")
-    suspend fun getGenreMappings(): Response<Map<String, List<String>>>
+    suspend fun getGenreMappings(): Response<GenreMappingsResponse>
 
     // Progress
     @GET("api/audiobooks/{id}/progress")
