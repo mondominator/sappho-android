@@ -43,6 +43,12 @@ interface SapphoApi {
     @GET("api/audiobooks/meta/up-next")
     suspend fun getUpNext(@Query("limit") limit: Int = 10): Response<List<Audiobook>>
 
+    @GET("api/audiobooks/meta/genres")
+    suspend fun getGenres(): Response<List<GenreInfo>>
+
+    @GET("api/audiobooks/meta/genre-mappings")
+    suspend fun getGenreMappings(): Response<Map<String, List<String>>>
+
     // Progress
     @GET("api/audiobooks/{id}/progress")
     suspend fun getProgress(@Path("id") audiobookId: Int): Response<Progress>

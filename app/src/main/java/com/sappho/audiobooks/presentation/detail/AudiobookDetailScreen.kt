@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -613,7 +614,9 @@ fun AudiobookDetailScreen(
                                                     horizontalArrangement = Arrangement.SpaceBetween,
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Column {
+                                                    Column(
+                                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                                    ) {
                                                         Text(
                                                             text = "Current Chapter",
                                                             fontSize = 12.sp,
@@ -623,7 +626,9 @@ fun AudiobookDetailScreen(
                                                             text = chapter.title ?: "Chapter ${currentChapterIndex + 1}",
                                                             fontSize = 14.sp,
                                                             fontWeight = FontWeight.Medium,
-                                                            color = Color.White
+                                                            color = Color.White,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
                                                     Text(
@@ -751,7 +756,9 @@ fun AudiobookDetailScreen(
                                     Text(
                                         text = chapter.title ?: "Chapter ${index + 1}",
                                         color = Color.White,
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                         text = formatTime(chapter.startTime.toLong()),
@@ -865,7 +872,9 @@ private fun ChapterItem(chapter: com.sappho.audiobooks.domain.model.Chapter, ind
             text = chapter.title ?: "Chapter $index",
             fontSize = 14.sp,
             color = Color(0xFFd1d5db),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).padding(end = 8.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
 
         // Use duration field if available, otherwise calculate from endTime
