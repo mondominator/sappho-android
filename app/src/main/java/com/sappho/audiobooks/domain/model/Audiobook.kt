@@ -76,6 +76,12 @@ data class AuthorInfo(
     @SerializedName("book_count") val bookCount: Int
 )
 
+data class GenreInfo(
+    val genre: String,
+    val count: Int,
+    @SerializedName("cover_ids") val coverIds: List<Int>
+)
+
 data class AudiobooksResponse(
     val audiobooks: List<Audiobook>
 )
