@@ -96,6 +96,15 @@ object NetworkModule {
 
                 chain.proceed(request)
             }
+            // Interceptor to detect 401 Unauthorized responses
+            .addInterceptor { chain ->
+                val response = chain.proceed(chain.request())
+                if (response.code == 401) {
+                    // Token expired or invalid - trigger auth error
+                    authRepository.triggerAuthError()
+                }
+                response
+            }
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)

@@ -89,6 +89,9 @@ interface SapphoApi {
     @GET("api/profile")
     suspend fun getProfile(): Response<User>
 
+    @GET("api/profile/stats")
+    suspend fun getProfileStats(): Response<UserStats>
+
     @PUT("api/profile")
     suspend fun updateProfile(@Body request: ProfileUpdateRequest): Response<User>
 
@@ -118,6 +121,10 @@ interface SapphoApi {
 
     @POST("api/library/force-rescan")
     suspend fun forceRescanLibrary(): Response<ScanResult>
+
+    // Health/Version
+    @GET("api/health")
+    suspend fun getHealth(): Response<HealthResponse>
 }
 
 data class ProfileUpdateRequest(
@@ -171,4 +178,10 @@ data class ProgressUpdateRequest(
     val position: Int,
     val completed: Int,
     val state: String = "stopped"
+)
+
+data class HealthResponse(
+    val status: String,
+    val message: String,
+    val version: String?
 )

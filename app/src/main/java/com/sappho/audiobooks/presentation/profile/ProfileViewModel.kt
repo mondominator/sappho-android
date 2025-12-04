@@ -8,6 +8,7 @@ import com.sappho.audiobooks.data.remote.ProfileUpdateRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.User
+import com.sappho.audiobooks.domain.model.UserStats
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,9 @@ class ProfileViewModel @Inject constructor(
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user
 
+    private val _stats = MutableStateFlow<UserStats?>(null)
+    val stats: StateFlow<UserStats?> = _stats
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
@@ -43,9 +47,14 @@ class ProfileViewModel @Inject constructor(
     private val _avatarUri = MutableStateFlow<Uri?>(null)
     val avatarUri: StateFlow<Uri?> = _avatarUri
 
+    private val _serverVersion = MutableStateFlow<String?>(null)
+    val serverVersion: StateFlow<String?> = _serverVersion
+
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
         loadProfile()
+        loadStats()
+        loadServerVersion()
     }
 
     private fun loadProfile() {
@@ -60,6 +69,32 @@ class ProfileViewModel @Inject constructor(
                 e.printStackTrace()
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    private fun loadStats() {
+        viewModelScope.launch {
+            try {
+                val response = api.getProfileStats()
+                if (response.isSuccessful) {
+                    _stats.value = response.body()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun loadServerVersion() {
+        viewModelScope.launch {
+            try {
+                val response = api.getHealth()
+                if (response.isSuccessful) {
+                    _serverVersion.value = response.body()?.version
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -172,5 +207,6 @@ class ProfileViewModel @Inject constructor(
 
     fun refresh() {
         loadProfile()
+        loadStats()
     }
 }

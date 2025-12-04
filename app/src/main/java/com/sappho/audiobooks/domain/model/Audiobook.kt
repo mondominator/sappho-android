@@ -63,7 +63,44 @@ data class User(
     val email: String?,
     @SerializedName("display_name") val displayName: String?,
     @SerializedName("is_admin") val isAdmin: Int,
-    val avatar: String?
+    val avatar: String?,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+data class UserStats(
+    val totalListenTime: Long = 0,
+    val booksStarted: Int = 0,
+    val booksCompleted: Int = 0,
+    val currentlyListening: Int = 0,
+    val topAuthors: List<AuthorListenStat> = emptyList(),
+    val topGenres: List<GenreListenStat> = emptyList(),
+    val recentActivity: List<RecentActivityItem> = emptyList(),
+    val activeDaysLast30: Int = 0,
+    val currentStreak: Int = 0,
+    val avgSessionLength: Float = 0f
+)
+
+data class AuthorListenStat(
+    val author: String = "",
+    val listenTime: Long = 0,
+    val bookCount: Int = 0
+)
+
+data class GenreListenStat(
+    val genre: String = "",
+    val listenTime: Long = 0,
+    val bookCount: Int = 0
+)
+
+data class RecentActivityItem(
+    val id: Int,
+    val title: String,
+    val author: String?,
+    @SerializedName("cover_image") val coverImage: String?,
+    val position: Int,
+    val duration: Int?,
+    val completed: Int,
+    @SerializedName("updated_at") val updatedAt: String?
 )
 
 data class SeriesInfo(
