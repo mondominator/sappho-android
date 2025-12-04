@@ -1226,7 +1226,9 @@ class AudioPlaybackService : MediaLibraryService() {
         mediaLibrarySession = null
         progressSyncJob?.cancel()
         positionUpdateJob?.cancel()
+        sleepTimerJob?.cancel()
         playerState.clear()
+        audiobookCache.clear() // Clear cache to avoid stale data after re-login
         abandonAudioFocus()
         unregisterNoisyReceiver()
         unregisterNotificationActionReceiver()

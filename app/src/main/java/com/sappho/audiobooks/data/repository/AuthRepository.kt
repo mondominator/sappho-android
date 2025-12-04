@@ -26,6 +26,19 @@ class AuthRepository @Inject constructor(
     private val _isAuthenticated = MutableStateFlow(getTokenSync() != null)
     val isAuthenticated: StateFlow<Boolean> = _isAuthenticated
 
+    // Triggered when server returns 401 Unauthorized
+    private val _authError = MutableStateFlow(false)
+    val authError: StateFlow<Boolean> = _authError
+
+    fun triggerAuthError() {
+        Log.d("AuthRepository", "Auth error triggered - token expired or invalid")
+        _authError.value = true
+    }
+
+    fun clearAuthError() {
+        _authError.value = false
+    }
+
     fun saveToken(token: String) {
         securePrefs.edit().putString(KEY_TOKEN, token).apply()
         _isAuthenticated.value = true
