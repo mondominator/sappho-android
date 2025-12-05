@@ -3,9 +3,7 @@ package com.sappho.audiobooks.presentation.profile
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sappho.audiobooks.data.remote.PasswordUpdateRequest
-import com.sappho.audiobooks.data.remote.ProfileUpdateRequest
-import com.sappho.audiobooks.data.remote.SapphoApi
+import com.sappho.audiobooks.data.remote.*
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.User
 import com.sappho.audiobooks.domain.model.UserStats
@@ -49,6 +47,19 @@ class ProfileViewModel @Inject constructor(
 
     private val _serverVersion = MutableStateFlow<String?>(null)
     val serverVersion: StateFlow<String?> = _serverVersion
+
+    // Admin state
+    private val _users = MutableStateFlow<List<UserInfo>>(emptyList())
+    val users: StateFlow<List<UserInfo>> = _users
+
+    private val _aiSettings = MutableStateFlow<AiSettings?>(null)
+    val aiSettings: StateFlow<AiSettings?> = _aiSettings
+
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning
+
+    private val _scanResult = MutableStateFlow<ScanResult?>(null)
+    val scanResult: StateFlow<ScanResult?> = _scanResult
 
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
@@ -208,5 +219,128 @@ class ProfileViewModel @Inject constructor(
     fun refresh() {
         loadProfile()
         loadStats()
+    }
+
+    // Admin functions
+    fun loadUsers() {
+        viewModelScope.launch {
+            try {
+                val response = api.getUsers()
+                if (response.isSuccessful) {
+                    _users.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun loadAiSettings() {
+        viewModelScope.launch {
+            try {
+                val response = api.getAiSettings()
+                if (response.isSuccessful) {
+                    _aiSettings.value = response.body()?.settings
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun updateAiSettings(settings: AiSettingsUpdate, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.updateAiSettings(settings)
+                if (response.isSuccessful) {
+                    loadAiSettings()
+                    onResult(true, "AI settings updated")
+                } else {
+                    onResult(false, "Failed to update AI settings")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false, e.message ?: "Error updating settings")
+            }
+        }
+    }
+
+    fun testAiConnection(settings: AiSettingsUpdate, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.testAiConnection(settings)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    onResult(true, body?.message ?: "Connection successful")
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    onResult(false, errorBody ?: "Connection failed")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false, e.message ?: "Connection failed")
+            }
+        }
+    }
+
+    fun scanLibrary(forceRescan: Boolean = false) {
+        viewModelScope.launch {
+            _isScanning.value = true
+            _scanResult.value = null
+            try {
+                val response = if (forceRescan) {
+                    api.forceRescan()
+                } else {
+                    api.scanLibrary()
+                }
+                if (response.isSuccessful) {
+                    _scanResult.value = response.body()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isScanning.value = false
+            }
+        }
+    }
+
+    fun createUser(username: String, password: String, email: String?, isAdmin: Boolean, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.createUser(CreateUserRequest(username, password, email, isAdmin))
+                if (response.isSuccessful) {
+                    loadUsers()
+                    onResult(true, "User created")
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    onResult(false, errorBody ?: "Failed to create user")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false, e.message ?: "Error creating user")
+            }
+        }
+    }
+
+    fun deleteUser(userId: Int, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.deleteUser(userId)
+                if (response.isSuccessful) {
+                    loadUsers()
+                    onResult(true, "User deleted")
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    onResult(false, errorBody ?: "Failed to delete user")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false, e.message ?: "Error deleting user")
+            }
+        }
+    }
+
+    fun clearScanResult() {
+        _scanResult.value = null
     }
 }
