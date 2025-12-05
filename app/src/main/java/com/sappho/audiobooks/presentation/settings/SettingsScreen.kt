@@ -62,6 +62,9 @@ fun SettingsScreen(
     var aiProvider by remember(aiSettings) { mutableStateOf(aiSettings?.aiProvider ?: "openai") }
     var openaiKey by remember { mutableStateOf("") }
     var geminiKey by remember { mutableStateOf("") }
+    var offensiveMode by remember(aiSettings) { mutableStateOf(aiSettings?.recapOffensiveMode ?: false) }
+    var customPrompt by remember(aiSettings) { mutableStateOf(aiSettings?.recapCustomPrompt ?: "") }
+    var showPromptEditor by remember { mutableStateOf(false) }
 
     // Snackbar
     val snackbarHostState = remember { SnackbarHostState() }
@@ -460,7 +463,10 @@ fun SettingsScreen(
             onDismissRequest = { showAiDialog = false },
             title = { Text("AI Configuration", color = Color.White) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
                     Text(
                         text = "Provider",
                         color = Color(0xFF9ca3af),
@@ -539,6 +545,75 @@ fun SettingsScreen(
                             fontSize = 11.sp
                         )
                     }
+
+                    Divider(color = Color(0xFF374151))
+
+                    Text(
+                        text = "Recap Style",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 12.sp
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { offensiveMode = !offensiveMode }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Offensive Mode",
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Crude, irreverent recaps with profanity",
+                                color = Color(0xFF6b7280),
+                                fontSize = 11.sp
+                            )
+                        }
+                        Switch(
+                            checked = offensiveMode,
+                            onCheckedChange = { offensiveMode = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFFef4444),
+                                uncheckedThumbColor = Color(0xFF9ca3af),
+                                uncheckedTrackColor = Color(0xFF374151)
+                            )
+                        )
+                    }
+
+                    Divider(color = Color(0xFF374151))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showPromptEditor = true }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Custom Prompt",
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (customPrompt.isNotBlank()) "Custom prompt set" else "Using default prompt",
+                                color = Color(0xFF6b7280),
+                                fontSize = 11.sp
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = Color(0xFF6b7280)
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -547,7 +622,9 @@ fun SettingsScreen(
                         val settings = AiSettingsUpdate(
                             aiProvider = aiProvider,
                             openaiApiKey = openaiKey.ifBlank { null },
-                            geminiApiKey = geminiKey.ifBlank { null }
+                            geminiApiKey = geminiKey.ifBlank { null },
+                            recapOffensiveMode = offensiveMode,
+                            recapCustomPrompt = customPrompt.ifBlank { null }
                         )
                         viewModel.updateAiSettings(settings) { success, _ ->
                             if (success) {
@@ -562,6 +639,65 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showAiDialog = false }) {
                     Text("Cancel", color = Color(0xFF9ca3af))
+                }
+            },
+            containerColor = Color(0xFF1e293b)
+        )
+    }
+
+    // Custom Prompt Editor Dialog
+    if (showPromptEditor) {
+        AlertDialog(
+            onDismissRequest = { showPromptEditor = false },
+            title = { Text("Custom Recap Prompt", color = Color.White) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Customize the system prompt used for series recaps. Leave empty to use the default.",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 12.sp
+                    )
+
+                    OutlinedTextField(
+                        value = customPrompt,
+                        onValueChange = { customPrompt = it },
+                        placeholder = { Text("Enter custom prompt...") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af),
+                            cursorColor = Color(0xFF3b82f6)
+                        )
+                    )
+
+                    TextButton(
+                        onClick = {
+                            customPrompt = aiSettings?.recapDefaultPrompt ?: ""
+                        }
+                    ) {
+                        Text("Load Default Prompt", color = Color(0xFF3b82f6), fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPromptEditor = false }) {
+                    Text("Done", color = Color(0xFF3b82f6))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        customPrompt = ""
+                        showPromptEditor = false
+                    }
+                ) {
+                    Text("Clear", color = Color(0xFFef4444))
                 }
             },
             containerColor = Color(0xFF1e293b)
