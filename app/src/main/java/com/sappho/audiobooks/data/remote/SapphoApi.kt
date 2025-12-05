@@ -125,6 +125,16 @@ interface SapphoApi {
     // Health/Version
     @GET("api/health")
     suspend fun getHealth(): Response<HealthResponse>
+
+    // Series Recap (Catch Me Up)
+    @GET("api/settings/ai/status")
+    suspend fun getAiStatus(): Response<AiStatusResponse>
+
+    @GET("api/series/{seriesName}/recap")
+    suspend fun getSeriesRecap(@Path("seriesName", encoded = true) seriesName: String): Response<SeriesRecapResponse>
+
+    @DELETE("api/series/{seriesName}/recap")
+    suspend fun clearSeriesRecap(@Path("seriesName", encoded = true) seriesName: String): Response<Unit>
 }
 
 data class ProfileUpdateRequest(
@@ -184,4 +194,22 @@ data class HealthResponse(
     val status: String,
     val message: String,
     val version: String?
+)
+
+data class AiStatusResponse(
+    val configured: Boolean,
+    val provider: String?
+)
+
+data class SeriesRecapResponse(
+    val recap: String,
+    val cached: Boolean,
+    val cachedAt: String?,
+    val booksIncluded: List<RecapBookInfo>
+)
+
+data class RecapBookInfo(
+    val id: Int,
+    val title: String,
+    val position: Float?
 )

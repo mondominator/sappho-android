@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 
 /**
  * Parse a hex color string (e.g., "#06b6d4") to a Compose Color
@@ -157,6 +158,8 @@ fun LibraryScreen(
                         totalDuration = totalDuration,
                         authors = bookAuthors,
                         serverUrl = viewModel.serverUrl.collectAsState().value,
+                        aiConfigured = viewModel.aiConfigured.collectAsState().value,
+                        viewModel = viewModel,
                         onBackClick = { currentView = LibraryView.SERIES },
                         onBookClick = onAudiobookClick
                     )
@@ -1202,6 +1205,8 @@ fun SeriesBooksView(
     totalDuration: Int,
     authors: List<String>,
     serverUrl: String?,
+    aiConfigured: Boolean = false,
+    viewModel: LibraryViewModel? = null,
     onBackClick: () -> Unit,
     onBookClick: (Int) -> Unit
 ) {
@@ -1210,6 +1215,15 @@ fun SeriesBooksView(
     val overallProgress = if (totalDuration > 0) {
         (totalProgress.toFloat() / totalDuration.toFloat()).coerceIn(0f, 1f)
     } else 0f
+
+    // Catch Me Up state
+    val hasProgress = books.any { (it.progress?.position ?: 0) > 0 || it.progress?.completed == 1 }
+    var showRecap by remember { mutableStateOf(false) }
+    var recapLoading by remember { mutableStateOf(false) }
+    var recapError by remember { mutableStateOf<String?>(null) }
+    var recapData by remember { mutableStateOf<com.sappho.audiobooks.data.remote.SeriesRecapResponse?>(null) }
+    var recapExpanded by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
 
     LazyColumn(
         modifier = Modifier
@@ -1400,6 +1414,246 @@ fun SeriesBooksView(
                                         )
                                     )
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Catch Me Up Section
+        if (aiConfigured && hasProgress && viewModel != null) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 20.dp)
+                ) {
+                    if (!showRecap && !recapLoading && recapError == null && recapData == null) {
+                        // Show Catch Me Up Button
+                        Button(
+                            onClick = {
+                                showRecap = true
+                                recapLoading = true
+                                recapError = null
+                                coroutineScope.launch {
+                                    val result = viewModel.getSeriesRecap(seriesName)
+                                    result.onSuccess { data ->
+                                        recapData = data
+                                        recapLoading = false
+                                    }.onFailure { error ->
+                                        recapError = error.message ?: "Failed to generate recap"
+                                        recapLoading = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF6366f1)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoStories,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Catch Me Up",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    // Loading State
+                    if (recapLoading) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF6366f1).copy(alpha = 0.1f))
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color(0xFFa5b4fc),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Generating your personalized recap...",
+                                color = Color(0xFFa5b4fc),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    // Error State
+                    if (recapError != null) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFef4444).copy(alpha = 0.1f))
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFf87171),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = recapError!!,
+                                color = Color(0xFFfca5a5),
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            TextButton(
+                                onClick = {
+                                    recapError = null
+                                    recapLoading = true
+                                    coroutineScope.launch {
+                                        val result = viewModel.getSeriesRecap(seriesName)
+                                        result.onSuccess { data ->
+                                            recapData = data
+                                            recapLoading = false
+                                        }.onFailure { error ->
+                                            recapError = error.message ?: "Failed to generate recap"
+                                            recapLoading = false
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = Color(0xFFfca5a5)
+                                )
+                            ) {
+                                Text("Try Again")
+                            }
+                        }
+                    }
+
+                    // Recap Content
+                    if (recapData != null) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF1e293b).copy(alpha = 0.8f))
+                        ) {
+                            // Header
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { recapExpanded = !recapExpanded }
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoStories,
+                                    contentDescription = null,
+                                    tint = Color(0xFFa5b4fc),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Series Recap",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (recapData!!.cached) {
+                                    Text(
+                                        text = "Cached",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFa5b4fc),
+                                        modifier = Modifier
+                                            .background(
+                                                Color(0xFF6366f1).copy(alpha = 0.2f),
+                                                RoundedCornerShape(4.dp)
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                Icon(
+                                    imageVector = if (recapExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = Color(0xFF9ca3af),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
+                            // Expanded content
+                            if (recapExpanded) {
+                                Divider(color = Color.White.copy(alpha = 0.05f))
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    // Books included
+                                    Text(
+                                        text = "Based on: ${recapData!!.booksIncluded.joinToString(", ") {
+                                            (if (it.position != null) "#${formatSeriesPosition(it.position)} " else "") + it.title
+                                        }}",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF9ca3af),
+                                        lineHeight = 16.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Recap text
+                                    Text(
+                                        text = recapData!!.recap,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFFd1d5db),
+                                        lineHeight = 22.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    // Regenerate button
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        TextButton(
+                                            onClick = {
+                                                recapLoading = true
+                                                recapData = null
+                                                coroutineScope.launch {
+                                                    viewModel.clearSeriesRecap(seriesName)
+                                                    val result = viewModel.getSeriesRecap(seriesName)
+                                                    result.onSuccess { data ->
+                                                        recapData = data
+                                                        recapLoading = false
+                                                    }.onFailure { error ->
+                                                        recapError = error.message ?: "Failed to generate recap"
+                                                        recapLoading = false
+                                                    }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.textButtonColors(
+                                                contentColor = Color(0xFF9ca3af)
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Regenerate", fontSize = 13.sp)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

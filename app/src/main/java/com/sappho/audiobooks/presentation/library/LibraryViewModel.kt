@@ -102,9 +102,60 @@ class LibraryViewModel @Inject constructor(
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl.asStateFlow()
 
+    private val _aiConfigured = MutableStateFlow(false)
+    val aiConfigured: StateFlow<Boolean> = _aiConfigured.asStateFlow()
+
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
         loadCategories()
+        checkAiStatus()
+    }
+
+    private fun checkAiStatus() {
+        viewModelScope.launch {
+            try {
+                val response = api.getAiStatus()
+                if (response.isSuccessful) {
+                    _aiConfigured.value = response.body()?.configured ?: false
+                    Log.d("LibraryViewModel", "AI configured: ${_aiConfigured.value}")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error checking AI status", e)
+                _aiConfigured.value = false
+            }
+        }
+    }
+
+    suspend fun getSeriesRecap(seriesName: String): Result<com.sappho.audiobooks.data.remote.SeriesRecapResponse> {
+        return try {
+            val encodedName = java.net.URLEncoder.encode(seriesName, "UTF-8")
+            val response = api.getSeriesRecap(encodedName)
+            if (response.isSuccessful) {
+                response.body()?.let { Result.success(it) }
+                    ?: Result.failure(Exception("Empty response"))
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.failure(Exception(errorBody ?: "Failed to get recap"))
+            }
+        } catch (e: Exception) {
+            Log.e("LibraryViewModel", "Error getting series recap", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun clearSeriesRecap(seriesName: String): Result<Unit> {
+        return try {
+            val encodedName = java.net.URLEncoder.encode(seriesName, "UTF-8")
+            val response = api.clearSeriesRecap(encodedName)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to clear recap cache"))
+            }
+        } catch (e: Exception) {
+            Log.e("LibraryViewModel", "Error clearing series recap", e)
+            Result.failure(e)
+        }
     }
 
     fun loadCategories() {
