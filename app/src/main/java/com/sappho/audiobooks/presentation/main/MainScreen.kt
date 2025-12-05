@@ -642,7 +642,7 @@ fun TopBar(
                     if (user?.isAdmin == 1) {
                         UserMenuItem(
                             icon = Icons.Default.Settings,
-                            text = "Server Settings",
+                            text = "Admin",
                             onClick = onSettingsClick
                         )
                     }

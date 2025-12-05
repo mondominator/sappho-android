@@ -128,7 +128,8 @@ class LibraryViewModel @Inject constructor(
 
     suspend fun getSeriesRecap(seriesName: String): Result<com.sappho.audiobooks.data.remote.SeriesRecapResponse> {
         return try {
-            val encodedName = java.net.URLEncoder.encode(seriesName, "UTF-8")
+            // URLEncoder encodes spaces as '+', but we need '%20' for URL paths
+            val encodedName = java.net.URLEncoder.encode(seriesName, "UTF-8").replace("+", "%20")
             val response = api.getSeriesRecap(encodedName)
             if (response.isSuccessful) {
                 response.body()?.let { Result.success(it) }
@@ -145,7 +146,8 @@ class LibraryViewModel @Inject constructor(
 
     suspend fun clearSeriesRecap(seriesName: String): Result<Unit> {
         return try {
-            val encodedName = java.net.URLEncoder.encode(seriesName, "UTF-8")
+            // URLEncoder encodes spaces as '+', but we need '%20' for URL paths
+            val encodedName = java.net.URLEncoder.encode(seriesName, "UTF-8").replace("+", "%20")
             val response = api.clearSeriesRecap(encodedName)
             if (response.isSuccessful) {
                 Result.success(Unit)
