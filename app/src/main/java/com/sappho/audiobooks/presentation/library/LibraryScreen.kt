@@ -104,6 +104,11 @@ fun LibraryScreen(
     val genres by viewModel.genres.collectAsState()
     val allBooks by viewModel.allAudiobooks.collectAsState()
 
+    // Refresh data when screen is loaded to get latest progress
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+
     // Determine initial view based on parameters
     val initialView = when {
         initialSeries != null -> LibraryView.SERIES_BOOKS
@@ -1210,8 +1215,15 @@ fun SeriesBooksView(
     onBackClick: () -> Unit,
     onBookClick: (Int) -> Unit
 ) {
-    val totalProgress = books.sumOf { it.progress?.position ?: 0 }
     val completedBooks = books.count { it.progress?.completed == 1 }
+    // For completed books, count their full duration; for in-progress, count position
+    val totalProgress = books.sumOf { book ->
+        if (book.progress?.completed == 1) {
+            book.duration ?: 0
+        } else {
+            book.progress?.position ?: 0
+        }
+    }
     val overallProgress = if (totalDuration > 0) {
         (totalProgress.toFloat() / totalDuration.toFloat()).coerceIn(0f, 1f)
     } else 0f
