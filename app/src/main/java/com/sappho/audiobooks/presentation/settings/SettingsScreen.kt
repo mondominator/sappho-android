@@ -647,21 +647,23 @@ fun SettingsScreen(
 
     // Custom Prompt Editor Dialog
     if (showPromptEditor) {
+        // Show custom prompt if set, otherwise show default
+        val displayPrompt = if (customPrompt.isNotBlank()) customPrompt else (aiSettings?.recapDefaultPrompt ?: "")
+
         AlertDialog(
             onDismissRequest = { showPromptEditor = false },
             title = { Text("Custom Recap Prompt", color = Color.White) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "Customize the system prompt used for series recaps. Leave empty to use the default.",
+                        text = "Edit the prompt below to change how recaps are generated.",
                         color = Color(0xFF9ca3af),
                         fontSize = 12.sp
                     )
 
                     OutlinedTextField(
-                        value = customPrompt,
+                        value = displayPrompt,
                         onValueChange = { customPrompt = it },
-                        placeholder = { Text("Enter custom prompt...") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp),
@@ -675,14 +677,6 @@ fun SettingsScreen(
                             cursorColor = Color(0xFF3b82f6)
                         )
                     )
-
-                    TextButton(
-                        onClick = {
-                            customPrompt = aiSettings?.recapDefaultPrompt ?: ""
-                        }
-                    ) {
-                        Text("Load Default Prompt", color = Color(0xFF3b82f6), fontSize = 12.sp)
-                    }
                 }
             },
             confirmButton = {
@@ -694,10 +688,9 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         customPrompt = ""
-                        showPromptEditor = false
                     }
                 ) {
-                    Text("Clear", color = Color(0xFFef4444))
+                    Text("Reset to Default", color = Color(0xFFef4444))
                 }
             },
             containerColor = Color(0xFF1e293b)
