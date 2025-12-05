@@ -57,8 +57,15 @@ fun ProfileScreen(
     val avatarUri by viewModel.avatarUri.collectAsState()
     val serverVersion by viewModel.serverVersion.collectAsState()
 
-    // Tab state
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    // Admin state
+    val users by viewModel.users.collectAsState()
+    val aiSettings by viewModel.aiSettings.collectAsState()
+    val isScanning by viewModel.isScanning.collectAsState()
+    val scanResult by viewModel.scanResult.collectAsState()
+
+    // Tab state - 3 tabs if admin, 2 otherwise
+    val isAdmin = user?.isAdmin == 1
+    val pagerState = rememberPagerState(pageCount = { if (isAdmin) 3 else 2 })
     val coroutineScope = rememberCoroutineScope()
 
     // Edit mode state
@@ -297,12 +304,14 @@ fun ProfileScreen(
                     containerColor = Color(0xFF0A0E1A),
                     contentColor = Color(0xFF3b82f6),
                     indicator = { tabPositions ->
-                        Box(
-                            Modifier
-                                .tabIndicatorOffset(tabPositions[pagerState.currentPage])
-                                .height(3.dp)
-                                .background(Color(0xFF3b82f6), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                        )
+                        if (pagerState.currentPage < tabPositions.size) {
+                            Box(
+                                Modifier
+                                    .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                                    .height(3.dp)
+                                    .background(Color(0xFF3b82f6), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                            )
+                        }
                     },
                     divider = { Divider(color = Color(0xFF1e293b)) }
                 ) {
@@ -322,6 +331,16 @@ fun ProfileScreen(
                         selectedContentColor = Color(0xFF3b82f6),
                         unselectedContentColor = Color(0xFF6b7280)
                     )
+                    if (isAdmin) {
+                        Tab(
+                            selected = pagerState.currentPage == 2,
+                            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(2) } },
+                            text = { Text("Admin") },
+                            icon = { Icon(Icons.Outlined.AdminPanelSettings, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                            selectedContentColor = Color(0xFF3b82f6),
+                            unselectedContentColor = Color(0xFF6b7280)
+                        )
+                    }
                 }
 
                 // Pager content
@@ -339,6 +358,15 @@ fun ProfileScreen(
                             onChangePassword = { showPasswordDialog = true },
                             onLogout = onLogout
                         )
+                        2 -> if (isAdmin) {
+                            AdminTab(
+                                viewModel = viewModel,
+                                users = users,
+                                aiSettings = aiSettings,
+                                isScanning = isScanning,
+                                scanResult = scanResult
+                            )
+                        }
                     }
                 }
             }
@@ -1009,5 +1037,475 @@ private fun formatListenTime(seconds: Long): String {
         hours > 0 -> "${hours}h ${minutes}m"
         minutes > 0 -> "${minutes}m"
         else -> "${seconds}s"
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AdminTab(
+    viewModel: ProfileViewModel,
+    users: List<com.sappho.audiobooks.data.remote.UserInfo>,
+    aiSettings: com.sappho.audiobooks.data.remote.AiSettings?,
+    isScanning: Boolean,
+    scanResult: com.sappho.audiobooks.data.remote.ScanResult?
+) {
+    var showUserDialog by remember { mutableStateOf(false) }
+    var showAiDialog by remember { mutableStateOf(false) }
+    var newUsername by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var newEmail by remember { mutableStateOf("") }
+    var newIsAdmin by remember { mutableStateOf(false) }
+    var actionMessage by remember { mutableStateOf<String?>(null) }
+
+    // AI settings state
+    var aiProvider by remember(aiSettings) { mutableStateOf(aiSettings?.aiProvider ?: "openai") }
+    var openaiKey by remember(aiSettings) { mutableStateOf("") }
+    var geminiKey by remember(aiSettings) { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadUsers()
+        viewModel.loadAiSettings()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        // Library Section
+        SectionCard(
+            title = "Library",
+            icon = Icons.Outlined.LibraryBooks
+        ) {
+            SettingsRow(
+                icon = Icons.Outlined.Refresh,
+                title = "Scan Library",
+                subtitle = "Scan for new audiobooks",
+                onClick = { viewModel.scanLibrary(false) }
+            )
+
+            if (isScanning) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color(0xFF3b82f6),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Scanning library...", color = Color(0xFF9ca3af), fontSize = 14.sp)
+                }
+            }
+
+            scanResult?.let { result ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF10b981).copy(alpha = 0.1f))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "Scan Complete",
+                        color = Color(0xFF10b981),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Imported: ${result.stats.imported} • Skipped: ${result.stats.skipped} • Errors: ${result.stats.errors}",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+
+            SettingsRow(
+                icon = Icons.Outlined.RestartAlt,
+                title = "Force Rescan",
+                subtitle = "Re-import all audiobooks (preserves progress)",
+                iconTint = Color(0xFFf59e0b),
+                onClick = { viewModel.scanLibrary(true) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // AI Configuration Section
+        SectionCard(
+            title = "AI Configuration",
+            icon = Icons.Outlined.AutoAwesome
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Provider",
+                        color = Color.White,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = when (aiSettings?.aiProvider) {
+                            "gemini" -> "Google Gemini"
+                            "openai" -> "OpenAI"
+                            else -> "Not configured"
+                        },
+                        color = Color(0xFF9ca3af),
+                        fontSize = 13.sp
+                    )
+                }
+                val hasKey = when (aiSettings?.aiProvider) {
+                    "gemini" -> aiSettings.geminiApiKey?.isNotEmpty() == true
+                    "openai" -> aiSettings?.openaiApiKey?.isNotEmpty() == true
+                    else -> false
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (hasKey) Color(0xFF10b981).copy(alpha = 0.15f)
+                    else Color(0xFFf59e0b).copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = if (hasKey) "Configured" else "Not Set",
+                        fontSize = 12.sp,
+                        color = if (hasKey) Color(0xFF10b981) else Color(0xFFf59e0b),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+
+            SettingsRow(
+                icon = Icons.Outlined.Key,
+                title = "Configure AI",
+                subtitle = "Set up OpenAI or Gemini API key",
+                onClick = { showAiDialog = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // User Management Section
+        SectionCard(
+            title = "Users",
+            icon = Icons.Outlined.People
+        ) {
+            users.forEach { user ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF3b82f6)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = user.username.first().uppercaseChar().toString(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = user.username,
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = user.email ?: "No email",
+                                color = Color(0xFF6b7280),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (user.isAdmin == 1) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF10b981).copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = "Admin",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF10b981),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = {
+                                viewModel.deleteUser(user.id) { success, message ->
+                                    actionMessage = message
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = "Delete",
+                                tint = Color(0xFFef4444),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+
+            Button(
+                onClick = { showUserDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3b82f6)
+                )
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add User")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+
+    // Create User Dialog
+    if (showUserDialog) {
+        AlertDialog(
+            onDismissRequest = { showUserDialog = false },
+            title = { Text("Create User", color = Color.White) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = newUsername,
+                        onValueChange = { newUsername = it },
+                        label = { Text("Username") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af),
+                            cursorColor = Color(0xFF3b82f6)
+                        )
+                    )
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text("Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af),
+                            cursorColor = Color(0xFF3b82f6)
+                        )
+                    )
+                    OutlinedTextField(
+                        value = newEmail,
+                        onValueChange = { newEmail = it },
+                        label = { Text("Email (optional)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af),
+                            cursorColor = Color(0xFF3b82f6)
+                        )
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { newIsAdmin = !newIsAdmin }
+                    ) {
+                        Checkbox(
+                            checked = newIsAdmin,
+                            onCheckedChange = { newIsAdmin = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF3b82f6),
+                                uncheckedColor = Color(0xFF6b7280)
+                            )
+                        )
+                        Text("Administrator", color = Color.White)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.createUser(
+                            newUsername,
+                            newPassword,
+                            newEmail.ifBlank { null },
+                            newIsAdmin
+                        ) { success, message ->
+                            actionMessage = message
+                            if (success) {
+                                showUserDialog = false
+                                newUsername = ""
+                                newPassword = ""
+                                newEmail = ""
+                                newIsAdmin = false
+                            }
+                        }
+                    },
+                    enabled = newUsername.isNotBlank() && newPassword.isNotBlank()
+                ) {
+                    Text("Create", color = Color(0xFF3b82f6))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUserDialog = false }) {
+                    Text("Cancel", color = Color(0xFF9ca3af))
+                }
+            },
+            containerColor = Color(0xFF1e293b)
+        )
+    }
+
+    // AI Configuration Dialog
+    if (showAiDialog) {
+        AlertDialog(
+            onDismissRequest = { showAiDialog = false },
+            title = { Text("AI Configuration", color = Color.White) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        text = "Provider",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 12.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = aiProvider == "openai",
+                            onClick = { aiProvider = "openai" },
+                            label = { Text("OpenAI") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF3b82f6),
+                                selectedLabelColor = Color.White,
+                                containerColor = Color(0xFF374151),
+                                labelColor = Color(0xFF9ca3af)
+                            )
+                        )
+                        FilterChip(
+                            selected = aiProvider == "gemini",
+                            onClick = { aiProvider = "gemini" },
+                            label = { Text("Gemini (Free)") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF3b82f6),
+                                selectedLabelColor = Color.White,
+                                containerColor = Color(0xFF374151),
+                                labelColor = Color(0xFF9ca3af)
+                            )
+                        )
+                    }
+
+                    if (aiProvider == "openai") {
+                        OutlinedTextField(
+                            value = openaiKey,
+                            onValueChange = { openaiKey = it },
+                            label = { Text("OpenAI API Key") },
+                            placeholder = { Text("sk-...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF3b82f6),
+                                unfocusedBorderColor = Color(0xFF374151),
+                                focusedLabelColor = Color(0xFF3b82f6),
+                                unfocusedLabelColor = Color(0xFF9ca3af),
+                                cursorColor = Color(0xFF3b82f6)
+                            )
+                        )
+                        Text(
+                            text = "Get your key at platform.openai.com/api-keys",
+                            color = Color(0xFF6b7280),
+                            fontSize = 11.sp
+                        )
+                    } else {
+                        OutlinedTextField(
+                            value = geminiKey,
+                            onValueChange = { geminiKey = it },
+                            label = { Text("Gemini API Key") },
+                            placeholder = { Text("AIza...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF3b82f6),
+                                unfocusedBorderColor = Color(0xFF374151),
+                                focusedLabelColor = Color(0xFF3b82f6),
+                                unfocusedLabelColor = Color(0xFF9ca3af),
+                                cursorColor = Color(0xFF3b82f6)
+                            )
+                        )
+                        Text(
+                            text = "Get your free key at aistudio.google.com/app/apikey",
+                            color = Color(0xFF6b7280),
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val settings = com.sappho.audiobooks.data.remote.AiSettingsUpdate(
+                            aiProvider = aiProvider,
+                            openaiApiKey = openaiKey.ifBlank { null },
+                            geminiApiKey = geminiKey.ifBlank { null }
+                        )
+                        viewModel.updateAiSettings(settings) { success, message ->
+                            actionMessage = message
+                            if (success) {
+                                showAiDialog = false
+                            }
+                        }
+                    }
+                ) {
+                    Text("Save", color = Color(0xFF3b82f6))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAiDialog = false }) {
+                    Text("Cancel", color = Color(0xFF9ca3af))
+                }
+            },
+            containerColor = Color(0xFF1e293b)
+        )
     }
 }

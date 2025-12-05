@@ -126,6 +126,40 @@ interface SapphoApi {
     @GET("api/health")
     suspend fun getHealth(): Response<HealthResponse>
 
+    // Admin - Server Settings
+    @GET("api/settings/all")
+    suspend fun getServerSettings(): Response<ServerSettingsResponse>
+
+    @PUT("api/settings/all")
+    suspend fun updateServerSettings(@Body settings: ServerSettingsUpdate): Response<Unit>
+
+    // Admin - AI Settings
+    @GET("api/settings/ai")
+    suspend fun getAiSettings(): Response<AiSettingsResponse>
+
+    @PUT("api/settings/ai")
+    suspend fun updateAiSettings(@Body settings: AiSettingsUpdate): Response<Unit>
+
+    @POST("api/settings/ai/test")
+    suspend fun testAiConnection(@Body settings: AiSettingsUpdate): Response<AiTestResponse>
+
+    // Admin - User Management
+    @GET("api/users")
+    suspend fun getUsers(): Response<List<UserInfo>>
+
+    @POST("api/users")
+    suspend fun createUser(@Body request: CreateUserRequest): Response<UserInfo>
+
+    @PUT("api/users/{id}")
+    suspend fun updateUser(@Path("id") id: Int, @Body request: UpdateUserRequest): Response<UserInfo>
+
+    @DELETE("api/users/{id}")
+    suspend fun deleteUser(@Path("id") id: Int): Response<Unit>
+
+    // Admin - Maintenance
+    @POST("api/maintenance/force-rescan")
+    suspend fun forceRescan(): Response<ScanResult>
+
     // Series Recap (Catch Me Up)
     @GET("api/settings/ai/status")
     suspend fun getAiStatus(): Response<AiStatusResponse>
@@ -212,4 +246,82 @@ data class RecapBookInfo(
     val id: Int,
     val title: String,
     val position: Float?
+)
+
+// Admin Settings Data Classes
+data class ServerSettingsResponse(
+    val settings: ServerSettings,
+    val lockedFields: List<String>?
+)
+
+data class ServerSettings(
+    val port: String?,
+    val nodeEnv: String?,
+    val databasePath: String?,
+    val dataDir: String?,
+    val audiobooksDir: String?,
+    val uploadDir: String?,
+    val libraryScanInterval: Int?
+)
+
+data class ServerSettingsUpdate(
+    val port: String? = null,
+    val nodeEnv: String? = null,
+    val databasePath: String? = null,
+    val dataDir: String? = null,
+    val audiobooksDir: String? = null,
+    val uploadDir: String? = null,
+    val libraryScanInterval: Int? = null
+)
+
+data class AiSettingsResponse(
+    val settings: AiSettings
+)
+
+data class AiSettings(
+    val aiProvider: String?,
+    val openaiApiKey: String?,
+    val openaiModel: String?,
+    val geminiApiKey: String?,
+    val geminiModel: String?
+)
+
+data class AiSettingsUpdate(
+    val aiProvider: String? = null,
+    val openaiApiKey: String? = null,
+    val openaiModel: String? = null,
+    val geminiApiKey: String? = null,
+    val geminiModel: String? = null
+)
+
+data class AiTestResponse(
+    val message: String?,
+    val response: String?,
+    val error: String?
+)
+
+data class UserInfo(
+    val id: Int,
+    val username: String,
+    val email: String?,
+    @com.google.gson.annotations.SerializedName("is_admin")
+    val isAdmin: Int,
+    @com.google.gson.annotations.SerializedName("created_at")
+    val createdAt: String?
+)
+
+data class CreateUserRequest(
+    val username: String,
+    val password: String,
+    val email: String? = null,
+    @com.google.gson.annotations.SerializedName("is_admin")
+    val isAdmin: Boolean = false
+)
+
+data class UpdateUserRequest(
+    val username: String? = null,
+    val password: String? = null,
+    val email: String? = null,
+    @com.google.gson.annotations.SerializedName("is_admin")
+    val isAdmin: Boolean? = null
 )
