@@ -283,7 +283,10 @@ data class AiSettings(
     val openaiApiKey: String?,
     val openaiModel: String?,
     val geminiApiKey: String?,
-    val geminiModel: String?
+    val geminiModel: String?,
+    val recapCustomPrompt: String?,
+    val recapOffensiveMode: Boolean?,
+    val recapDefaultPrompt: String?
 )
 
 data class AiSettingsUpdate(
@@ -291,7 +294,9 @@ data class AiSettingsUpdate(
     val openaiApiKey: String? = null,
     val openaiModel: String? = null,
     val geminiApiKey: String? = null,
-    val geminiModel: String? = null
+    val geminiModel: String? = null,
+    val recapCustomPrompt: String? = null,
+    val recapOffensiveMode: Boolean? = null
 )
 
 data class AiTestResponse(
