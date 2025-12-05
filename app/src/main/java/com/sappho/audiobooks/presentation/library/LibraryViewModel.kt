@@ -160,6 +160,10 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    fun refresh() {
+        loadCategories()
+    }
+
     fun loadCategories() {
         viewModelScope.launch {
             _uiState.value = LibraryUiState.Loading
