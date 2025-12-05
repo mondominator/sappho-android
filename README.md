@@ -14,6 +14,7 @@ A native Android audiobook player app built with Kotlin and Jetpack Compose that
 - **Audio Player** - Full-featured player with background playback support
 - **Search** - Search across your audiobook library
 - **Profile Management** - Update avatar, display name, email, and password
+- **Catch Me Up** - AI-powered series recaps summarizing previous books in a series
 
 ### Playback Features
 - Background audio playback with MediaSessionService
@@ -27,6 +28,11 @@ A native Android audiobook player app built with Kotlin and Jetpack Compose that
 - **Chromecast Support** - Cast audiobooks to compatible devices
 - **Android Auto** - Browse and play audiobooks while driving
 - **Offline Downloads** - Download books for offline listening
+
+### Administration
+- **Library Scanning** - Trigger library scans and force rescans from the app
+- **AI Configuration** - Configure OpenAI or Google Gemini API keys for series recaps
+- **User Management** - Create and delete users directly from the mobile app
 
 ### UI/UX
 - Dark theme matching Sappho web app
@@ -134,6 +140,14 @@ The app uses these Sappho API endpoints:
 - `PUT /api/profile` - Update profile
 - `PUT /api/profile/password` - Change password
 - `POST /api/progress/{id}` - Update playback progress
+- `GET /api/series/{name}/recap` - Get AI-powered series recap
+- `GET /api/settings/ai` - Get AI configuration
+- `PUT /api/settings/ai` - Update AI settings
+- `GET /api/users` - List users (admin)
+- `POST /api/users` - Create user (admin)
+- `DELETE /api/users/{id}` - Delete user (admin)
+- `POST /api/library/scan` - Trigger library scan (admin)
+- `POST /api/library/force-rescan` - Force rescan library (admin)
 
 ## License
 
