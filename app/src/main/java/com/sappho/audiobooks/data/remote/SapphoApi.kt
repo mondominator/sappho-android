@@ -192,6 +192,117 @@ interface SapphoApi {
 
     @DELETE("api/ratings/audiobook/{audiobookId}")
     suspend fun deleteRating(@Path("audiobookId") audiobookId: Int): Response<Unit>
+
+    // Audiobook Update (Admin)
+    @PUT("api/audiobooks/{id}")
+    suspend fun updateAudiobook(
+        @Path("id") id: Int,
+        @Body request: AudiobookUpdateRequest
+    ): Response<com.sappho.audiobooks.domain.model.Audiobook>
+
+    // Backup Endpoints
+    @GET("api/backup")
+    suspend fun getBackups(): Response<List<BackupInfo>>
+
+    @POST("api/backup")
+    suspend fun createBackup(): Response<BackupInfo>
+
+    @GET("api/backup/{filename}")
+    @Streaming
+    suspend fun downloadBackup(@Path("filename") filename: String): Response<okhttp3.ResponseBody>
+
+    @DELETE("api/backup/{filename}")
+    suspend fun deleteBackup(@Path("filename") filename: String): Response<Unit>
+
+    @POST("api/backup/restore/{filename}")
+    suspend fun restoreBackup(@Path("filename") filename: String): Response<RestoreResponse>
+
+    @GET("api/backup/retention")
+    suspend fun getBackupRetention(): Response<BackupRetention>
+
+    @PUT("api/backup/retention")
+    suspend fun updateBackupRetention(@Body retention: BackupRetention): Response<BackupRetention>
+
+    @Multipart
+    @POST("api/backup/upload")
+    suspend fun uploadBackup(@Part file: MultipartBody.Part): Response<BackupInfo>
+
+    // Maintenance Endpoints
+    @GET("api/maintenance/logs")
+    suspend fun getLogs(
+        @Query("lines") lines: Int = 100,
+        @Query("level") level: String? = null
+    ): Response<LogsResponse>
+
+    @DELETE("api/maintenance/logs")
+    suspend fun clearLogs(): Response<Unit>
+
+    @GET("api/maintenance/statistics")
+    suspend fun getLibraryStatistics(): Response<LibraryStatistics>
+
+    @GET("api/maintenance/duplicates")
+    suspend fun getDuplicates(): Response<DuplicatesResponse>
+
+    @POST("api/maintenance/duplicates/merge")
+    suspend fun mergeDuplicates(@Body request: MergeDuplicatesRequest): Response<MergeResult>
+
+    @POST("api/maintenance/scan-library")
+    suspend fun scanLibraryMaintenance(): Response<ScanResult>
+
+    @POST("api/maintenance/clear-library")
+    suspend fun clearLibrary(): Response<ClearLibraryResult>
+
+    @GET("api/maintenance/jobs")
+    suspend fun getJobs(): Response<List<JobInfo>>
+
+    // Collections Endpoints
+    @GET("api/collections")
+    suspend fun getCollections(): Response<List<Collection>>
+
+    @POST("api/collections")
+    suspend fun createCollection(@Body request: CreateCollectionRequest): Response<Collection>
+
+    @GET("api/collections/{id}")
+    suspend fun getCollection(@Path("id") id: Int): Response<CollectionDetail>
+
+    @PUT("api/collections/{id}")
+    suspend fun updateCollection(
+        @Path("id") id: Int,
+        @Body request: UpdateCollectionRequest
+    ): Response<Collection>
+
+    @DELETE("api/collections/{id}")
+    suspend fun deleteCollection(@Path("id") id: Int): Response<Unit>
+
+    @POST("api/collections/{id}/items")
+    suspend fun addToCollection(
+        @Path("id") collectionId: Int,
+        @Body request: AddToCollectionRequest
+    ): Response<Unit>
+
+    @DELETE("api/collections/{id}/items/{bookId}")
+    suspend fun removeFromCollection(
+        @Path("id") collectionId: Int,
+        @Path("bookId") bookId: Int
+    ): Response<Unit>
+
+    @PUT("api/collections/{id}/items/reorder")
+    suspend fun reorderCollection(
+        @Path("id") collectionId: Int,
+        @Body request: ReorderCollectionRequest
+    ): Response<Unit>
+
+    @GET("api/collections/for-book/{bookId}")
+    suspend fun getCollectionsForBook(@Path("bookId") bookId: Int): Response<List<CollectionForBook>>
+
+    // Upload Endpoints
+    @Multipart
+    @POST("api/upload")
+    suspend fun uploadAudiobook(
+        @Part file: MultipartBody.Part,
+        @Part("title") title: RequestBody?,
+        @Part("author") author: RequestBody?
+    ): Response<UploadResponse>
 }
 
 data class ProfileUpdateRequest(
@@ -383,4 +494,203 @@ data class AverageRating(
 data class RatingRequest(
     val rating: Int?,
     val review: String? = null
+)
+
+// Audiobook Update Request
+data class AudiobookUpdateRequest(
+    val title: String? = null,
+    val subtitle: String? = null,
+    val author: String? = null,
+    val narrator: String? = null,
+    val description: String? = null,
+    val genre: String? = null,
+    val tags: String? = null,
+    val series: String? = null,
+    @com.google.gson.annotations.SerializedName("series_position")
+    val seriesPosition: Float? = null,
+    @com.google.gson.annotations.SerializedName("published_year")
+    val publishedYear: Int? = null,
+    @com.google.gson.annotations.SerializedName("copyright_year")
+    val copyrightYear: Int? = null,
+    val publisher: String? = null,
+    val isbn: String? = null,
+    val asin: String? = null,
+    val language: String? = null,
+    val rating: Float? = null,
+    val abridged: Boolean? = null,
+    @com.google.gson.annotations.SerializedName("cover_url")
+    val coverUrl: String? = null
+)
+
+// Backup Data Classes
+data class BackupInfo(
+    val filename: String,
+    val size: Long,
+    @com.google.gson.annotations.SerializedName("created_at")
+    val createdAt: String,
+    val type: String?
+)
+
+data class RestoreResponse(
+    val success: Boolean,
+    val message: String?
+)
+
+data class BackupRetention(
+    @com.google.gson.annotations.SerializedName("max_backups")
+    val maxBackups: Int,
+    @com.google.gson.annotations.SerializedName("auto_backup")
+    val autoBackup: Boolean?,
+    @com.google.gson.annotations.SerializedName("backup_interval_days")
+    val backupIntervalDays: Int?
+)
+
+// Maintenance Data Classes
+data class LogsResponse(
+    val logs: List<LogEntry>,
+    val total: Int?
+)
+
+data class LogEntry(
+    val timestamp: String,
+    val level: String,
+    val message: String,
+    val source: String?
+)
+
+data class LibraryStatistics(
+    @com.google.gson.annotations.SerializedName("total_audiobooks")
+    val totalAudiobooks: Int,
+    @com.google.gson.annotations.SerializedName("total_duration")
+    val totalDuration: Long,
+    @com.google.gson.annotations.SerializedName("total_size")
+    val totalSize: Long,
+    @com.google.gson.annotations.SerializedName("total_authors")
+    val totalAuthors: Int,
+    @com.google.gson.annotations.SerializedName("total_series")
+    val totalSeries: Int,
+    @com.google.gson.annotations.SerializedName("total_genres")
+    val totalGenres: Int,
+    @com.google.gson.annotations.SerializedName("books_by_genre")
+    val booksByGenre: Map<String, Int>?,
+    @com.google.gson.annotations.SerializedName("books_by_author")
+    val booksByAuthor: List<AuthorStats>?
+)
+
+data class AuthorStats(
+    val author: String,
+    val count: Int
+)
+
+data class DuplicatesResponse(
+    val duplicates: List<DuplicateGroup>
+)
+
+data class DuplicateGroup(
+    val key: String,
+    val books: List<DuplicateBook>
+)
+
+data class DuplicateBook(
+    val id: Int,
+    val title: String,
+    val author: String?,
+    @com.google.gson.annotations.SerializedName("file_path")
+    val filePath: String?,
+    @com.google.gson.annotations.SerializedName("created_at")
+    val createdAt: String?
+)
+
+data class MergeDuplicatesRequest(
+    @com.google.gson.annotations.SerializedName("keep_id")
+    val keepId: Int,
+    @com.google.gson.annotations.SerializedName("delete_ids")
+    val deleteIds: List<Int>
+)
+
+data class MergeResult(
+    val success: Boolean,
+    val message: String?,
+    val deleted: Int?
+)
+
+data class ClearLibraryResult(
+    val success: Boolean,
+    val message: String?,
+    val deleted: Int?
+)
+
+data class JobInfo(
+    val id: String,
+    val name: String,
+    val status: String,
+    @com.google.gson.annotations.SerializedName("last_run")
+    val lastRun: String?,
+    @com.google.gson.annotations.SerializedName("next_run")
+    val nextRun: String?,
+    val interval: String?
+)
+
+// Collections Data Classes
+data class Collection(
+    val id: Int,
+    val name: String,
+    val description: String?,
+    @com.google.gson.annotations.SerializedName("user_id")
+    val userId: Int,
+    @com.google.gson.annotations.SerializedName("book_count")
+    val bookCount: Int?,
+    @com.google.gson.annotations.SerializedName("first_cover")
+    val firstCover: String?,
+    @com.google.gson.annotations.SerializedName("created_at")
+    val createdAt: String?,
+    @com.google.gson.annotations.SerializedName("updated_at")
+    val updatedAt: String?
+)
+
+data class CollectionDetail(
+    val id: Int,
+    val name: String,
+    val description: String?,
+    @com.google.gson.annotations.SerializedName("user_id")
+    val userId: Int,
+    val books: List<com.sappho.audiobooks.domain.model.Audiobook>,
+    @com.google.gson.annotations.SerializedName("created_at")
+    val createdAt: String?,
+    @com.google.gson.annotations.SerializedName("updated_at")
+    val updatedAt: String?
+)
+
+data class CreateCollectionRequest(
+    val name: String,
+    val description: String? = null
+)
+
+data class UpdateCollectionRequest(
+    val name: String,
+    val description: String? = null
+)
+
+data class AddToCollectionRequest(
+    @com.google.gson.annotations.SerializedName("audiobook_id")
+    val audiobookId: Int
+)
+
+data class ReorderCollectionRequest(
+    val order: List<Int>
+)
+
+data class CollectionForBook(
+    val id: Int,
+    val name: String,
+    @com.google.gson.annotations.SerializedName("contains_book")
+    val containsBook: Int
+)
+
+// Upload Data Classes
+data class UploadResponse(
+    val success: Boolean,
+    val audiobook: com.sappho.audiobooks.domain.model.Audiobook?,
+    val message: String?,
+    val error: String?
 )
