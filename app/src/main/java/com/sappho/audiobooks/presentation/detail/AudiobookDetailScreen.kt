@@ -1,5 +1,6 @@
 package com.sappho.audiobooks.presentation.detail
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -74,6 +75,9 @@ fun AudiobookDetailScreen(
     LaunchedEffect(audiobookId) {
         viewModel.loadAudiobook(audiobookId)
     }
+
+    // Handle system back button
+    BackHandler { onBackClick() }
 
     Box(
         modifier = Modifier
