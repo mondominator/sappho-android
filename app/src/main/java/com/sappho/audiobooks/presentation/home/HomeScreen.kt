@@ -1,7 +1,8 @@
 package com.sappho.audiobooks.presentation.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -9,8 +10,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.BookmarkAdded
+import androidx.compose.material.icons.filled.BookmarkRemove
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -111,6 +114,7 @@ fun HomeScreen(
                         books = downloadedBooks.map { it.audiobook },
                         serverUrl = serverUrl,
                         onAudiobookClick = onAudiobookClick,
+                        onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
                         cardSize = 180.dp,
                         titleSize = 18.sp
                     )
@@ -127,6 +131,7 @@ fun HomeScreen(
                             books = inProgress,
                             serverUrl = serverUrl,
                             onAudiobookClick = onAudiobookClick,
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
                             cardSize = 180.dp,
                             titleSize = 18.sp
                         )
@@ -140,7 +145,8 @@ fun HomeScreen(
                             title = "Up Next",
                             books = upNext,
                             serverUrl = serverUrl,
-                            onAudiobookClick = onAudiobookClick
+                            onAudiobookClick = onAudiobookClick,
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) }
                         )
                     }
                 }
@@ -152,7 +158,8 @@ fun HomeScreen(
                             title = "Recently Added",
                             books = recentlyAdded,
                             serverUrl = serverUrl,
-                            onAudiobookClick = onAudiobookClick
+                            onAudiobookClick = onAudiobookClick,
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) }
                         )
                     }
                 }
@@ -164,7 +171,8 @@ fun HomeScreen(
                             title = "Listen Again",
                             books = finished,
                             serverUrl = serverUrl,
-                            onAudiobookClick = onAudiobookClick
+                            onAudiobookClick = onAudiobookClick,
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) }
                         )
                     }
                 }
@@ -176,7 +184,8 @@ fun HomeScreen(
                             title = "Downloaded",
                             books = downloadedBooks.map { it.audiobook },
                             serverUrl = serverUrl,
-                            onAudiobookClick = onAudiobookClick
+                            onAudiobookClick = onAudiobookClick,
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) }
                         )
                     }
                 }
@@ -214,6 +223,7 @@ fun AudiobookSection(
     books: List<Audiobook>,
     serverUrl: String?,
     onAudiobookClick: (Int) -> Unit,
+    onToggleFavorite: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
     cardSize: androidx.compose.ui.unit.Dp = 140.dp,
     titleSize: androidx.compose.ui.unit.TextUnit = 16.sp
@@ -236,6 +246,7 @@ fun AudiobookSection(
                     book = book,
                     serverUrl = serverUrl,
                     onClick = { onAudiobookClick(book.id) },
+                    onToggleFavorite = { onToggleFavorite(book.id) },
                     cardSize = cardSize
                 )
             }
@@ -243,11 +254,13 @@ fun AudiobookSection(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AudiobookCard(
     book: Audiobook,
     serverUrl: String?,
     onClick: () -> Unit = {},
+    onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier,
     cardSize: androidx.compose.ui.unit.Dp = 140.dp
 ) {
@@ -257,99 +270,133 @@ fun AudiobookCard(
     val authorFontSize = (12 * textScale).sp
     val placeholderFontSize = (32 * textScale).sp
 
-    Column(
-        modifier = modifier
-            .width(cardSize)
-            .clickable(onClick = onClick)
-    ) {
-        // Cover Image
-        Box(
+    var showMenu by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        Column(
             modifier = Modifier
                 .width(cardSize)
-                .height(cardSize)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            if (book.coverImage != null && serverUrl != null) {
-                val imageUrl = "$serverUrl/api/audiobooks/${book.id}/cover"
-                android.util.Log.d("AudiobookCard", "Loading cover from: $imageUrl")
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = book.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { showMenu = true }
                 )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = book.title.take(2),
-                        fontSize = placeholderFontSize,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+        ) {
+            // Cover Image
+            Box(
+                modifier = Modifier
+                    .width(cardSize)
+                    .height(cardSize)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                if (book.coverImage != null && serverUrl != null) {
+                    val imageUrl = "$serverUrl/api/audiobooks/${book.id}/cover"
+                    android.util.Log.d("AudiobookCard", "Loading cover from: $imageUrl")
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = book.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = book.title.take(2),
+                            fontSize = placeholderFontSize,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
-            }
 
-            // Progress Bar
-            if (book.progress != null && book.duration != null) {
-                val progressPercent = (book.progress.position.toFloat() / book.duration) * 100
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .align(Alignment.BottomCenter)
-                        .background(Color.Black.copy(alpha = 0.3f))
-                ) {
+                // Progress Bar
+                if (book.progress != null && book.duration != null) {
+                    val progressPercent = (book.progress.position.toFloat() / book.duration) * 100
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(progressPercent / 100f)
-                            .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(Color.Black.copy(alpha = 0.3f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progressPercent / 100f)
+                                .fillMaxHeight()
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                    }
+                }
+
+                // Reading list indicator
+                if (book.isFavorite) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .size(24.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.BookmarkAdded,
+                            contentDescription = "On reading list",
+                            tint = Color(0xFF3b82f6),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
 
-            // Reading list indicator
-            if (book.isFavorite) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(24.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.BookmarkAdded,
-                        contentDescription = "On reading list",
-                        tint = Color(0xFF3b82f6),
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Title
+            Text(
+                text = book.title,
+                fontSize = titleFontSize,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                color = Color(0xFFE0E7F1)
+            )
+
+            // Author
+            if (book.author != null) {
+                Text(
+                    text = book.author,
+                    fontSize = authorFontSize,
+                    maxLines = 1,
+                    color = Color(0xFF9ca3af)
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Title
-        Text(
-            text = book.title,
-            fontSize = titleFontSize,
-            fontWeight = FontWeight.Medium,
-            maxLines = 2,
-            color = Color(0xFFE0E7F1)
-        )
-
-        // Author
-        if (book.author != null) {
-            Text(
-                text = book.author,
-                fontSize = authorFontSize,
-                maxLines = 1,
-                color = Color(0xFF9ca3af)
+        // Context menu dropdown
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+            modifier = Modifier.background(Color(0xFF1a1a1a))
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = if (book.isFavorite) "Remove from Reading List" else "Add to Reading List",
+                        color = Color(0xFFE0E7F1)
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = if (book.isFavorite) Icons.Filled.BookmarkRemove else Icons.Filled.BookmarkAdd,
+                        contentDescription = null,
+                        tint = Color(0xFF3b82f6)
+                    )
+                },
+                onClick = {
+                    showMenu = false
+                    onToggleFavorite()
+                }
             )
         }
     }
