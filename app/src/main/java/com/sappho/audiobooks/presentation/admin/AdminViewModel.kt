@@ -59,6 +59,26 @@ class AdminViewModel @Inject constructor(
 
     // ============ Server Settings ============
     fun loadServerSettings() {
+        // Don't reload if already have data (prevents flickering)
+        if (_serverSettings.value != null) return
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.getServerSettings()
+                if (response.isSuccessful) {
+                    _serverSettings.value = response.body()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to load server settings"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun refreshServerSettings() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -82,7 +102,7 @@ class AdminViewModel @Inject constructor(
                 val response = api.updateServerSettings(settings)
                 if (response.isSuccessful) {
                     _message.value = "Server settings updated"
-                    loadServerSettings()
+                    refreshServerSettings()
                 } else {
                     _message.value = "Failed to update settings"
                 }
@@ -97,6 +117,26 @@ class AdminViewModel @Inject constructor(
 
     // ============ AI Settings ============
     fun loadAiSettings() {
+        // Don't reload if already have data (prevents flickering)
+        if (_aiSettings.value != null) return
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.getAiSettings()
+                if (response.isSuccessful) {
+                    _aiSettings.value = response.body()?.settings
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to load AI settings"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun refreshAiSettings() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -120,7 +160,7 @@ class AdminViewModel @Inject constructor(
                 val response = api.updateAiSettings(settings)
                 if (response.isSuccessful) {
                     _message.value = "AI settings updated"
-                    loadAiSettings()
+                    refreshAiSettings()
                 } else {
                     _message.value = "Failed to update AI settings"
                 }
@@ -154,6 +194,26 @@ class AdminViewModel @Inject constructor(
 
     // ============ Users ============
     fun loadUsers() {
+        // Don't reload if already have data (prevents flickering)
+        if (_users.value.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.getUsers()
+                if (response.isSuccessful) {
+                    _users.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to load users"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun refreshUsers() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -177,7 +237,7 @@ class AdminViewModel @Inject constructor(
                 val response = api.createUser(request)
                 if (response.isSuccessful) {
                     _message.value = "User created"
-                    loadUsers()
+                    refreshUsers()
                     onSuccess()
                 } else {
                     _message.value = "Failed to create user"
@@ -198,7 +258,7 @@ class AdminViewModel @Inject constructor(
                 val response = api.updateUser(id, request)
                 if (response.isSuccessful) {
                     _message.value = "User updated"
-                    loadUsers()
+                    refreshUsers()
                     onSuccess()
                 } else {
                     _message.value = "Failed to update user"
@@ -219,7 +279,7 @@ class AdminViewModel @Inject constructor(
                 val response = api.deleteUser(id)
                 if (response.isSuccessful) {
                     _message.value = "User deleted"
-                    loadUsers()
+                    refreshUsers()
                 } else {
                     _message.value = "Failed to delete user"
                 }
@@ -234,17 +294,32 @@ class AdminViewModel @Inject constructor(
 
     // ============ Backups ============
     fun loadBackups() {
+        // Don't reload if already have data (prevents flickering)
+        if (_backups.value.isNotEmpty()) return
+
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val response = api.getBackups()
                 if (response.isSuccessful) {
-                    _backups.value = response.body() ?: emptyList()
+                    _backups.value = response.body()?.backups ?: emptyList()
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to load backups"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 
-                val retentionResponse = api.getBackupRetention()
-                if (retentionResponse.isSuccessful) {
-                    _backupRetention.value = retentionResponse.body()
+    fun refreshBackups() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.getBackups()
+                if (response.isSuccessful) {
+                    _backups.value = response.body()?.backups ?: emptyList()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -262,7 +337,7 @@ class AdminViewModel @Inject constructor(
                 val response = api.createBackup()
                 if (response.isSuccessful) {
                     _message.value = "Backup created"
-                    loadBackups()
+                    refreshBackups()
                 } else {
                     _message.value = "Failed to create backup"
                 }
@@ -282,7 +357,7 @@ class AdminViewModel @Inject constructor(
                 val response = api.deleteBackup(filename)
                 if (response.isSuccessful) {
                     _message.value = "Backup deleted"
-                    loadBackups()
+                    refreshBackups()
                 } else {
                     _message.value = "Failed to delete backup"
                 }
@@ -336,6 +411,26 @@ class AdminViewModel @Inject constructor(
 
     // ============ Maintenance ============
     fun loadLogs(lines: Int = 100, level: String? = null) {
+        // Don't reload if already have data (prevents flickering)
+        if (_logs.value.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.getLogs(lines, level)
+                if (response.isSuccessful) {
+                    _logs.value = response.body()?.logs ?: emptyList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to load logs"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun refreshLogs(lines: Int = 100, level: String? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -373,6 +468,9 @@ class AdminViewModel @Inject constructor(
     }
 
     fun loadStatistics() {
+        // Don't reload if already have data (prevents flickering)
+        if (_statistics.value != null) return
+
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -390,6 +488,26 @@ class AdminViewModel @Inject constructor(
     }
 
     fun loadDuplicates() {
+        // Don't reload if already have data (prevents flickering)
+        if (_duplicates.value.isNotEmpty()) return
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.getDuplicates()
+                if (response.isSuccessful) {
+                    _duplicates.value = response.body()?.duplicates ?: emptyList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to load duplicates"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun refreshDuplicates() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -413,7 +531,7 @@ class AdminViewModel @Inject constructor(
                 val response = api.mergeDuplicates(MergeDuplicatesRequest(keepId, deleteIds))
                 if (response.isSuccessful) {
                     _message.value = response.body()?.message ?: "Duplicates merged"
-                    loadDuplicates()
+                    refreshDuplicates()
                 } else {
                     _message.value = "Failed to merge duplicates"
                 }
@@ -427,6 +545,9 @@ class AdminViewModel @Inject constructor(
     }
 
     fun loadJobs() {
+        // Don't reload if already have data (prevents flickering)
+        if (_jobs.value.isNotEmpty()) return
+
         viewModelScope.launch {
             _isLoading.value = true
             try {
