@@ -358,6 +358,173 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
             }
         }
     }
+
+    // AI Settings Edit Dialog
+    if (showEditDialog) {
+        aiSettings?.let { settings ->
+            EditAiSettingsDialog(
+                settings = settings,
+                onDismiss = { showEditDialog = false },
+                onSave = { update ->
+                    viewModel.updateAiSettings(update)
+                    showEditDialog = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditAiSettingsDialog(
+    settings: AiSettings,
+    onDismiss: () -> Unit,
+    onSave: (AiSettingsUpdate) -> Unit
+) {
+    var provider by remember { mutableStateOf(settings.aiProvider ?: "") }
+    var openaiApiKey by remember { mutableStateOf(settings.openaiApiKey ?: "") }
+    var openaiModel by remember { mutableStateOf(settings.openaiModel ?: "gpt-3.5-turbo") }
+    var geminiApiKey by remember { mutableStateOf(settings.geminiApiKey ?: "") }
+    var geminiModel by remember { mutableStateOf(settings.geminiModel ?: "gemini-pro") }
+    var customPrompt by remember { mutableStateOf(settings.recapCustomPrompt ?: "") }
+    var offensiveMode by remember { mutableStateOf(settings.recapOffensiveMode ?: false) }
+    var showApiKey by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit AI Settings", color = Color.White) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Provider Selection
+                Text("AI Provider", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("openai", "gemini", "").forEach { p ->
+                        val label = when(p) {
+                            "openai" -> "OpenAI"
+                            "gemini" -> "Gemini"
+                            else -> "None"
+                        }
+                        Surface(
+                            modifier = Modifier.clickable { provider = p },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (provider == p) Color(0xFF3b82f6) else Color(0xFF374151)
+                        ) {
+                            Text(
+                                label,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                if (provider == "openai") {
+                    OutlinedTextField(
+                        value = openaiApiKey,
+                        onValueChange = { openaiApiKey = it },
+                        label = { Text("OpenAI API Key") },
+                        visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showApiKey = !showApiKey }) {
+                                Icon(
+                                    if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null,
+                                    tint = Color(0xFF9ca3af)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = adminTextFieldColors()
+                    )
+                    OutlinedTextField(
+                        value = openaiModel,
+                        onValueChange = { openaiModel = it },
+                        label = { Text("Model") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = adminTextFieldColors()
+                    )
+                } else if (provider == "gemini") {
+                    OutlinedTextField(
+                        value = geminiApiKey,
+                        onValueChange = { geminiApiKey = it },
+                        label = { Text("Gemini API Key") },
+                        visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showApiKey = !showApiKey }) {
+                                Icon(
+                                    if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null,
+                                    tint = Color(0xFF9ca3af)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = adminTextFieldColors()
+                    )
+                    OutlinedTextField(
+                        value = geminiModel,
+                        onValueChange = { geminiModel = it },
+                        label = { Text("Model") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = adminTextFieldColors()
+                    )
+                }
+
+                Divider(color = Color(0xFF374151))
+
+                Text("Recap Settings", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = offensiveMode,
+                        onCheckedChange = { offensiveMode = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFF3b82f6),
+                            uncheckedColor = Color(0xFF6b7280)
+                        )
+                    )
+                    Text("Offensive Mode (uncensored recaps)", color = Color.White)
+                }
+
+                OutlinedTextField(
+                    value = customPrompt,
+                    onValueChange = { customPrompt = it },
+                    label = { Text("Custom Prompt (optional)") },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                    colors = adminTextFieldColors(),
+                    maxLines = 5
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(AiSettingsUpdate(
+                        aiProvider = provider.ifBlank { null },
+                        openaiApiKey = openaiApiKey.ifBlank { null },
+                        openaiModel = openaiModel.ifBlank { null },
+                        geminiApiKey = geminiApiKey.ifBlank { null },
+                        geminiModel = geminiModel.ifBlank { null },
+                        recapCustomPrompt = customPrompt.ifBlank { null },
+                        recapOffensiveMode = offensiveMode
+                    ))
+                }
+            ) {
+                Text("Save", color = Color(0xFF3b82f6))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
 }
 
 // ============ Users Tab ============
@@ -839,12 +1006,12 @@ private fun BackupCard(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
-                        text = formatFileSize(backup.size),
+                        text = backup.sizeFormatted ?: formatFileSize(backup.size),
                         color = Color(0xFF9ca3af),
                         fontSize = 12.sp
                     )
                     Text(
-                        text = formatBackupDate(backup.createdAt),
+                        text = backup.createdFormatted ?: backup.created ?: "Unknown",
                         color = Color(0xFF9ca3af),
                         fontSize = 12.sp
                     )
