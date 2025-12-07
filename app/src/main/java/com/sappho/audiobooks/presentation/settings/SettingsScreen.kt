@@ -1,5 +1,6 @@
 package com.sappho.audiobooks.presentation.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -68,6 +69,9 @@ fun SettingsScreen(
 
     // Snackbar
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Handle system back button
+    BackHandler { onBackClick() }
 
     LaunchedEffect(message) {
         message?.let {

@@ -1,5 +1,6 @@
 package com.sappho.audiobooks.presentation.library
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -116,10 +118,27 @@ fun LibraryScreen(
         else -> LibraryView.CATEGORIES
     }
 
-    var currentView by remember { mutableStateOf(initialView) }
-    var selectedSeries by remember { mutableStateOf(initialSeries) }
-    var selectedAuthor by remember { mutableStateOf(initialAuthor) }
-    var selectedGenre by remember { mutableStateOf<String?>(null) }
+    // Use rememberSaveable to persist state across navigation (e.g., when going to book detail and back)
+    var currentViewName by rememberSaveable { mutableStateOf(initialView.name) }
+    val currentView = LibraryView.valueOf(currentViewName)
+
+    var selectedSeries by rememberSaveable { mutableStateOf(initialSeries) }
+    var selectedAuthor by rememberSaveable { mutableStateOf(initialAuthor) }
+    var selectedGenre by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Handle system back button to navigate within Library views
+    BackHandler(enabled = currentView != LibraryView.CATEGORIES) {
+        currentViewName = when (currentView) {
+            LibraryView.SERIES -> LibraryView.CATEGORIES.name
+            LibraryView.SERIES_BOOKS -> LibraryView.SERIES.name
+            LibraryView.AUTHORS -> LibraryView.CATEGORIES.name
+            LibraryView.AUTHOR_BOOKS -> LibraryView.AUTHORS.name
+            LibraryView.GENRES -> LibraryView.CATEGORIES.name
+            LibraryView.GENRE_BOOKS -> LibraryView.GENRES.name
+            LibraryView.ALL_BOOKS -> LibraryView.CATEGORIES.name
+            LibraryView.CATEGORIES -> currentViewName // Should not happen due to enabled check
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -133,10 +152,10 @@ fun LibraryScreen(
                     seriesCount = series.size,
                     authorsCount = authors.size,
                     genresCount = genres.size,
-                    onSeriesClick = { currentView = LibraryView.SERIES },
-                    onAuthorsClick = { currentView = LibraryView.AUTHORS },
-                    onGenresClick = { currentView = LibraryView.GENRES },
-                    onAllBooksClick = { currentView = LibraryView.ALL_BOOKS }
+                    onSeriesClick = { currentViewName = LibraryView.SERIES.name },
+                    onAuthorsClick = { currentViewName = LibraryView.AUTHORS.name },
+                    onGenresClick = { currentViewName = LibraryView.GENRES.name },
+                    onAllBooksClick = { currentViewName = LibraryView.ALL_BOOKS.name }
                 )
             }
             LibraryView.SERIES -> {
@@ -144,10 +163,10 @@ fun LibraryScreen(
                     series = series,
                     allBooks = allBooks,
                     serverUrl = viewModel.serverUrl.collectAsState().value,
-                    onBackClick = { currentView = LibraryView.CATEGORIES },
+                    onBackClick = { currentViewName = LibraryView.CATEGORIES.name },
                     onSeriesClick = { seriesName ->
                         selectedSeries = seriesName
-                        currentView = LibraryView.SERIES_BOOKS
+                        currentViewName = LibraryView.SERIES_BOOKS.name
                     }
                 )
             }
@@ -165,7 +184,7 @@ fun LibraryScreen(
                         serverUrl = viewModel.serverUrl.collectAsState().value,
                         aiConfigured = viewModel.aiConfigured.collectAsState().value,
                         viewModel = viewModel,
-                        onBackClick = { currentView = LibraryView.SERIES },
+                        onBackClick = { currentViewName = LibraryView.SERIES.name },
                         onBookClick = onAudiobookClick
                     )
                 }
@@ -175,10 +194,10 @@ fun LibraryScreen(
                     authors = authors,
                     allBooks = allBooks,
                     serverUrl = viewModel.serverUrl.collectAsState().value,
-                    onBackClick = { currentView = LibraryView.CATEGORIES },
+                    onBackClick = { currentViewName = LibraryView.CATEGORIES.name },
                     onAuthorClick = { author ->
                         selectedAuthor = author
-                        currentView = LibraryView.AUTHOR_BOOKS
+                        currentViewName = LibraryView.AUTHOR_BOOKS.name
                     }
                 )
             }
@@ -190,7 +209,7 @@ fun LibraryScreen(
                         authorName = authorName,
                         books = authorBooks,
                         serverUrl = viewModel.serverUrl.collectAsState().value,
-                        onBackClick = { currentView = LibraryView.AUTHORS },
+                        onBackClick = { currentViewName = LibraryView.AUTHORS.name },
                         onBookClick = onAudiobookClick
                     )
                 }
@@ -200,10 +219,10 @@ fun LibraryScreen(
                     genres = genres.map { it.genre },
                     allBooks = allBooks,
                     serverUrl = viewModel.serverUrl.collectAsState().value,
-                    onBackClick = { currentView = LibraryView.CATEGORIES },
+                    onBackClick = { currentViewName = LibraryView.CATEGORIES.name },
                     onGenreClick = { genre ->
                         selectedGenre = genre
-                        currentView = LibraryView.GENRE_BOOKS
+                        currentViewName = LibraryView.GENRE_BOOKS.name
                     }
                 )
             }
@@ -216,7 +235,7 @@ fun LibraryScreen(
                         genreName = genreName,
                         books = genreBooks,
                         serverUrl = viewModel.serverUrl.collectAsState().value,
-                        onBackClick = { currentView = LibraryView.GENRES },
+                        onBackClick = { currentViewName = LibraryView.GENRES.name },
                         onBookClick = onAudiobookClick
                     )
                 }
@@ -224,7 +243,7 @@ fun LibraryScreen(
             LibraryView.ALL_BOOKS -> {
                 AllBooksView(
                     viewModel = viewModel,
-                    onBackClick = { currentView = LibraryView.CATEGORIES },
+                    onBackClick = { currentViewName = LibraryView.CATEGORIES.name },
                     onAudiobookClick = onAudiobookClick
                 )
             }
