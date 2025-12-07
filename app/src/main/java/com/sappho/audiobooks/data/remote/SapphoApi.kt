@@ -328,6 +328,12 @@ data class AiTestResponse(
     val error: String?
 )
 
+data class FavoriteResponse(
+    val success: Boolean,
+    @com.google.gson.annotations.SerializedName("is_favorite")
+    val isFavorite: Boolean
+)
+
 data class UserInfo(
     val id: Int,
     val username: String,
@@ -377,10 +383,4 @@ data class AverageRating(
 data class RatingRequest(
     val rating: Int?,
     val review: String? = null
-)
-
-data class FavoriteResponse(
-    val success: Boolean,
-    @com.google.gson.annotations.SerializedName("is_favorite")
-    val isFavorite: Boolean
 )

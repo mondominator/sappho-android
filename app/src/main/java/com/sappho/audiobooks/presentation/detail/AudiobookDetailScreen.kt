@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,6 +18,8 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.BookmarkAdded
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
@@ -207,6 +210,34 @@ fun AudiobookDetailScreen(
                                 }
                             }
 
+                            // Reading list button overlay (top-right)
+                            if (!isOffline) {
+                                IconButton(
+                                    onClick = { viewModel.toggleFavorite() },
+                                    enabled = !isTogglingFavorite,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(12.dp)
+                                        .size(40.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                ) {
+                                    if (isTogglingFavorite) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = Color(0xFF3b82f6),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Filled.BookmarkAdded else Icons.Filled.BookmarkBorder,
+                                            contentDescription = if (isFavorite) "Remove from reading list" else "Add to reading list",
+                                            tint = if (isFavorite) Color(0xFF3b82f6) else Color.White,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
+                            }
+
                             // Progress bar overlay at bottom
                             val progressData = progress
                             val hasProgress = progressData != null &&
@@ -254,7 +285,107 @@ fun AudiobookDetailScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    // Rating Section (below cover, only when online)
+                    if (!isOffline) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Your rating stars
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                for (starIndex in 1..5) {
+                                    val isSelected = userRating != null && starIndex <= userRating!!
+
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clickable(enabled = !isUpdatingRating) {
+                                                if (userRating == starIndex) {
+                                                    viewModel.clearRating()
+                                                } else {
+                                                    viewModel.setRating(starIndex)
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                            contentDescription = "Rate $starIndex stars",
+                                            tint = if (isSelected) Color(0xFFfbbf24) else Color(0xFF4b5563),
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                }
+
+                                if (isUpdatingRating) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        color = Color(0xFFfbbf24),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            }
+
+                            // Rating info text
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (userRating != null) {
+                                    Text(
+                                        text = "Your rating",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF9ca3af)
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Tap to rate",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF6b7280)
+                                    )
+                                }
+
+                                averageRating?.let { avg ->
+                                    if (avg.count > 0) {
+                                        Text(
+                                            text = "  •  ",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF4b5563)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Filled.Star,
+                                            contentDescription = null,
+                                            tint = Color(0xFFfbbf24),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Text(
+                                            text = String.format("%.1f", avg.average ?: 0f),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFFe5e7eb)
+                                        )
+                                        Text(
+                                            text = " (${avg.count})",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF9ca3af)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Play/Pause Button (mobile style)
                     Button(
@@ -733,54 +864,6 @@ fun AudiobookDetailScreen(
                         }
                     }
 
-                    // Rating Section (only show when online)
-                    if (!isOffline) {
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                        ) {
-                            Text(
-                                text = "Your Rating",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.padding(bottom = 12.dp)
-                            )
-
-                            StarRatingBar(
-                                rating = userRating,
-                                onRatingChanged = { rating ->
-                                    if (rating == null) {
-                                        viewModel.clearRating()
-                                    } else {
-                                        viewModel.setRating(rating)
-                                    }
-                                },
-                                isLoading = isUpdatingRating
-                            )
-
-                            // Show average rating if available
-                            averageRating?.let { avg ->
-                                if (avg.count > 0) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        AverageRatingDisplay(average = avg.average ?: 0f)
-                                        Text(
-                                            text = "(${avg.count} ${if (avg.count == 1) "rating" else "ratings"})",
-                                            fontSize = 14.sp,
-                                            color = Color(0xFF9ca3af)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -1064,6 +1147,54 @@ private fun StarRatingBar(
             Spacer(modifier = Modifier.width(8.dp))
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
+                color = Color(0xFFfbbf24),
+                strokeWidth = 2.dp
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactStarRating(
+    rating: Int?,
+    onRatingChanged: (Int?) -> Unit,
+    isLoading: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 5 clickable stars (smaller)
+        for (starIndex in 1..5) {
+            val isSelected = rating != null && starIndex <= rating
+
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clickable(enabled = !isLoading) {
+                        if (rating == starIndex) {
+                            onRatingChanged(null)
+                        } else {
+                            onRatingChanged(starIndex)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = "Star $starIndex",
+                    tint = if (isSelected) Color(0xFFfbbf24) else Color(0xFF6b7280),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+
+        if (isLoading) {
+            Spacer(modifier = Modifier.width(4.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
                 color = Color(0xFFfbbf24),
                 strokeWidth = 2.dp
             )
