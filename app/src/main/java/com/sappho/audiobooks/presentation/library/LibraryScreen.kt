@@ -1857,6 +1857,15 @@ fun SeriesBookListItem(
                         color = Color(0xFF3b82f6)
                     )
                 }
+                if (book.isFavorite) {
+                    Text(text = " • ", fontSize = 12.sp, color = Color(0xFF9ca3af))
+                    Icon(
+                        imageVector = Icons.Filled.BookmarkAdded,
+                        contentDescription = "On reading list",
+                        tint = Color(0xFF3b82f6),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
             }
 
             // Progress bar
@@ -2636,6 +2645,25 @@ fun GenreBookGridItem(
                 }
             }
 
+            // Reading list indicator (top-left to avoid overlap with completed badge)
+            if (book.isFavorite) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp)
+                        .size(20.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.BookmarkAdded,
+                        contentDescription = "On reading list",
+                        tint = Color(0xFF3b82f6),
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+
             // Progress bar
             if (progressPercent > 0 && !isCompleted) {
                 Box(
@@ -2734,6 +2762,25 @@ fun BookGridItem(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
+                )
+            }
+        }
+
+        // Reading list indicator
+        if (book.isFavorite) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(24.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.BookmarkAdded,
+                    contentDescription = "On reading list",
+                    tint = Color(0xFF3b82f6),
+                    modifier = Modifier.size(14.dp)
                 )
             }
         }
