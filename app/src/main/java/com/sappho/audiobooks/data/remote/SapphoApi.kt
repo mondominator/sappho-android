@@ -539,9 +539,9 @@ data class BackupStatus(
 data class BackupInfo(
     val filename: String,
     val size: Long,
-    @com.google.gson.annotations.SerializedName("created_at")
-    val createdAt: String,
-    val type: String?
+    val created: String?,
+    val sizeFormatted: String?,
+    val createdFormatted: String?
 )
 
 data class RestoreResponse(
