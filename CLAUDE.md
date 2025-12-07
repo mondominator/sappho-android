@@ -195,3 +195,24 @@ curl -I https://sapho.bitstorm.ca/api/audiobooks/meta/recent?limit=1
 # Test authenticated endpoint (requires valid token)
 curl -H "Authorization: Bearer <token>" https://sapho.bitstorm.ca/api/audiobooks/5557/cover
 ```
+
+## Working with Issues
+
+When reviewing or commenting on GitHub issues:
+- **Always verify the actual code** before stating whether something is fixed or not fixed
+- Do not rely on assumptions or previous comments - check the implementation directly
+- Use Grep/Read tools to confirm the current state of the codebase before closing issues
+
+### Security Issues
+
+For security vulnerabilities, use **GitHub Security Advisories** instead of regular issues:
+1. Go to the repository's "Security" tab
+2. Click "Advisories" → "New draft security advisory"
+3. This keeps vulnerability details private until a fix is released
+
+## PR Workflow
+
+- Always work on a new branch and merge back in via PR
+- Don't use automerge - wait for pipelines to give results before moving on or declaring success
+- Wait for user testing before shipping/merging
+- Never bypass merge rules
