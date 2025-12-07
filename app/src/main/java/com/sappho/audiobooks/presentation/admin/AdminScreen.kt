@@ -155,6 +155,7 @@ private fun LibraryTab(viewModel: AdminViewModel) {
     val serverSettings by viewModel.serverSettings.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
     val isLoading = loadingSection == "serverSettings"
+    var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadServerSettings()
@@ -190,12 +191,150 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                 CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
             }
         } else {
-            serverSettings?.settings?.let { settings ->
-                AdminSectionCard(title = "Library Paths", icon = Icons.Outlined.Folder) {
-                    InfoRow(label = "Audiobooks Directory", value = settings.audiobooksDir ?: "Not set")
-                    InfoRow(label = "Upload Directory", value = settings.uploadDir ?: "Not set")
+            serverSettings?.let { response ->
+                val settings = response.settings
+                val lockedFields = response.lockedFields ?: emptyList()
+
+                AdminSectionCard(
+                    title = "Library Paths",
+                    icon = Icons.Outlined.Folder,
+                    action = {
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
+                        }
+                    }
+                ) {
+                    InfoRow(
+                        label = "Audiobooks Directory",
+                        value = settings.audiobooksDir ?: "Not set",
+                        locked = "audiobooksDir" in lockedFields
+                    )
+                    InfoRow(
+                        label = "Upload Directory",
+                        value = settings.uploadDir ?: "Not set",
+                        locked = "uploadDir" in lockedFields
+                    )
+                    InfoRow(
+                        label = "Scan Interval",
+                        value = settings.libraryScanInterval?.let { "$it minutes" } ?: "Not set",
+                        locked = "libraryScanInterval" in lockedFields
+                    )
                 }
             }
+        }
+    }
+
+    // Edit Dialog
+    if (showEditDialog) {
+        serverSettings?.let { response ->
+            EditLibrarySettingsDialog(
+                settings = response.settings,
+                lockedFields = response.lockedFields ?: emptyList(),
+                onDismiss = { showEditDialog = false },
+                onSave = { update ->
+                    viewModel.updateServerSettings(update)
+                    showEditDialog = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditLibrarySettingsDialog(
+    settings: ServerSettings,
+    lockedFields: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (ServerSettingsUpdate) -> Unit
+) {
+    var audiobooksDir by remember { mutableStateOf(settings.audiobooksDir ?: "") }
+    var uploadDir by remember { mutableStateOf(settings.uploadDir ?: "") }
+    var scanInterval by remember { mutableStateOf(settings.libraryScanInterval?.toString() ?: "5") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Library Settings", color = Color.White) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if ("audiobooksDir" !in lockedFields) {
+                    OutlinedTextField(
+                        value = audiobooksDir,
+                        onValueChange = { audiobooksDir = it },
+                        label = { Text("Audiobooks Directory") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = adminTextFieldColors()
+                    )
+                } else {
+                    LockedField("Audiobooks Directory", settings.audiobooksDir ?: "")
+                }
+
+                if ("uploadDir" !in lockedFields) {
+                    OutlinedTextField(
+                        value = uploadDir,
+                        onValueChange = { uploadDir = it },
+                        label = { Text("Upload Directory") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = adminTextFieldColors()
+                    )
+                } else {
+                    LockedField("Upload Directory", settings.uploadDir ?: "")
+                }
+
+                if ("libraryScanInterval" !in lockedFields) {
+                    OutlinedTextField(
+                        value = scanInterval,
+                        onValueChange = { scanInterval = it },
+                        label = { Text("Scan Interval (minutes)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = adminTextFieldColors()
+                    )
+                } else {
+                    LockedField("Scan Interval", "${settings.libraryScanInterval ?: 5} minutes")
+                }
+
+                if (lockedFields.isNotEmpty()) {
+                    Text(
+                        "Locked fields are set via docker-compose and cannot be changed here.",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(ServerSettingsUpdate(
+                        audiobooksDir = if ("audiobooksDir" !in lockedFields) audiobooksDir else null,
+                        uploadDir = if ("uploadDir" !in lockedFields) uploadDir else null,
+                        libraryScanInterval = if ("libraryScanInterval" !in lockedFields) scanInterval.toIntOrNull() else null
+                    ))
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
+}
+
+@Composable
+private fun LockedField(label: String, value: String) {
+    Column {
+        Text(label, color = Color(0xFF9ca3af), fontSize = 12.sp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(Icons.Outlined.Lock, contentDescription = "Locked", tint = Color(0xFF6b7280), modifier = Modifier.size(14.dp))
+            Text(value, color = Color(0xFF6b7280), fontSize = 14.sp)
         }
     }
 }
@@ -206,6 +345,7 @@ private fun ServerSettingsTab(viewModel: AdminViewModel) {
     val serverSettings by viewModel.serverSettings.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
     val isLoading = loadingSection == "serverSettings"
+    var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadServerSettings()
@@ -226,16 +366,23 @@ private fun ServerSettingsTab(viewModel: AdminViewModel) {
                 CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
             }
         } else {
-            serverSettings?.settings?.let { settings ->
-                AdminSectionCard(title = "Server Configuration", icon = Icons.Outlined.Settings) {
-                    InfoRow(label = "Port", value = settings.port ?: "3000")
-                    InfoRow(label = "Environment", value = settings.nodeEnv ?: "production")
-                    InfoRow(label = "Database Path", value = settings.databasePath ?: "Not set")
-                    InfoRow(label = "Data Directory", value = settings.dataDir ?: "Not set")
-                    InfoRow(
-                        label = "Scan Interval",
-                        value = settings.libraryScanInterval?.let { "${it / 60} minutes" } ?: "Not set"
-                    )
+            serverSettings?.let { response ->
+                val settings = response.settings
+                val lockedFields = response.lockedFields ?: emptyList()
+
+                AdminSectionCard(
+                    title = "Server Configuration",
+                    icon = Icons.Outlined.Settings,
+                    action = {
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
+                        }
+                    }
+                ) {
+                    InfoRow(label = "Port", value = settings.port ?: "3000", locked = "port" in lockedFields)
+                    InfoRow(label = "Environment", value = settings.nodeEnv ?: "production", locked = "nodeEnv" in lockedFields)
+                    InfoRow(label = "Database Path", value = settings.databasePath ?: "Not set", locked = "databasePath" in lockedFields)
+                    InfoRow(label = "Data Directory", value = settings.dataDir ?: "Not set", locked = "dataDir" in lockedFields)
                 }
             } ?: run {
                 Box(
@@ -247,6 +394,139 @@ private fun ServerSettingsTab(viewModel: AdminViewModel) {
             }
         }
     }
+
+    // Edit Dialog
+    if (showEditDialog) {
+        serverSettings?.let { response ->
+            EditServerSettingsDialog(
+                settings = response.settings,
+                lockedFields = response.lockedFields ?: emptyList(),
+                onDismiss = { showEditDialog = false },
+                onSave = { update ->
+                    viewModel.updateServerSettings(update)
+                    showEditDialog = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditServerSettingsDialog(
+    settings: ServerSettings,
+    lockedFields: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (ServerSettingsUpdate) -> Unit
+) {
+    var port by remember { mutableStateOf(settings.port ?: "3001") }
+    var nodeEnv by remember { mutableStateOf(settings.nodeEnv ?: "production") }
+    var databasePath by remember { mutableStateOf(settings.databasePath ?: "") }
+    var dataDir by remember { mutableStateOf(settings.dataDir ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Server Settings", color = Color.White) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if ("port" !in lockedFields) {
+                    OutlinedTextField(
+                        value = port,
+                        onValueChange = { port = it },
+                        label = { Text("Port") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = adminTextFieldColors()
+                    )
+                } else {
+                    LockedField("Port", settings.port ?: "3001")
+                }
+
+                if ("nodeEnv" !in lockedFields) {
+                    Text("Environment", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("development", "production").forEach { env ->
+                            Surface(
+                                modifier = Modifier.clickable { nodeEnv = env },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (nodeEnv == env) Color(0xFF3b82f6) else Color(0xFF374151)
+                            ) {
+                                Text(
+                                    env.replaceFirstChar { it.uppercase() },
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    color = Color.White,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    LockedField("Environment", settings.nodeEnv ?: "production")
+                }
+
+                if ("databasePath" !in lockedFields) {
+                    OutlinedTextField(
+                        value = databasePath,
+                        onValueChange = { databasePath = it },
+                        label = { Text("Database Path") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = adminTextFieldColors()
+                    )
+                } else {
+                    LockedField("Database Path", settings.databasePath ?: "")
+                }
+
+                if ("dataDir" !in lockedFields) {
+                    OutlinedTextField(
+                        value = dataDir,
+                        onValueChange = { dataDir = it },
+                        label = { Text("Data Directory") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = adminTextFieldColors()
+                    )
+                } else {
+                    LockedField("Data Directory", settings.dataDir ?: "")
+                }
+
+                if (lockedFields.isNotEmpty()) {
+                    Text(
+                        "Locked fields are set via docker-compose and cannot be changed here.",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 12.sp
+                    )
+                }
+
+                Text(
+                    "Note: Some changes require a server restart to take effect.",
+                    color = Color(0xFFf59e0b),
+                    fontSize = 12.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(ServerSettingsUpdate(
+                        port = if ("port" !in lockedFields) port else null,
+                        nodeEnv = if ("nodeEnv" !in lockedFields) nodeEnv else null,
+                        databasePath = if ("databasePath" !in lockedFields) databasePath else null,
+                        dataDir = if ("dataDir" !in lockedFields) dataDir else null
+                    ))
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
 }
 
 // ============ AI Settings Tab ============
@@ -257,9 +537,18 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
     val isLoading = loadingSection == "aiSettings"
     var showEditDialog by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<AiTestResponse?>(null) }
+    // Track if initial load is done (separate from loading indicator)
+    var hasLoaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadAiSettings()
+    }
+
+    // Mark as loaded once loading completes
+    LaunchedEffect(isLoading) {
+        if (!isLoading && !hasLoaded) {
+            hasLoaded = true
+        }
     }
 
     Column(
@@ -269,7 +558,9 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        aiSettings?.let { settings ->
+        val settings = aiSettings
+        if (settings != null) {
+            // AI is configured - show current settings with edit option
             AdminSectionCard(
                 title = "AI Provider",
                 icon = Icons.Outlined.Psychology,
@@ -362,32 +653,59 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                     }
                 }
             }
-        } ?: run {
+        } else if (isLoading) {
+            // Still loading
             Box(
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
-                } else {
-                    Text("No AI settings available", color = Color(0xFF9ca3af))
+                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+            }
+        } else if (hasLoaded) {
+            // Loaded but no settings - show configuration option
+            AdminSectionCard(
+                title = "AI Not Configured",
+                icon = Icons.Outlined.Psychology
+            ) {
+                Text(
+                    "AI features are not configured. Configure AI to enable recap generation and other AI-powered features.",
+                    color = Color(0xFF9ca3af),
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { showEditDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Configure AI")
                 }
             }
         }
     }
 
-    // AI Settings Edit Dialog
+    // AI Settings Edit Dialog - works for both new and existing settings
     if (showEditDialog) {
-        aiSettings?.let { settings ->
-            EditAiSettingsDialog(
-                settings = settings,
-                onDismiss = { showEditDialog = false },
-                onSave = { update ->
-                    viewModel.updateAiSettings(update)
-                    showEditDialog = false
-                }
-            )
-        }
+        val settings = aiSettings ?: AiSettings(
+            aiProvider = null,
+            openaiApiKey = null,
+            openaiModel = "gpt-3.5-turbo",
+            geminiApiKey = null,
+            geminiModel = "gemini-pro",
+            recapCustomPrompt = null,
+            recapOffensiveMode = false,
+            recapDefaultPrompt = null
+        )
+        EditAiSettingsDialog(
+            settings = settings,
+            onDismiss = { showEditDialog = false },
+            onSave = { update ->
+                viewModel.updateAiSettings(update)
+                showEditDialog = false
+            }
+        )
     }
 }
 
@@ -1169,10 +1487,29 @@ private fun MaintenanceTab(viewModel: AdminViewModel) {
 @Composable
 private fun LogsTab(viewModel: AdminViewModel) {
     val logs by viewModel.logs.collectAsState()
+    val loadingSection by viewModel.loadingSection.collectAsState()
+    val isLoading = loadingSection == "logs"
     var selectedLevel by remember { mutableStateOf<String?>(null) }
+    var autoRefresh by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedLevel) {
+    // Initial load
+    LaunchedEffect(Unit) {
         viewModel.loadLogs(level = selectedLevel)
+    }
+
+    // Filter change - force refresh
+    LaunchedEffect(selectedLevel) {
+        viewModel.refreshLogs(level = selectedLevel)
+    }
+
+    // Auto-refresh every 5 seconds when enabled
+    LaunchedEffect(autoRefresh) {
+        if (autoRefresh) {
+            while (true) {
+                kotlinx.coroutines.delay(5000)
+                viewModel.refreshLogs(level = selectedLevel)
+            }
+        }
     }
 
     Column(
@@ -1192,12 +1529,39 @@ private fun LogsTab(viewModel: AdminViewModel) {
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { viewModel.loadLogs(level = selectedLevel) }) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Auto-refresh toggle
+                Surface(
+                    modifier = Modifier.clickable { autoRefresh = !autoRefresh },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (autoRefresh) Color(0xFF10b981).copy(alpha = 0.2f) else Color(0xFF374151)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Autorenew,
+                            contentDescription = "Auto-refresh",
+                            tint = if (autoRefresh) Color(0xFF10b981) else Color(0xFF9ca3af),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            "Auto",
+                            color = if (autoRefresh) Color(0xFF10b981) else Color(0xFF9ca3af),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+                IconButton(onClick = { viewModel.refreshLogs(level = selectedLevel) }) {
                     Icon(Icons.Outlined.Refresh, contentDescription = "Refresh", tint = Color(0xFF3b82f6))
                 }
-                TextButton(onClick = { viewModel.clearLogs() }) {
-                    Text("Clear", color = Color(0xFFef4444))
+                IconButton(onClick = { viewModel.clearLogs() }) {
+                    Icon(Icons.Outlined.Delete, contentDescription = "Clear", tint = Color(0xFFef4444))
                 }
             }
         }
@@ -1219,11 +1583,27 @@ private fun LogsTab(viewModel: AdminViewModel) {
             }
         }
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            items(logs) { log ->
-                LogEntryCard(log)
+        if (isLoading && logs.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+            }
+        } else if (logs.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No logs available", color = Color(0xFF9ca3af))
+            }
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(logs) { log ->
+                    LogEntryCard(log)
+                }
             }
         }
     }
@@ -1281,6 +1661,8 @@ private fun LogEntryCard(log: LogEntry) {
 @Composable
 private fun StatisticsTab(viewModel: AdminViewModel) {
     val statistics by viewModel.statistics.collectAsState()
+    val loadingSection by viewModel.loadingSection.collectAsState()
+    val isLoading = loadingSection == "statistics"
 
     LaunchedEffect(Unit) {
         viewModel.loadStatistics()
@@ -1293,89 +1675,178 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        statistics?.let { stats ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                contentAlignment = Alignment.Center
             ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = stats.totalAudiobooks.toString(),
-                    label = "Audiobooks",
-                    icon = Icons.Outlined.LibraryBooks,
-                    color = Color(0xFF3b82f6)
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = stats.totalAuthors.toString(),
-                    label = "Authors",
-                    icon = Icons.Outlined.Person,
-                    color = Color(0xFF10b981)
-                )
+                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
             }
+        } else {
+            statistics?.let { stats ->
+                // Totals row
+                stats.totals?.let { totals ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatCard(
+                            modifier = Modifier.weight(1f),
+                            value = totals.books.toString(),
+                            label = "Audiobooks",
+                            icon = Icons.Outlined.LibraryBooks,
+                            color = Color(0xFF3b82f6)
+                        )
+                        StatCard(
+                            modifier = Modifier.weight(1f),
+                            value = formatFileSize(totals.size),
+                            label = "Total Size",
+                            icon = Icons.Outlined.Storage,
+                            color = Color(0xFF8b5cf6)
+                        )
+                    }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = stats.totalSeries.toString(),
-                    label = "Series",
-                    icon = Icons.Outlined.Collections,
-                    color = Color(0xFFf59e0b)
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = formatFileSize(stats.totalSize),
-                    label = "Total Size",
-                    icon = Icons.Outlined.Storage,
-                    color = Color(0xFF8b5cf6)
-                )
-            }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatCard(
+                            modifier = Modifier.weight(1f),
+                            value = formatDuration(totals.duration),
+                            label = "Total Duration",
+                            icon = Icons.Outlined.Timer,
+                            color = Color(0xFFec4899)
+                        )
+                        StatCard(
+                            modifier = Modifier.weight(1f),
+                            value = formatDuration(totals.avgDuration?.toLong() ?: 0),
+                            label = "Avg Duration",
+                            icon = Icons.Outlined.AvTimer,
+                            color = Color(0xFF06b6d4)
+                        )
+                    }
+                }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = formatDuration(stats.totalDuration),
-                    label = "Total Duration",
-                    icon = Icons.Outlined.Timer,
-                    color = Color(0xFFec4899)
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = stats.totalGenres.toString(),
-                    label = "Genres",
-                    icon = Icons.Outlined.Category,
-                    color = Color(0xFF06b6d4)
-                )
-            }
-
-            stats.booksByGenre?.let { genres ->
-                if (genres.isNotEmpty()) {
-                    AdminSectionCard(title = "Books by Genre", icon = Icons.Outlined.PieChart) {
-                        genres.entries.sortedByDescending { it.value }.take(10).forEach { (genre, count) ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(genre, color = Color.White, fontSize = 14.sp)
-                                Text(count.toString(), color = Color(0xFF9ca3af), fontSize = 14.sp)
+                // Top Authors
+                stats.topAuthors?.let { authors ->
+                    if (authors.isNotEmpty()) {
+                        AdminSectionCard(title = "Top Authors", icon = Icons.Outlined.Person) {
+                            authors.take(10).forEach { author ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        author.author ?: "Unknown",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        "${author.count} books",
+                                        color = Color(0xFF9ca3af),
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
                 }
-            }
-        } ?: run {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Loading statistics...", color = Color(0xFF9ca3af))
+
+                // Top Series
+                stats.topSeries?.let { series ->
+                    if (series.isNotEmpty()) {
+                        AdminSectionCard(title = "Top Series", icon = Icons.Outlined.Collections) {
+                            series.take(10).forEach { s ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        s.series ?: "Unknown",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        "${s.count} books",
+                                        color = Color(0xFF9ca3af),
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                        }
+                    }
+                }
+
+                // Storage by Format
+                stats.byFormat?.let { formats ->
+                    if (formats.isNotEmpty()) {
+                        AdminSectionCard(title = "Storage by Format", icon = Icons.Outlined.PieChart) {
+                            formats.forEach { format ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        format.format?.uppercase() ?: "Unknown",
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        "${format.count} (${formatFileSize(format.size)})",
+                                        color = Color(0xFF9ca3af),
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                        }
+                    }
+                }
+
+                // User Stats
+                stats.userStats?.let { users ->
+                    if (users.isNotEmpty()) {
+                        AdminSectionCard(title = "User Activity", icon = Icons.Outlined.People) {
+                            users.forEach { user ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        user.username ?: "Unknown",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            "${user.booksCompleted ?: 0}/${user.booksStarted ?: 0} finished",
+                                            color = Color(0xFF9ca3af),
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            formatDuration(user.totalListenTime ?: 0),
+                                            color = Color(0xFF9ca3af),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
+                }
+            } ?: run {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No statistics available", color = Color(0xFF9ca3af))
+                }
             }
         }
     }
@@ -1428,22 +1899,36 @@ private fun AdminSectionCard(
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+private fun InfoRow(label: String, value: String, locked: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, color = Color(0xFF9ca3af), fontSize = 14.sp)
-        Text(
-            value,
-            color = Color.White,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 200.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (locked) {
+                Icon(
+                    Icons.Outlined.Lock,
+                    contentDescription = "Locked",
+                    tint = Color(0xFF6b7280),
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+            Text(
+                value,
+                color = if (locked) Color(0xFF6b7280) else Color.White,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 200.dp)
+            )
+        }
     }
 }
 

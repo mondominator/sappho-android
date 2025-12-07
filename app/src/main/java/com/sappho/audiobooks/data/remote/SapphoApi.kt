@@ -572,27 +572,59 @@ data class LogEntry(
 )
 
 data class LibraryStatistics(
-    @com.google.gson.annotations.SerializedName("total_audiobooks")
-    val totalAudiobooks: Int,
-    @com.google.gson.annotations.SerializedName("total_duration")
-    val totalDuration: Long,
-    @com.google.gson.annotations.SerializedName("total_size")
-    val totalSize: Long,
-    @com.google.gson.annotations.SerializedName("total_authors")
-    val totalAuthors: Int,
-    @com.google.gson.annotations.SerializedName("total_series")
-    val totalSeries: Int,
-    @com.google.gson.annotations.SerializedName("total_genres")
-    val totalGenres: Int,
-    @com.google.gson.annotations.SerializedName("books_by_genre")
-    val booksByGenre: Map<String, Int>?,
-    @com.google.gson.annotations.SerializedName("books_by_author")
-    val booksByAuthor: List<AuthorStats>?
+    val totals: StatTotals?,
+    val byFormat: List<FormatStats>?,
+    val topAuthors: List<AuthorStats>?,
+    val topSeries: List<SeriesStats>?,
+    val topNarrators: List<NarratorStats>?,
+    val addedOverTime: List<MonthlyStats>?,
+    val userStats: List<UserStatEntry>?
+)
+
+data class StatTotals(
+    val books: Int,
+    val size: Long,
+    val duration: Long,
+    val avgDuration: Double?
+)
+
+data class FormatStats(
+    val format: String?,
+    val count: Int,
+    val size: Long
 )
 
 data class AuthorStats(
-    val author: String,
-    val count: Int
+    val author: String?,
+    val count: Int,
+    val size: Long?,
+    val duration: Long?
+)
+
+data class SeriesStats(
+    val series: String?,
+    val count: Int,
+    val size: Long?,
+    val duration: Long?
+)
+
+data class NarratorStats(
+    val narrator: String?,
+    val count: Int,
+    val duration: Long?
+)
+
+data class MonthlyStats(
+    val month: String?,
+    val count: Int,
+    val size: Long?
+)
+
+data class UserStatEntry(
+    val username: String?,
+    val booksStarted: Int?,
+    val booksCompleted: Int?,
+    val totalListenTime: Long?
 )
 
 data class DuplicatesResponse(
