@@ -104,22 +104,41 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // First, load the favorites list to get the IDs of favorited books
+                // (The meta endpoints don't return correct is_favorite status)
+                val favoriteIds = mutableSetOf<Int>()
+                try {
+                    val favoritesResponse = api.getFavorites()
+                    if (favoritesResponse.isSuccessful) {
+                        favoriteIds.addAll(favoritesResponse.body()?.map { it.id } ?: emptyList())
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                // Helper function to apply favorite status to book lists
+                fun List<Audiobook>.withFavoriteStatus(): List<Audiobook> {
+                    return map { book ->
+                        if (favoriteIds.contains(book.id)) book.copy(isFavorite = true) else book
+                    }
+                }
+
                 // Load in progress audiobooks
                 val inProgressResponse = api.getInProgress(10)
                 if (inProgressResponse.isSuccessful) {
-                    _inProgress.value = inProgressResponse.body() ?: emptyList()
+                    _inProgress.value = (inProgressResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
 
                 // Load recently added audiobooks
                 val recentlyAddedResponse = api.getRecentlyAdded(10)
                 if (recentlyAddedResponse.isSuccessful) {
-                    _recentlyAdded.value = recentlyAddedResponse.body() ?: emptyList()
+                    _recentlyAdded.value = (recentlyAddedResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
 
                 // Load up next audiobooks
                 val upNextResponse = api.getUpNext(10)
                 if (upNextResponse.isSuccessful) {
-                    val upNextBooks = upNextResponse.body() ?: emptyList()
+                    val upNextBooks = (upNextResponse.body() ?: emptyList()).withFavoriteStatus()
                     // Prioritize next book in series of the currently playing book
                     _upNext.value = prioritizeUpNext(upNextBooks, _inProgress.value)
                 }
@@ -127,7 +146,7 @@ class HomeViewModel @Inject constructor(
                 // Load finished audiobooks
                 val finishedResponse = api.getFinished(10)
                 if (finishedResponse.isSuccessful) {
-                    _finished.value = finishedResponse.body() ?: emptyList()
+                    _finished.value = (finishedResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -139,6 +158,37 @@ class HomeViewModel @Inject constructor(
 
     fun refresh() {
         loadData()
+    }
+
+    fun toggleFavorite(audiobookId: Int, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val response = api.toggleFavorite(audiobookId)
+                if (response.isSuccessful) {
+                    val isFavorite = response.body()?.isFavorite ?: false
+                    // Update the book's favorite status in all lists
+                    updateFavoriteStatus(audiobookId, isFavorite)
+                    onResult(isFavorite)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun updateFavoriteStatus(audiobookId: Int, isFavorite: Boolean) {
+        _inProgress.value = _inProgress.value.map { book ->
+            if (book.id == audiobookId) book.copy(isFavorite = isFavorite) else book
+        }
+        _recentlyAdded.value = _recentlyAdded.value.map { book ->
+            if (book.id == audiobookId) book.copy(isFavorite = isFavorite) else book
+        }
+        _upNext.value = _upNext.value.map { book ->
+            if (book.id == audiobookId) book.copy(isFavorite = isFavorite) else book
+        }
+        _finished.value = _finished.value.map { book ->
+            if (book.id == audiobookId) book.copy(isFavorite = isFavorite) else book
+        }
     }
 
     /**
