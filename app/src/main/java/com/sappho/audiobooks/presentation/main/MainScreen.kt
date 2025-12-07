@@ -82,6 +82,7 @@ sealed class Screen(val route: String, val title: String) {
     data object ReadingList : Screen("reading-list", "Reading List")
     data object Profile : Screen("profile", "Profile")
     data object Settings : Screen("settings", "Settings")
+    data object Admin : Screen("admin", "Admin")
     data object AudiobookDetail : Screen("audiobook/{id}", "Audiobook Detail") {
         fun createRoute(id: Int) = "audiobook/$id"
     }
@@ -140,6 +141,12 @@ fun MainScreen(
                 onSettingsClick = {
                     showUserMenu = false
                     navController.navigate(Screen.Settings.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onAdminClick = {
+                    showUserMenu = false
+                    navController.navigate(Screen.Admin.route) {
                         launchSingleTop = true
                     }
                 },
@@ -257,6 +264,11 @@ fun MainScreen(
             composable(Screen.Settings.route) {
                 com.sappho.audiobooks.presentation.settings.SettingsScreen(
                     onBackClick = { navController.navigateUp() }
+                )
+            }
+            composable(Screen.Admin.route) {
+                com.sappho.audiobooks.presentation.admin.AdminScreen(
+                    onBack = { navController.navigateUp() }
                 )
             }
             composable(
@@ -520,6 +532,7 @@ fun TopBar(
     onProfileClick: () -> Unit,
     onReadingListClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onAdminClick: () -> Unit,
     onLogout: () -> Unit,
     onDismissMenu: () -> Unit,
     onLogoClick: () -> Unit,
@@ -665,7 +678,7 @@ fun TopBar(
                         UserMenuItem(
                             icon = Icons.Default.Settings,
                             text = "Admin",
-                            onClick = onSettingsClick
+                            onClick = onAdminClick
                         )
                     }
                     UserMenuItem(
