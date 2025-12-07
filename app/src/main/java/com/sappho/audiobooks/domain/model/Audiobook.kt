@@ -19,7 +19,8 @@ data class Audiobook(
     @SerializedName("is_multi_file") val isMultiFile: Int? = null,
     @SerializedName("created_at") val createdAt: String,
     val progress: Progress?,
-    val chapters: List<Chapter>? = null
+    val chapters: List<Chapter>? = null,
+    @SerializedName("is_favorite") val isFavorite: Boolean = false
 )
 
 data class Progress(

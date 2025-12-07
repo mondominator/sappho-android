@@ -49,6 +49,13 @@ interface SapphoApi {
     @GET("api/audiobooks/meta/genre-mappings")
     suspend fun getGenreMappings(): Response<GenreMappingsResponse>
 
+    // Favorites
+    @GET("api/audiobooks/favorites")
+    suspend fun getFavorites(): Response<List<Audiobook>>
+
+    @POST("api/audiobooks/{id}/favorite/toggle")
+    suspend fun toggleFavorite(@Path("id") audiobookId: Int): Response<FavoriteResponse>
+
     // Progress
     @GET("api/audiobooks/{id}/progress")
     suspend fun getProgress(@Path("id") audiobookId: Int): Response<Progress>
@@ -169,6 +176,22 @@ interface SapphoApi {
 
     @DELETE("api/series/{seriesName}/recap")
     suspend fun clearSeriesRecap(@Path("seriesName", encoded = true) seriesName: String): Response<Unit>
+
+    // Ratings
+    @GET("api/ratings/audiobook/{audiobookId}")
+    suspend fun getUserRating(@Path("audiobookId") audiobookId: Int): Response<UserRating?>
+
+    @GET("api/ratings/audiobook/{audiobookId}/average")
+    suspend fun getAverageRating(@Path("audiobookId") audiobookId: Int): Response<AverageRating>
+
+    @POST("api/ratings/audiobook/{audiobookId}")
+    suspend fun setRating(
+        @Path("audiobookId") audiobookId: Int,
+        @Body request: RatingRequest
+    ): Response<UserRating>
+
+    @DELETE("api/ratings/audiobook/{audiobookId}")
+    suspend fun deleteRating(@Path("audiobookId") audiobookId: Int): Response<Unit>
 }
 
 data class ProfileUpdateRequest(
@@ -329,4 +352,35 @@ data class UpdateUserRequest(
     val email: String? = null,
     @com.google.gson.annotations.SerializedName("is_admin")
     val isAdmin: Boolean? = null
+)
+
+// Rating Data Classes
+data class UserRating(
+    val id: Int,
+    @com.google.gson.annotations.SerializedName("user_id")
+    val userId: Int,
+    @com.google.gson.annotations.SerializedName("audiobook_id")
+    val audiobookId: Int,
+    val rating: Int?,
+    val review: String?,
+    @com.google.gson.annotations.SerializedName("created_at")
+    val createdAt: String?,
+    @com.google.gson.annotations.SerializedName("updated_at")
+    val updatedAt: String?
+)
+
+data class AverageRating(
+    val average: Float?,
+    val count: Int
+)
+
+data class RatingRequest(
+    val rating: Int?,
+    val review: String? = null
+)
+
+data class FavoriteResponse(
+    val success: Boolean,
+    @com.google.gson.annotations.SerializedName("is_favorite")
+    val isFavorite: Boolean
 )

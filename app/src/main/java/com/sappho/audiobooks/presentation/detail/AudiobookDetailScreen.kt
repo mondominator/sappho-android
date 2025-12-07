@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.StarHalf
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,6 +59,11 @@ fun AudiobookDetailScreen(
     val serverUrl by viewModel.serverUrl.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
+    val isFavorite by viewModel.isFavorite.collectAsState()
+    val isTogglingFavorite by viewModel.isTogglingFavorite.collectAsState()
+    val userRating by viewModel.userRating.collectAsState()
+    val averageRating by viewModel.averageRating.collectAsState()
+    val isUpdatingRating by viewModel.isUpdatingRating.collectAsState()
     var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
 
@@ -724,6 +732,55 @@ fun AudiobookDetailScreen(
                             MetadataItem("Duration", durationText)
                         }
                     }
+
+                    // Rating Section (only show when online)
+                    if (!isOffline) {
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp)
+                        ) {
+                            Text(
+                                text = "Your Rating",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+
+                            StarRatingBar(
+                                rating = userRating,
+                                onRatingChanged = { rating ->
+                                    if (rating == null) {
+                                        viewModel.clearRating()
+                                    } else {
+                                        viewModel.setRating(rating)
+                                    }
+                                },
+                                isLoading = isUpdatingRating
+                            )
+
+                            // Show average rating if available
+                            averageRating?.let { avg ->
+                                if (avg.count > 0) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        AverageRatingDisplay(average = avg.average ?: 0f)
+                                        Text(
+                                            text = "(${avg.count} ${if (avg.count == 1) "rating" else "ratings"})",
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF9ca3af)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -962,5 +1019,90 @@ private fun formatSeriesPosition(position: Float?): String {
         position.toLong().toString()
     } else {
         position.toString()
+    }
+}
+
+@Composable
+private fun StarRatingBar(
+    rating: Int?,
+    onRatingChanged: (Int?) -> Unit,
+    isLoading: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 5 clickable stars
+        for (starIndex in 1..5) {
+            val isSelected = rating != null && starIndex <= rating
+
+            IconButton(
+                onClick = {
+                    if (!isLoading) {
+                        // If clicking the same star that's already selected, clear the rating
+                        if (rating == starIndex) {
+                            onRatingChanged(null)
+                        } else {
+                            onRatingChanged(starIndex)
+                        }
+                    }
+                },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = "Star $starIndex",
+                    tint = if (isSelected) Color(0xFFfbbf24) else Color(0xFF6b7280),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+
+        if (isLoading) {
+            Spacer(modifier = Modifier.width(8.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = Color(0xFFfbbf24),
+                strokeWidth = 2.dp
+            )
+        }
+    }
+}
+
+@Composable
+private fun AverageRatingDisplay(
+    average: Float,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Show 5 stars representing the average
+        for (starIndex in 1..5) {
+            val fillAmount = (average - starIndex + 1).coerceIn(0f, 1f)
+
+            Icon(
+                imageVector = when {
+                    fillAmount >= 1f -> Icons.Filled.Star
+                    fillAmount >= 0.5f -> Icons.Filled.StarHalf
+                    else -> Icons.Filled.StarBorder
+                },
+                contentDescription = null,
+                tint = if (fillAmount > 0f) Color(0xFFfbbf24) else Color(0xFF6b7280),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = String.format("%.1f", average),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFFfbbf24)
+        )
     }
 }
