@@ -1408,11 +1408,21 @@ private fun MaintenanceTab(viewModel: AdminViewModel) {
         if (duplicates.isNotEmpty()) {
             AdminSectionCard(title = "Duplicates (${duplicates.size})", icon = Icons.Outlined.ContentCopy) {
                 duplicates.take(5).forEach { group ->
-                    Text(
-                        text = "${group.key} (${group.books.size} copies)",
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
+                    Column {
+                        Text(
+                            text = "${group.books.firstOrNull()?.title ?: "Unknown"} (${group.books.size} copies)",
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                        group.matchReason?.let { reason ->
+                            Text(
+                                text = reason,
+                                color = Color(0xFF6b7280),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
                 if (duplicates.size > 5) {
                     Text(

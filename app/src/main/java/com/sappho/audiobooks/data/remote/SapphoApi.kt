@@ -253,7 +253,7 @@ interface SapphoApi {
     suspend fun clearLibrary(): Response<ClearLibraryResult>
 
     @GET("api/maintenance/jobs")
-    suspend fun getJobs(): Response<List<JobInfo>>
+    suspend fun getJobs(): Response<JobsResponse>
 
     // Collections Endpoints
     @GET("api/collections")
@@ -628,12 +628,20 @@ data class UserStatEntry(
 )
 
 data class DuplicatesResponse(
-    val duplicates: List<DuplicateGroup>
+    val duplicateGroups: List<DuplicateGroup>?,
+    val totalDuplicates: Int?
 )
 
 data class DuplicateGroup(
-    val key: String,
-    val books: List<DuplicateBook>
+    val id: String,
+    val matchReason: String?,
+    val books: List<DuplicateBook>,
+    val suggestedKeep: Int?
+)
+
+data class JobsResponse(
+    val jobs: Map<String, JobInfo>,
+    val forceRefreshInProgress: Boolean?
 )
 
 data class DuplicateBook(
@@ -666,14 +674,16 @@ data class ClearLibraryResult(
 )
 
 data class JobInfo(
-    val id: String,
+    val id: String = "",  // Set from map key
     val name: String,
+    val description: String?,
     val status: String,
-    @com.google.gson.annotations.SerializedName("last_run")
+    val interval: String?,
+    @com.google.gson.annotations.SerializedName("lastRun")
     val lastRun: String?,
-    @com.google.gson.annotations.SerializedName("next_run")
+    @com.google.gson.annotations.SerializedName("nextRun")
     val nextRun: String?,
-    val interval: String?
+    val canTrigger: Boolean?
 )
 
 // Collections Data Classes

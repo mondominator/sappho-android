@@ -516,7 +516,7 @@ class AdminViewModel @Inject constructor(
             try {
                 val response = api.getDuplicates()
                 if (response.isSuccessful) {
-                    _duplicates.value = response.body()?.duplicates ?: emptyList()
+                    _duplicates.value = response.body()?.duplicateGroups ?: emptyList()
                 } else {
                     android.util.Log.e("AdminViewModel", "Duplicates error: ${response.code()}")
                 }
@@ -535,7 +535,7 @@ class AdminViewModel @Inject constructor(
             try {
                 val response = api.getDuplicates()
                 if (response.isSuccessful) {
-                    _duplicates.value = response.body()?.duplicates ?: emptyList()
+                    _duplicates.value = response.body()?.duplicateGroups ?: emptyList()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -575,7 +575,9 @@ class AdminViewModel @Inject constructor(
             try {
                 val response = api.getJobs()
                 if (response.isSuccessful) {
-                    _jobs.value = response.body() ?: emptyList()
+                    // Convert map to list - the key becomes the job id
+                    val jobsMap = response.body()?.jobs ?: emptyMap()
+                    _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
                 } else {
                     android.util.Log.e("AdminViewModel", "Jobs error: ${response.code()}")
                 }
