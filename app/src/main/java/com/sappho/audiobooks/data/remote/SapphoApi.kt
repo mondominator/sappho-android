@@ -202,7 +202,7 @@ interface SapphoApi {
 
     // Backup Endpoints
     @GET("api/backup")
-    suspend fun getBackups(): Response<List<BackupInfo>>
+    suspend fun getBackups(): Response<BackupsResponse>
 
     @POST("api/backup")
     suspend fun createBackup(): Response<BackupInfo>
@@ -523,6 +523,19 @@ data class AudiobookUpdateRequest(
 )
 
 // Backup Data Classes
+data class BackupsResponse(
+    val backups: List<BackupInfo>,
+    val status: BackupStatus?
+)
+
+data class BackupStatus(
+    @com.google.gson.annotations.SerializedName("is_running")
+    val isRunning: Boolean?,
+    @com.google.gson.annotations.SerializedName("current_operation")
+    val currentOperation: String?,
+    val progress: Int?
+)
+
 data class BackupInfo(
     val filename: String,
     val size: Long,
