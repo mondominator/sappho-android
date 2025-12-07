@@ -49,7 +49,6 @@ fun AdminScreen(
     viewModel: AdminViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(AdminTab.LIBRARY) }
-    val isLoading by viewModel.isLoading.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -103,25 +102,16 @@ fun AdminScreen(
                 }
             }
 
-            // Content
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Color(0xFF3b82f6))
-                }
-            } else {
-                when (selectedTab) {
-                    AdminTab.LIBRARY -> LibraryTab(viewModel)
-                    AdminTab.SERVER -> ServerSettingsTab(viewModel)
-                    AdminTab.AI -> AiSettingsTab(viewModel)
-                    AdminTab.USERS -> UsersTab(viewModel)
-                    AdminTab.BACKUP -> BackupTab(viewModel)
-                    AdminTab.MAINTENANCE -> MaintenanceTab(viewModel)
-                    AdminTab.LOGS -> LogsTab(viewModel)
-                    AdminTab.STATISTICS -> StatisticsTab(viewModel)
-                }
+            // Content - show tab immediately, let each tab handle its own loading
+            when (selectedTab) {
+                AdminTab.LIBRARY -> LibraryTab(viewModel)
+                AdminTab.SERVER -> ServerSettingsTab(viewModel)
+                AdminTab.AI -> AiSettingsTab(viewModel)
+                AdminTab.USERS -> UsersTab(viewModel)
+                AdminTab.BACKUP -> BackupTab(viewModel)
+                AdminTab.MAINTENANCE -> MaintenanceTab(viewModel)
+                AdminTab.LOGS -> LogsTab(viewModel)
+                AdminTab.STATISTICS -> StatisticsTab(viewModel)
             }
         }
     }
@@ -163,6 +153,8 @@ private fun AdminTabChip(
 @Composable
 private fun LibraryTab(viewModel: AdminViewModel) {
     val serverSettings by viewModel.serverSettings.collectAsState()
+    val loadingSection by viewModel.loadingSection.collectAsState()
+    val isLoading = loadingSection == "serverSettings"
 
     LaunchedEffect(Unit) {
         viewModel.loadServerSettings()
@@ -190,10 +182,19 @@ private fun LibraryTab(viewModel: AdminViewModel) {
             )
         }
 
-        serverSettings?.settings?.let { settings ->
-            AdminSectionCard(title = "Library Paths", icon = Icons.Outlined.Folder) {
-                InfoRow(label = "Audiobooks Directory", value = settings.audiobooksDir ?: "Not set")
-                InfoRow(label = "Upload Directory", value = settings.uploadDir ?: "Not set")
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+            }
+        } else {
+            serverSettings?.settings?.let { settings ->
+                AdminSectionCard(title = "Library Paths", icon = Icons.Outlined.Folder) {
+                    InfoRow(label = "Audiobooks Directory", value = settings.audiobooksDir ?: "Not set")
+                    InfoRow(label = "Upload Directory", value = settings.uploadDir ?: "Not set")
+                }
             }
         }
     }
@@ -203,7 +204,8 @@ private fun LibraryTab(viewModel: AdminViewModel) {
 @Composable
 private fun ServerSettingsTab(viewModel: AdminViewModel) {
     val serverSettings by viewModel.serverSettings.collectAsState()
-    var editMode by remember { mutableStateOf(false) }
+    val loadingSection by viewModel.loadingSection.collectAsState()
+    val isLoading = loadingSection == "serverSettings"
 
     LaunchedEffect(Unit) {
         viewModel.loadServerSettings()
@@ -216,23 +218,32 @@ private fun ServerSettingsTab(viewModel: AdminViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        serverSettings?.settings?.let { settings ->
-            AdminSectionCard(title = "Server Configuration", icon = Icons.Outlined.Settings) {
-                InfoRow(label = "Port", value = settings.port ?: "3000")
-                InfoRow(label = "Environment", value = settings.nodeEnv ?: "production")
-                InfoRow(label = "Database Path", value = settings.databasePath ?: "Not set")
-                InfoRow(label = "Data Directory", value = settings.dataDir ?: "Not set")
-                InfoRow(
-                    label = "Scan Interval",
-                    value = settings.libraryScanInterval?.let { "${it / 60} minutes" } ?: "Not set"
-                )
-            }
-        } ?: run {
+        if (isLoading) {
             Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Loading server settings...", color = Color(0xFF9ca3af))
+                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+            }
+        } else {
+            serverSettings?.settings?.let { settings ->
+                AdminSectionCard(title = "Server Configuration", icon = Icons.Outlined.Settings) {
+                    InfoRow(label = "Port", value = settings.port ?: "3000")
+                    InfoRow(label = "Environment", value = settings.nodeEnv ?: "production")
+                    InfoRow(label = "Database Path", value = settings.databasePath ?: "Not set")
+                    InfoRow(label = "Data Directory", value = settings.dataDir ?: "Not set")
+                    InfoRow(
+                        label = "Scan Interval",
+                        value = settings.libraryScanInterval?.let { "${it / 60} minutes" } ?: "Not set"
+                    )
+                }
+            } ?: run {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No server settings available", color = Color(0xFF9ca3af))
+                }
             }
         }
     }
@@ -242,6 +253,8 @@ private fun ServerSettingsTab(viewModel: AdminViewModel) {
 @Composable
 private fun AiSettingsTab(viewModel: AdminViewModel) {
     val aiSettings by viewModel.aiSettings.collectAsState()
+    val loadingSection by viewModel.loadingSection.collectAsState()
+    val isLoading = loadingSection == "aiSettings"
     var showEditDialog by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<AiTestResponse?>(null) }
 
@@ -351,10 +364,14 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
             }
         } ?: run {
             Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Loading AI settings...", color = Color(0xFF9ca3af))
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                } else {
+                    Text("No AI settings available", color = Color(0xFF9ca3af))
+                }
             }
         }
     }

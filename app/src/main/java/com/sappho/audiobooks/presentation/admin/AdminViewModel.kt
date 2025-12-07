@@ -14,6 +14,9 @@ class AdminViewModel @Inject constructor(
     private val api: SapphoApi
 ) : ViewModel() {
 
+    // Track which sections have been loaded
+    private val loadedSections = mutableSetOf<String>()
+
     // Server Settings
     private val _serverSettings = MutableStateFlow<ServerSettingsResponse?>(null)
     val serverSettings: StateFlow<ServerSettingsResponse?> = _serverSettings
@@ -46,7 +49,11 @@ class AdminViewModel @Inject constructor(
     private val _jobs = MutableStateFlow<List<JobInfo>>(emptyList())
     val jobs: StateFlow<List<JobInfo>> = _jobs
 
-    // Loading states
+    // Loading states per section to avoid global spinner
+    private val _loadingSection = MutableStateFlow<String?>(null)
+    val loadingSection: StateFlow<String?> = _loadingSection
+
+    // Keep for backwards compatibility
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
@@ -59,28 +66,31 @@ class AdminViewModel @Inject constructor(
 
     // ============ Server Settings ============
     fun loadServerSettings() {
-        // Don't reload if already have data (prevents flickering)
-        if (_serverSettings.value != null) return
+        // Only load once per session (prevents flickering)
+        if ("serverSettings" in loadedSections) return
+        loadedSections.add("serverSettings")
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "serverSettings"
             try {
                 val response = api.getServerSettings()
                 if (response.isSuccessful) {
                     _serverSettings.value = response.body()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Server settings error: ${response.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AdminViewModel", "Server settings exception", e)
                 _message.value = "Failed to load server settings"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
 
     fun refreshServerSettings() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "serverSettings"
             try {
                 val response = api.getServerSettings()
                 if (response.isSuccessful) {
@@ -90,7 +100,7 @@ class AdminViewModel @Inject constructor(
                 e.printStackTrace()
                 _message.value = "Failed to load server settings"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
@@ -117,28 +127,30 @@ class AdminViewModel @Inject constructor(
 
     // ============ AI Settings ============
     fun loadAiSettings() {
-        // Don't reload if already have data (prevents flickering)
-        if (_aiSettings.value != null) return
+        if ("aiSettings" in loadedSections) return
+        loadedSections.add("aiSettings")
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "aiSettings"
             try {
                 val response = api.getAiSettings()
                 if (response.isSuccessful) {
                     _aiSettings.value = response.body()?.settings
+                } else {
+                    android.util.Log.e("AdminViewModel", "AI settings error: ${response.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AdminViewModel", "AI settings exception", e)
                 _message.value = "Failed to load AI settings"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
 
     fun refreshAiSettings() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "aiSettings"
             try {
                 val response = api.getAiSettings()
                 if (response.isSuccessful) {
@@ -148,7 +160,7 @@ class AdminViewModel @Inject constructor(
                 e.printStackTrace()
                 _message.value = "Failed to load AI settings"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
@@ -194,28 +206,30 @@ class AdminViewModel @Inject constructor(
 
     // ============ Users ============
     fun loadUsers() {
-        // Don't reload if already have data (prevents flickering)
-        if (_users.value.isNotEmpty()) return
+        if ("users" in loadedSections) return
+        loadedSections.add("users")
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "users"
             try {
                 val response = api.getUsers()
                 if (response.isSuccessful) {
                     _users.value = response.body() ?: emptyList()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Users error: ${response.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AdminViewModel", "Users exception", e)
                 _message.value = "Failed to load users"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
 
     fun refreshUsers() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "users"
             try {
                 val response = api.getUsers()
                 if (response.isSuccessful) {
@@ -225,7 +239,7 @@ class AdminViewModel @Inject constructor(
                 e.printStackTrace()
                 _message.value = "Failed to load users"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
@@ -294,28 +308,30 @@ class AdminViewModel @Inject constructor(
 
     // ============ Backups ============
     fun loadBackups() {
-        // Don't reload if already have data (prevents flickering)
-        if (_backups.value.isNotEmpty()) return
+        if ("backups" in loadedSections) return
+        loadedSections.add("backups")
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "backups"
             try {
                 val response = api.getBackups()
                 if (response.isSuccessful) {
                     _backups.value = response.body()?.backups ?: emptyList()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Backups error: ${response.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AdminViewModel", "Backups exception", e)
                 _message.value = "Failed to load backups"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
 
     fun refreshBackups() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "backups"
             try {
                 val response = api.getBackups()
                 if (response.isSuccessful) {
@@ -325,7 +341,7 @@ class AdminViewModel @Inject constructor(
                 e.printStackTrace()
                 _message.value = "Failed to load backups"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
@@ -411,28 +427,30 @@ class AdminViewModel @Inject constructor(
 
     // ============ Maintenance ============
     fun loadLogs(lines: Int = 100, level: String? = null) {
-        // Don't reload if already have data (prevents flickering)
-        if (_logs.value.isNotEmpty()) return
+        if ("logs" in loadedSections) return
+        loadedSections.add("logs")
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "logs"
             try {
                 val response = api.getLogs(lines, level)
                 if (response.isSuccessful) {
                     _logs.value = response.body()?.logs ?: emptyList()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Logs error: ${response.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AdminViewModel", "Logs exception", e)
                 _message.value = "Failed to load logs"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
 
     fun refreshLogs(lines: Int = 100, level: String? = null) {
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "logs"
             try {
                 val response = api.getLogs(lines, level)
                 if (response.isSuccessful) {
@@ -442,7 +460,7 @@ class AdminViewModel @Inject constructor(
                 e.printStackTrace()
                 _message.value = "Failed to load logs"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
@@ -468,48 +486,52 @@ class AdminViewModel @Inject constructor(
     }
 
     fun loadStatistics() {
-        // Don't reload if already have data (prevents flickering)
-        if (_statistics.value != null) return
+        if ("statistics" in loadedSections) return
+        loadedSections.add("statistics")
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "statistics"
             try {
                 val response = api.getLibraryStatistics()
                 if (response.isSuccessful) {
                     _statistics.value = response.body()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Statistics error: ${response.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AdminViewModel", "Statistics exception", e)
                 _message.value = "Failed to load statistics"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
 
     fun loadDuplicates() {
-        // Don't reload if already have data (prevents flickering)
-        if (_duplicates.value.isNotEmpty()) return
+        if ("duplicates" in loadedSections) return
+        loadedSections.add("duplicates")
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "duplicates"
             try {
                 val response = api.getDuplicates()
                 if (response.isSuccessful) {
                     _duplicates.value = response.body()?.duplicates ?: emptyList()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Duplicates error: ${response.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AdminViewModel", "Duplicates exception", e)
                 _message.value = "Failed to load duplicates"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
 
     fun refreshDuplicates() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "duplicates"
             try {
                 val response = api.getDuplicates()
                 if (response.isSuccessful) {
@@ -519,7 +541,7 @@ class AdminViewModel @Inject constructor(
                 e.printStackTrace()
                 _message.value = "Failed to load duplicates"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
@@ -545,21 +567,23 @@ class AdminViewModel @Inject constructor(
     }
 
     fun loadJobs() {
-        // Don't reload if already have data (prevents flickering)
-        if (_jobs.value.isNotEmpty()) return
+        if ("jobs" in loadedSections) return
+        loadedSections.add("jobs")
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _loadingSection.value = "jobs"
             try {
                 val response = api.getJobs()
                 if (response.isSuccessful) {
                     _jobs.value = response.body() ?: emptyList()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Jobs error: ${response.code()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AdminViewModel", "Jobs exception", e)
                 _message.value = "Failed to load jobs"
             } finally {
-                _isLoading.value = false
+                _loadingSection.value = null
             }
         }
     }
