@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,6 +18,8 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.BookmarkAdded
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
@@ -56,6 +59,8 @@ fun AudiobookDetailScreen(
     val serverUrl by viewModel.serverUrl.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
+    val isFavorite by viewModel.isFavorite.collectAsState()
+    val isTogglingFavorite by viewModel.isTogglingFavorite.collectAsState()
     var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
 
@@ -194,6 +199,34 @@ fun AudiobookDetailScreen(
                                             fontSize = 72.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFF3B82F6)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Reading list button overlay (top-right)
+                            if (!isOffline) {
+                                IconButton(
+                                    onClick = { viewModel.toggleFavorite() },
+                                    enabled = !isTogglingFavorite,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(12.dp)
+                                        .size(40.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                ) {
+                                    if (isTogglingFavorite) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = Color(0xFF3b82f6),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Filled.BookmarkAdded else Icons.Filled.BookmarkBorder,
+                                            contentDescription = if (isFavorite) "Remove from reading list" else "Add to reading list",
+                                            tint = if (isFavorite) Color(0xFF3b82f6) else Color.White,
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 }

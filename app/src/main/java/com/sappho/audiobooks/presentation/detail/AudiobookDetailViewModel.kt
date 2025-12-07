@@ -52,6 +52,12 @@ class AudiobookDetailViewModel @Inject constructor(
     private val _isOffline = MutableStateFlow(!networkMonitor.isOnline.value)
     val isOffline: StateFlow<Boolean> = _isOffline
 
+    private val _isFavorite = MutableStateFlow(false)
+    val isFavorite: StateFlow<Boolean> = _isFavorite
+
+    private val _isTogglingFavorite = MutableStateFlow(false)
+    val isTogglingFavorite: StateFlow<Boolean> = _isTogglingFavorite
+
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
         observeNetwork()
@@ -85,7 +91,9 @@ class AudiobookDetailViewModel @Inject constructor(
                 // Load audiobook
                 val response = api.getAudiobook(id)
                 if (response.isSuccessful) {
-                    _audiobook.value = response.body()
+                    val book = response.body()
+                    _audiobook.value = book
+                    _isFavorite.value = book?.isFavorite ?: false
                 }
 
                 // Load progress separately
@@ -183,6 +191,27 @@ class AudiobookDetailViewModel @Inject constructor(
     fun deleteDownload() {
         _audiobook.value?.let { book ->
             downloadManager.deleteDownload(book.id)
+        }
+    }
+
+    fun toggleFavorite() {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isTogglingFavorite.value) return@launch
+                _isTogglingFavorite.value = true
+                try {
+                    val response = api.toggleFavorite(book.id)
+                    if (response.isSuccessful) {
+                        response.body()?.let { result ->
+                            _isFavorite.value = result.isFavorite
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    _isTogglingFavorite.value = false
+                }
+            }
         }
     }
 }

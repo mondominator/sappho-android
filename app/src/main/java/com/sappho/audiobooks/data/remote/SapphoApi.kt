@@ -49,6 +49,13 @@ interface SapphoApi {
     @GET("api/audiobooks/meta/genre-mappings")
     suspend fun getGenreMappings(): Response<GenreMappingsResponse>
 
+    // Favorites
+    @GET("api/audiobooks/favorites")
+    suspend fun getFavorites(): Response<List<Audiobook>>
+
+    @POST("api/audiobooks/{id}/favorite/toggle")
+    suspend fun toggleFavorite(@Path("id") audiobookId: Int): Response<FavoriteResponse>
+
     // Progress
     @GET("api/audiobooks/{id}/progress")
     suspend fun getProgress(@Path("id") audiobookId: Int): Response<Progress>
@@ -303,6 +310,12 @@ data class AiTestResponse(
     val message: String?,
     val response: String?,
     val error: String?
+)
+
+data class FavoriteResponse(
+    val success: Boolean,
+    @com.google.gson.annotations.SerializedName("is_favorite")
+    val isFavorite: Boolean
 )
 
 data class UserInfo(

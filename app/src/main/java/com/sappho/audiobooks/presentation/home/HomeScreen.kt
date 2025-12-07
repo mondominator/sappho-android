@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -306,6 +308,25 @@ fun AudiobookCard(
                             .fillMaxWidth(progressPercent / 100f)
                             .fillMaxHeight()
                             .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
+
+            // Reading list indicator
+            if (book.isFavorite) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(24.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.BookmarkAdded,
+                        contentDescription = "On reading list",
+                        tint = Color(0xFF3b82f6),
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }

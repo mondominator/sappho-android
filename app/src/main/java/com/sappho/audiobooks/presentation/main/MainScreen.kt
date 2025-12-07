@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryBooks
@@ -78,6 +79,7 @@ sealed class Screen(val route: String, val title: String) {
         }
     }
     data object Search : Screen("search", "Search")
+    data object ReadingList : Screen("reading-list", "Reading List")
     data object Profile : Screen("profile", "Profile")
     data object Settings : Screen("settings", "Settings")
     data object AudiobookDetail : Screen("audiobook/{id}", "Audiobook Detail") {
@@ -126,6 +128,12 @@ fun MainScreen(
                 onProfileClick = {
                     showUserMenu = false
                     navController.navigate(Screen.Profile.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onReadingListClick = {
+                    showUserMenu = false
+                    navController.navigate(Screen.ReadingList.route) {
                         launchSingleTop = true
                     }
                 },
@@ -233,6 +241,14 @@ fun MainScreen(
                     onAuthorClick = { author ->
                         navController.navigate(Screen.Library.createRoute(author = author))
                     }
+                )
+            }
+            composable(Screen.ReadingList.route) {
+                com.sappho.audiobooks.presentation.readinglist.ReadingListScreen(
+                    onAudiobookClick = { audiobookId ->
+                        navController.navigate(Screen.AudiobookDetail.createRoute(audiobookId))
+                    },
+                    onBackClick = { navController.navigateUp() }
                 )
             }
             composable(Screen.Profile.route) {
@@ -502,6 +518,7 @@ fun TopBar(
     showUserMenu: Boolean,
     onUserMenuToggle: () -> Unit,
     onProfileClick: () -> Unit,
+    onReadingListClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onLogout: () -> Unit,
     onDismissMenu: () -> Unit,
@@ -633,6 +650,11 @@ fun TopBar(
                         icon = Icons.Default.Person,
                         text = "Profile",
                         onClick = onProfileClick
+                    )
+                    UserMenuItem(
+                        icon = Icons.Default.BookmarkAdded,
+                        text = "Reading List",
+                        onClick = onReadingListClick
                     )
                     UserMenuItem(
                         icon = Icons.Default.Download,
