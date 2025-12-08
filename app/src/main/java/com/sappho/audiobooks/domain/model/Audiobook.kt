@@ -13,6 +13,7 @@ data class Audiobook(
     val genre: String?,
     @SerializedName("published_year") val publishYear: Int?,
     val isbn: String?,
+    val asin: String?,
     val description: String?,
     @SerializedName("cover_image") val coverImage: String?,
     @SerializedName("file_count") val fileCount: Int,

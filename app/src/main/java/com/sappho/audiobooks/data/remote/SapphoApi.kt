@@ -84,6 +84,20 @@ interface SapphoApi {
     @GET("api/audiobooks/{id}/chapters")
     suspend fun getChapters(@Path("id") audiobookId: Int): Response<List<Chapter>>
 
+    // Update Chapter Titles (Admin)
+    @PUT("api/audiobooks/{id}/chapters")
+    suspend fun updateChapters(
+        @Path("id") audiobookId: Int,
+        @Body request: ChapterUpdateRequest
+    ): Response<ChapterUpdateResponse>
+
+    // Fetch Chapters from Audnexus by ASIN (Admin)
+    @POST("api/audiobooks/{id}/fetch-chapters")
+    suspend fun fetchChapters(
+        @Path("id") audiobookId: Int,
+        @Body request: FetchChaptersRequest
+    ): Response<FetchChaptersResponse>
+
     // Files
     @GET("api/audiobooks/{id}/files")
     suspend fun getFiles(@Path("id") audiobookId: Int): Response<List<AudiobookFile>>
@@ -816,5 +830,29 @@ data class MetadataSearchResult(
     val tags: String?,
     val rating: Float?,
     val image: String?,
-    val language: String?
+    val language: String?,
+    val hasChapters: Boolean?
+)
+
+// Chapter Update Data Classes
+data class ChapterUpdate(
+    val id: Int,
+    val title: String
+)
+
+data class ChapterUpdateRequest(
+    val chapters: List<ChapterUpdate>
+)
+
+data class ChapterUpdateResponse(
+    val message: String?
+)
+
+data class FetchChaptersRequest(
+    val asin: String
+)
+
+data class FetchChaptersResponse(
+    val message: String?,
+    val chapters: List<com.sappho.audiobooks.domain.model.Chapter>?
 )
