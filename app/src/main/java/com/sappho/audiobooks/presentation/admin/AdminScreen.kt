@@ -27,12 +27,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import com.sappho.audiobooks.data.remote.*
 import java.text.SimpleDateFormat
 import java.util.*
 
 enum class AdminTab(val title: String, val icon: ImageVector) {
     LIBRARY("Library", Icons.Outlined.LibraryBooks),
+    UPLOAD("Upload", Icons.Outlined.Upload),
     SERVER("Server", Icons.Outlined.Dns),
     AI("AI", Icons.Outlined.Psychology),
     USERS("Users", Icons.Outlined.People),
@@ -105,6 +110,7 @@ fun AdminScreen(
             // Content - show tab immediately, let each tab handle its own loading
             when (selectedTab) {
                 AdminTab.LIBRARY -> LibraryTab(viewModel)
+                AdminTab.UPLOAD -> UploadTab(viewModel)
                 AdminTab.SERVER -> ServerSettingsTab(viewModel)
                 AdminTab.AI -> AiSettingsTab(viewModel)
                 AdminTab.USERS -> UsersTab(viewModel)
@@ -2066,4 +2072,218 @@ private fun formatBackupDate(dateString: String): String {
     } catch (e: Exception) {
         dateString
     }
+}
+
+// ============ Upload Tab ============
+@Composable
+private fun UploadTab(viewModel: AdminViewModel) {
+    val context = LocalContext.current
+    val uploadState by viewModel.uploadState.collectAsState()
+    val uploadProgress by viewModel.uploadProgress.collectAsState()
+    val uploadResult by viewModel.uploadResult.collectAsState()
+
+    var selectedFiles by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var title by remember { mutableStateOf("") }
+    var author by remember { mutableStateOf("") }
+    var narrator by remember { mutableStateOf("") }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        selectedFiles = uris
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        AdminSectionCard(title = "Upload Audiobooks", icon = Icons.Outlined.Upload) {
+            Text(
+                text = "Select audio files to upload to your library. Supported formats: MP3, M4A, M4B, FLAC, OGG, WAV",
+                color = Color(0xFF9ca3af),
+                fontSize = 14.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            // File picker button
+            Button(
+                onClick = { filePickerLauncher.launch(arrayOf("audio/*")) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3b82f6)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.FolderOpen,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Select Files")
+            }
+
+            // Selected files display
+            if (selectedFiles.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "${selectedFiles.size} file(s) selected",
+                    color = Color(0xFF10b981),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                selectedFiles.forEach { uri ->
+                    val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "Unknown file"
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AudioFile,
+                            contentDescription = null,
+                            tint = Color(0xFF9ca3af),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = fileName,
+                            color = Color(0xFFd1d5db),
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Clear selection button
+                TextButton(
+                    onClick = { selectedFiles = emptyList() }
+                ) {
+                    Text("Clear selection", color = Color(0xFFef4444), fontSize = 12.sp)
+                }
+            }
+        }
+
+        // Optional metadata section (only show when files selected)
+        if (selectedFiles.isNotEmpty()) {
+            AdminSectionCard(title = "Optional Metadata", icon = Icons.Outlined.Edit) {
+                Text(
+                    text = "Leave blank to auto-detect from file metadata",
+                    color = Color(0xFF9ca3af),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = adminTextFieldColors()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = author,
+                    onValueChange = { author = it },
+                    label = { Text("Author") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = adminTextFieldColors()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = narrator,
+                    onValueChange = { narrator = it },
+                    label = { Text("Narrator") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = adminTextFieldColors()
+                )
+            }
+
+            // Upload button
+            Button(
+                onClick = {
+                    viewModel.uploadAudiobooks(
+                        context = context,
+                        uris = selectedFiles,
+                        title = title.ifBlank { null },
+                        author = author.ifBlank { null },
+                        narrator = narrator.ifBlank { null }
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = uploadState != UploadState.UPLOADING,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF10b981)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                if (uploadState == UploadState.UPLOADING) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Uploading... ${(uploadProgress * 100).toInt()}%")
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.CloudUpload,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Upload")
+                }
+            }
+        }
+
+        // Upload result
+        uploadResult?.let { result ->
+            AdminSectionCard(
+                title = if (result.success) "Upload Complete" else "Upload Failed",
+                icon = if (result.success) Icons.Outlined.CheckCircle else Icons.Outlined.Error
+            ) {
+                Text(
+                    text = result.message ?: if (result.success) "Files uploaded successfully" else "Upload failed",
+                    color = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                    fontSize = 14.sp
+                )
+
+                if (result.success) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(
+                        onClick = {
+                            selectedFiles = emptyList()
+                            title = ""
+                            author = ""
+                            narrator = ""
+                            viewModel.clearUploadResult()
+                        }
+                    ) {
+                        Text("Upload more files", color = Color(0xFF3b82f6))
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum class UploadState {
+    IDLE,
+    UPLOADING,
+    SUCCESS,
+    ERROR
 }

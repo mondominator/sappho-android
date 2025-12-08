@@ -3,7 +3,9 @@ package com.sappho.audiobooks.presentation.detail
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
 import com.sappho.audiobooks.data.remote.AverageRating
+import com.sappho.audiobooks.data.remote.MetadataSearchResult
 import com.sappho.audiobooks.data.remote.RatingRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.remote.UserRating
@@ -69,6 +71,27 @@ class AudiobookDetailViewModel @Inject constructor(
 
     private val _isUpdatingRating = MutableStateFlow(false)
     val isUpdatingRating: StateFlow<Boolean> = _isUpdatingRating
+
+    private val _isSavingMetadata = MutableStateFlow(false)
+    val isSavingMetadata: StateFlow<Boolean> = _isSavingMetadata
+
+    private val _metadataSaveResult = MutableStateFlow<String?>(null)
+    val metadataSaveResult: StateFlow<String?> = _metadataSaveResult
+
+    private val _isSearchingMetadata = MutableStateFlow(false)
+    val isSearchingMetadata: StateFlow<Boolean> = _isSearchingMetadata
+
+    private val _metadataSearchResults = MutableStateFlow<List<MetadataSearchResult>>(emptyList())
+    val metadataSearchResults: StateFlow<List<MetadataSearchResult>> = _metadataSearchResults
+
+    private val _metadataSearchError = MutableStateFlow<String?>(null)
+    val metadataSearchError: StateFlow<String?> = _metadataSearchError
+
+    private val _isEmbeddingMetadata = MutableStateFlow(false)
+    val isEmbeddingMetadata: StateFlow<Boolean> = _isEmbeddingMetadata
+
+    private val _embedMetadataResult = MutableStateFlow<String?>(null)
+    val embedMetadataResult: StateFlow<String?> = _embedMetadataResult
 
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
@@ -301,5 +324,99 @@ class AudiobookDetailViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun updateMetadata(request: AudiobookUpdateRequest, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isSavingMetadata.value) return@launch
+                _isSavingMetadata.value = true
+                _metadataSaveResult.value = null
+                try {
+                    val response = api.updateAudiobook(book.id, request)
+                    if (response.isSuccessful) {
+                        _metadataSaveResult.value = "Metadata saved successfully"
+                        // Reload audiobook to get updated data
+                        loadAudiobook(book.id)
+                        onSuccess()
+                    } else {
+                        _metadataSaveResult.value = "Failed to save metadata: ${response.code()}"
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _metadataSaveResult.value = "Error: ${e.message}"
+                } finally {
+                    _isSavingMetadata.value = false
+                }
+            }
+        }
+    }
+
+    fun clearMetadataSaveResult() {
+        _metadataSaveResult.value = null
+    }
+
+    fun searchMetadata(title: String?, author: String?, asin: String? = null) {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isSearchingMetadata.value) return@launch
+                _isSearchingMetadata.value = true
+                _metadataSearchError.value = null
+                _metadataSearchResults.value = emptyList()
+                try {
+                    val response = api.searchMetadata(
+                        id = book.id,
+                        title = title?.takeIf { it.isNotBlank() },
+                        author = author?.takeIf { it.isNotBlank() },
+                        asin = asin?.takeIf { it.isNotBlank() }
+                    )
+                    if (response.isSuccessful) {
+                        _metadataSearchResults.value = response.body()?.results ?: emptyList()
+                        if (_metadataSearchResults.value.isEmpty()) {
+                            _metadataSearchError.value = "No results found"
+                        }
+                    } else {
+                        _metadataSearchError.value = "Search failed: ${response.code()}"
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _metadataSearchError.value = "Error: ${e.message}"
+                } finally {
+                    _isSearchingMetadata.value = false
+                }
+            }
+        }
+    }
+
+    fun clearMetadataSearchResults() {
+        _metadataSearchResults.value = emptyList()
+        _metadataSearchError.value = null
+    }
+
+    fun embedMetadata() {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isEmbeddingMetadata.value) return@launch
+                _isEmbeddingMetadata.value = true
+                _embedMetadataResult.value = null
+                try {
+                    val response = api.embedMetadata(book.id)
+                    if (response.isSuccessful) {
+                        _embedMetadataResult.value = response.body()?.message ?: "Metadata embedded successfully"
+                    } else {
+                        _embedMetadataResult.value = "Failed to embed: ${response.code()}"
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _embedMetadataResult.value = "Error: ${e.message}"
+                } finally {
+                    _isEmbeddingMetadata.value = false
+                }
+            }
+        }
+    }
+
+    fun clearEmbedMetadataResult() {
+        _embedMetadataResult.value = null
     }
 }

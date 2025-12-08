@@ -200,6 +200,43 @@ interface SapphoApi {
         @Body request: AudiobookUpdateRequest
     ): Response<com.sappho.audiobooks.domain.model.Audiobook>
 
+    // Metadata Lookup (Admin)
+    @GET("api/audiobooks/{id}/search-audnexus")
+    suspend fun searchMetadata(
+        @Path("id") id: Int,
+        @Query("title") title: String? = null,
+        @Query("author") author: String? = null,
+        @Query("asin") asin: String? = null
+    ): Response<MetadataSearchResponse>
+
+    // Embed Metadata into file tags (Admin)
+    @POST("api/audiobooks/{id}/embed-metadata")
+    suspend fun embedMetadata(@Path("id") id: Int): Response<EmbedMetadataResponse>
+
+    // Upload Endpoints
+    @Multipart
+    @POST("api/upload")
+    suspend fun uploadAudiobook(
+        @Part file: MultipartBody.Part,
+        @Part("title") title: RequestBody? = null,
+        @Part("author") author: RequestBody? = null,
+        @Part("narrator") narrator: RequestBody? = null
+    ): Response<UploadResponse>
+
+    @Multipart
+    @POST("api/upload/batch")
+    suspend fun uploadBatch(
+        @Part files: List<MultipartBody.Part>
+    ): Response<BatchUploadResponse>
+
+    @Multipart
+    @POST("api/upload/multi-file")
+    suspend fun uploadMultiFile(
+        @Part files: List<MultipartBody.Part>,
+        @Part("title") title: RequestBody? = null,
+        @Part("author") author: RequestBody? = null
+    ): Response<UploadResponse>
+
     // Backup Endpoints
     @GET("api/backup")
     suspend fun getBackups(): Response<BackupsResponse>
@@ -294,15 +331,6 @@ interface SapphoApi {
 
     @GET("api/collections/for-book/{bookId}")
     suspend fun getCollectionsForBook(@Path("bookId") bookId: Int): Response<List<CollectionForBook>>
-
-    // Upload Endpoints
-    @Multipart
-    @POST("api/upload")
-    suspend fun uploadAudiobook(
-        @Part file: MultipartBody.Part,
-        @Part("title") title: RequestBody?,
-        @Part("author") author: RequestBody?
-    ): Response<UploadResponse>
 }
 
 data class ProfileUpdateRequest(
@@ -748,4 +776,45 @@ data class UploadResponse(
     val audiobook: com.sappho.audiobooks.domain.model.Audiobook?,
     val message: String?,
     val error: String?
+)
+
+data class BatchUploadResponse(
+    val results: List<BatchUploadResult>?
+)
+
+data class BatchUploadResult(
+    val success: Boolean,
+    val filename: String?,
+    val audiobook: com.sappho.audiobooks.domain.model.Audiobook?,
+    val error: String?
+)
+
+// Metadata Search Data Classes
+data class MetadataSearchResponse(
+    val results: List<MetadataSearchResult>
+)
+
+data class EmbedMetadataResponse(
+    val message: String?
+)
+
+data class MetadataSearchResult(
+    val source: String,
+    val asin: String?,
+    val title: String?,
+    val subtitle: String?,
+    val author: String?,
+    val narrator: String?,
+    val series: String?,
+    @com.google.gson.annotations.SerializedName("series_position")
+    val seriesPosition: Float?,
+    val publisher: String?,
+    @com.google.gson.annotations.SerializedName("published_year")
+    val publishedYear: Int?,
+    val description: String?,
+    val genre: String?,
+    val tags: String?,
+    val rating: Float?,
+    val image: String?,
+    val language: String?
 )
