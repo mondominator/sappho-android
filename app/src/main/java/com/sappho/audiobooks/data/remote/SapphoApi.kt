@@ -834,12 +834,16 @@ data class MetadataSearchResult(
     val publisher: String?,
     @com.google.gson.annotations.SerializedName("published_year")
     val publishedYear: Int?,
+    @com.google.gson.annotations.SerializedName("copyright_year")
+    val copyrightYear: Int?,
+    val isbn: String?,
     val description: String?,
     val genre: String?,
     val tags: String?,
     val rating: Float?,
     val image: String?,
     val language: String?,
+    val abridged: Int?,
     val hasChapters: Boolean?
 )
 

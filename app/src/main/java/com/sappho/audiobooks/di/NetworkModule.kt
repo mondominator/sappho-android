@@ -41,42 +41,66 @@ object NetworkModule {
             .addInterceptor(loggingInterceptor)
             .addInterceptor { chain ->
                 val original = chain.request()
+                val originalHost = original.url.host
 
                 // Get the current server URL dynamically
                 val serverUrl = authRepository.getServerUrlSync()
+                val serverHost = serverUrl?.toHttpUrlOrNull()?.host
 
-                val request = if (serverUrl != null && serverUrl.isNotBlank()) {
-                    // Parse the server URL to extract components
-                    val baseUrl = if (!serverUrl.endsWith("/")) "$serverUrl/" else serverUrl
-                    val httpUrl = baseUrl.toHttpUrlOrNull()
+                // Check if this is an external URL (not going to our server)
+                // External URLs should be passed through unchanged without auth headers
+                val isExternalUrl = serverHost != null &&
+                    originalHost != serverHost &&
+                    originalHost != "localhost" &&
+                    !originalHost.startsWith("192.168.") &&
+                    !originalHost.startsWith("10.") &&
+                    originalHost != "127.0.0.1"
 
-                    if (httpUrl != null) {
-                        // Rebuild the request URL with the dynamic server URL, preserving query parameters
-                        val urlBuilder = httpUrl.newBuilder()
-                            .addPathSegments(original.url.encodedPath.removePrefix("/"))
+                if (isExternalUrl) {
+                    // External URL - pass through unchanged (no auth, no URL rewriting)
+                    chain.proceed(original)
+                } else {
+                    val request = if (serverUrl != null && serverUrl.isNotBlank()) {
+                        // Parse the server URL to extract components
+                        val baseUrl = if (!serverUrl.endsWith("/")) "$serverUrl/" else serverUrl
+                        val httpUrl = baseUrl.toHttpUrlOrNull()
 
-                        // Copy all query parameters from the original request
-                        for (i in 0 until original.url.querySize) {
-                            val name = original.url.queryParameterName(i)
-                            val value = original.url.queryParameterValue(i)
-                            if (value != null) {
-                                urlBuilder.addQueryParameter(name, value)
+                        if (httpUrl != null) {
+                            // Rebuild the request URL with the dynamic server URL, preserving query parameters
+                            val urlBuilder = httpUrl.newBuilder()
+                                .addPathSegments(original.url.encodedPath.removePrefix("/"))
+
+                            // Copy all query parameters from the original request
+                            for (i in 0 until original.url.querySize) {
+                                val name = original.url.queryParameterName(i)
+                                val value = original.url.queryParameterValue(i)
+                                if (value != null) {
+                                    urlBuilder.addQueryParameter(name, value)
+                                }
                             }
+
+                            val newUrl = urlBuilder.build()
+
+                            val requestBuilder = original.newBuilder().url(newUrl)
+
+                            // Add authorization header if token exists
+                            val token = authRepository.getTokenSync()
+                            if (token != null) {
+                                requestBuilder.header("Authorization", "Bearer $token")
+                            }
+
+                            requestBuilder.build()
+                        } else {
+                            // Fall back to original if URL parsing fails
+                            val requestBuilder = original.newBuilder()
+                            val token = authRepository.getTokenSync()
+                            if (token != null) {
+                                requestBuilder.header("Authorization", "Bearer $token")
+                            }
+                            requestBuilder.build()
                         }
-
-                        val newUrl = urlBuilder.build()
-
-                        val requestBuilder = original.newBuilder().url(newUrl)
-
-                        // Add authorization header if token exists
-                        val token = authRepository.getTokenSync()
-                        if (token != null) {
-                            requestBuilder.header("Authorization", "Bearer $token")
-                        }
-
-                        requestBuilder.build()
                     } else {
-                        // Fall back to original if URL parsing fails
+                        // No server URL set, use original
                         val requestBuilder = original.newBuilder()
                         val token = authRepository.getTokenSync()
                         if (token != null) {
@@ -84,17 +108,9 @@ object NetworkModule {
                         }
                         requestBuilder.build()
                     }
-                } else {
-                    // No server URL set, use original
-                    val requestBuilder = original.newBuilder()
-                    val token = authRepository.getTokenSync()
-                    if (token != null) {
-                        requestBuilder.header("Authorization", "Bearer $token")
-                    }
-                    requestBuilder.build()
-                }
 
-                chain.proceed(request)
+                    chain.proceed(request)
+                }
             }
             // Interceptor to detect 401 Unauthorized responses
             .addInterceptor { chain ->
