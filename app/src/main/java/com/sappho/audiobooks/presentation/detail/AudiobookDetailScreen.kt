@@ -25,10 +25,14 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.StarHalf
 import androidx.compose.material3.*
+import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
+import com.sappho.audiobooks.data.remote.MetadataSearchResult
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +57,7 @@ fun AudiobookDetailScreen(
     onPlayClick: (Int, Int?) -> Unit = { _, _ -> },
     onAuthorClick: (String) -> Unit = {},
     onSeriesClick: (String) -> Unit = {},
+    isAdmin: Boolean = false,
     viewModel: AudiobookDetailViewModel = hiltViewModel()
 ) {
     val audiobook by viewModel.audiobook.collectAsState()
@@ -67,8 +72,16 @@ fun AudiobookDetailScreen(
     val userRating by viewModel.userRating.collectAsState()
     val averageRating by viewModel.averageRating.collectAsState()
     val isUpdatingRating by viewModel.isUpdatingRating.collectAsState()
+    val isSavingMetadata by viewModel.isSavingMetadata.collectAsState()
+    val metadataSaveResult by viewModel.metadataSaveResult.collectAsState()
+    val isSearchingMetadata by viewModel.isSearchingMetadata.collectAsState()
+    val metadataSearchResults by viewModel.metadataSearchResults.collectAsState()
+    val metadataSearchError by viewModel.metadataSearchError.collectAsState()
+    val isEmbeddingMetadata by viewModel.isEmbeddingMetadata.collectAsState()
+    val embedMetadataResult by viewModel.embedMetadataResult.collectAsState()
     var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
+    var showEditMetadataDialog by remember { mutableStateOf(false) }
 
     // Check if this audiobook is currently playing or loaded
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
@@ -110,11 +123,12 @@ fun AudiobookDetailScreen(
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = 80.dp)
                 ) {
-                    // Back Button
-                    Box(
+                    // Back Button and Edit Button (admin only)
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         OutlinedButton(
                             onClick = onBackClick,
@@ -132,6 +146,27 @@ fun AudiobookDetailScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Back", fontSize = 14.sp)
+                        }
+
+                        // Edit button (admin only)
+                        if (isAdmin && !isOffline) {
+                            OutlinedButton(
+                                onClick = { showEditMetadataDialog = true },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF3b82f6)
+                                ),
+                                border = BorderStroke(1.dp, Color(0xFF3b82f6).copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Edit", fontSize = 14.sp)
+                            }
                         }
                     }
 
@@ -952,6 +987,51 @@ fun AudiobookDetailScreen(
                 containerColor = Color(0xFF1e293b)
             )
         }
+
+        // Edit Metadata Dialog (admin only)
+        if (showEditMetadataDialog) {
+            audiobook?.let { book ->
+                EditMetadataDialog(
+                    audiobook = book,
+                    isSaving = isSavingMetadata,
+                    isSearching = isSearchingMetadata,
+                    isEmbedding = isEmbeddingMetadata,
+                    searchResults = metadataSearchResults,
+                    searchError = metadataSearchError,
+                    embedResult = embedMetadataResult,
+                    onDismiss = {
+                        showEditMetadataDialog = false
+                        viewModel.clearMetadataSearchResults()
+                        viewModel.clearEmbedMetadataResult()
+                    },
+                    onSave = { request ->
+                        viewModel.updateMetadata(request) {
+                            showEditMetadataDialog = false
+                            viewModel.clearMetadataSearchResults()
+                        }
+                    },
+                    onSaveAndEmbed = { request ->
+                        viewModel.updateMetadata(request) {
+                            viewModel.embedMetadata()
+                        }
+                    },
+                    onSearch = { searchTitle, searchAuthor ->
+                        viewModel.searchMetadata(searchTitle, searchAuthor)
+                    },
+                    onClearSearch = {
+                        viewModel.clearMetadataSearchResults()
+                    }
+                )
+            }
+        }
+
+        // Show snackbar for save result
+        metadataSaveResult?.let { result ->
+            LaunchedEffect(result) {
+                kotlinx.coroutines.delay(3000)
+                viewModel.clearMetadataSaveResult()
+            }
+        }
     }
 }
 
@@ -1237,3 +1317,471 @@ private fun AverageRatingDisplay(
         )
     }
 }
+
+@Composable
+fun EditMetadataDialog(
+    audiobook: com.sappho.audiobooks.domain.model.Audiobook,
+    isSaving: Boolean,
+    isSearching: Boolean,
+    isEmbedding: Boolean,
+    searchResults: List<MetadataSearchResult>,
+    searchError: String?,
+    embedResult: String?,
+    onDismiss: () -> Unit,
+    onSave: (AudiobookUpdateRequest) -> Unit,
+    onSaveAndEmbed: (AudiobookUpdateRequest) -> Unit,
+    onSearch: (String, String) -> Unit,
+    onClearSearch: () -> Unit
+) {
+    var title by remember { mutableStateOf(audiobook.title) }
+    var author by remember { mutableStateOf(audiobook.author ?: "") }
+    var narrator by remember { mutableStateOf(audiobook.narrator ?: "") }
+    var series by remember { mutableStateOf(audiobook.series ?: "") }
+    var seriesPosition by remember { mutableStateOf(audiobook.seriesPosition?.toString() ?: "") }
+    var genre by remember { mutableStateOf(audiobook.genre ?: "") }
+    var publishedYear by remember { mutableStateOf(audiobook.publishYear?.toString() ?: "") }
+    var description by remember { mutableStateOf(audiobook.description ?: "") }
+    var isbn by remember { mutableStateOf(audiobook.isbn ?: "") }
+    var showSearchResults by remember { mutableStateOf(false) }
+
+    // When search results come in, show them
+    LaunchedEffect(searchResults) {
+        if (searchResults.isNotEmpty()) {
+            showSearchResults = true
+        }
+    }
+
+    val isBusy = isSaving || isSearching || isEmbedding
+
+    AlertDialog(
+        onDismissRequest = { if (!isBusy) onDismiss() },
+        title = {
+            Text(
+                text = "Edit Metadata",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Embed result message
+                embedResult?.let { result ->
+                    val isSuccess = result.contains("success", ignoreCase = true)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSuccess) Color(0xFF10b981).copy(alpha = 0.15f) else Color(0xFFef4444).copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = result,
+                            fontSize = 12.sp,
+                            color = if (isSuccess) Color(0xFF34d399) else Color(0xFFf87171),
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+
+                // Embedding progress indicator
+                if (isEmbedding) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color(0xFF10b981),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Embedding metadata into file...",
+                            fontSize = 12.sp,
+                            color = Color(0xFF34d399)
+                        )
+                    }
+                }
+
+                // Lookup Button
+                Button(
+                    onClick = {
+                        onSearch(title, author)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isBusy && (title.isNotBlank() || author.isNotBlank()),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF8b5cf6).copy(alpha = 0.15f),
+                        contentColor = Color(0xFFa78bfa)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    if (isSearching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color(0xFFa78bfa),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Searching...")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Lookup Metadata")
+                    }
+                }
+
+                // Search Results Section
+                if (showSearchResults && searchResults.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF374151).copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, Color(0xFF8b5cf6).copy(alpha = 0.3f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${searchResults.size} Results",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFFa78bfa)
+                                )
+                                TextButton(
+                                    onClick = {
+                                        showSearchResults = false
+                                        onClearSearch()
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Hide", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                                }
+                            }
+
+                            searchResults.forEach { result ->
+                                MetadataSearchResultItem(
+                                    result = result,
+                                    onSelect = {
+                                        // Populate form fields with selected result
+                                        result.title?.let { title = it }
+                                        result.author?.let { author = it }
+                                        result.narrator?.let { narrator = it }
+                                        result.series?.let { series = it }
+                                        result.seriesPosition?.let { seriesPosition = it.toString() }
+                                        result.genre?.let { genre = it }
+                                        result.publishedYear?.let { publishedYear = it.toString() }
+                                        result.description?.let { description = it }
+                                        showSearchResults = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Search Error
+                searchError?.let { error ->
+                    Text(
+                        text = error,
+                        fontSize = 12.sp,
+                        color = Color(0xFFef4444)
+                    )
+                }
+
+                Divider(color = Color(0xFF374151))
+
+                // Title
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Author
+                OutlinedTextField(
+                    value = author,
+                    onValueChange = { author = it },
+                    label = { Text("Author") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Narrator
+                OutlinedTextField(
+                    value = narrator,
+                    onValueChange = { narrator = it },
+                    label = { Text("Narrator") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Series row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = series,
+                        onValueChange = { series = it },
+                        label = { Text("Series") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = editTextFieldColors()
+                    )
+                    OutlinedTextField(
+                        value = seriesPosition,
+                        onValueChange = { seriesPosition = it },
+                        label = { Text("#") },
+                        modifier = Modifier.width(60.dp),
+                        singleLine = true,
+                        colors = editTextFieldColors()
+                    )
+                }
+
+                // Genre
+                OutlinedTextField(
+                    value = genre,
+                    onValueChange = { genre = it },
+                    label = { Text("Genre") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Published Year
+                OutlinedTextField(
+                    value = publishedYear,
+                    onValueChange = { publishedYear = it },
+                    label = { Text("Published Year") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // ISBN
+                OutlinedTextField(
+                    value = isbn,
+                    onValueChange = { isbn = it },
+                    label = { Text("ISBN") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Description (multi-line)
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 100.dp),
+                    maxLines = 5,
+                    colors = editTextFieldColors()
+                )
+            }
+        },
+        confirmButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Save button
+                Button(
+                    onClick = {
+                        val request = AudiobookUpdateRequest(
+                            title = title.ifBlank { null },
+                            author = author.ifBlank { null },
+                            narrator = narrator.ifBlank { null },
+                            series = series.ifBlank { null },
+                            seriesPosition = seriesPosition.toFloatOrNull(),
+                            genre = genre.ifBlank { null },
+                            publishedYear = publishedYear.toIntOrNull(),
+                            description = description.ifBlank { null },
+                            isbn = isbn.ifBlank { null }
+                        )
+                        onSave(request)
+                    },
+                    enabled = !isBusy,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF3b82f6)
+                    )
+                ) {
+                    if (isSaving && !isEmbedding) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text("Save")
+                }
+
+                // Save & Embed button
+                Button(
+                    onClick = {
+                        val request = AudiobookUpdateRequest(
+                            title = title.ifBlank { null },
+                            author = author.ifBlank { null },
+                            narrator = narrator.ifBlank { null },
+                            series = series.ifBlank { null },
+                            seriesPosition = seriesPosition.toFloatOrNull(),
+                            genre = genre.ifBlank { null },
+                            publishedYear = publishedYear.toIntOrNull(),
+                            description = description.ifBlank { null },
+                            isbn = isbn.ifBlank { null }
+                        )
+                        onSaveAndEmbed(request)
+                    },
+                    enabled = !isBusy,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10b981)
+                    )
+                ) {
+                    if (isSaving && isEmbedding) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text("Save & Embed")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isBusy
+            ) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
+}
+
+@Composable
+private fun MetadataSearchResultItem(
+    result: MetadataSearchResult,
+    onSelect: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect),
+        shape = RoundedCornerShape(6.dp),
+        color = Color(0xFF1e293b)
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = result.title ?: "Unknown Title",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = when (result.source.lowercase()) {
+                        "audible" -> Color(0xFFf97316).copy(alpha = 0.2f)
+                        "google" -> Color(0xFF3b82f6).copy(alpha = 0.2f)
+                        else -> Color(0xFF10b981).copy(alpha = 0.2f)
+                    }
+                ) {
+                    Text(
+                        text = result.source.replaceFirstChar { it.uppercase() },
+                        fontSize = 10.sp,
+                        color = when (result.source.lowercase()) {
+                            "audible" -> Color(0xFFfb923c)
+                            "google" -> Color(0xFF60a5fa)
+                            else -> Color(0xFF34d399)
+                        },
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            result.author?.let { author ->
+                Text(
+                    text = "by $author",
+                    fontSize = 12.sp,
+                    color = Color(0xFF9ca3af),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                result.narrator?.let { narrator ->
+                    Text(
+                        text = "Narrated: $narrator",
+                        fontSize = 11.sp,
+                        color = Color(0xFF6b7280),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+                result.series?.let { series ->
+                    val seriesText = if (result.seriesPosition != null) {
+                        "$series #${result.seriesPosition}"
+                    } else {
+                        series
+                    }
+                    Text(
+                        text = seriesText,
+                        fontSize = 11.sp,
+                        color = Color(0xFF8b5cf6),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun editTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.White,
+    unfocusedTextColor = Color(0xFFd1d5db),
+    focusedBorderColor = Color(0xFF3b82f6),
+    unfocusedBorderColor = Color(0xFF374151),
+    focusedLabelColor = Color(0xFF3b82f6),
+    unfocusedLabelColor = Color(0xFF9ca3af),
+    cursorColor = Color(0xFF3b82f6)
+)
