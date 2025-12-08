@@ -26,11 +26,13 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.StarHalf
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
 import com.sappho.audiobooks.data.remote.ChapterUpdate
 import com.sappho.audiobooks.data.remote.MetadataSearchResult
@@ -1366,23 +1368,53 @@ fun EditMetadataDialog(
 
     val isBusy = isSaving || isSearching || isEmbedding || isFetchingChapters
 
-    AlertDialog(
-        onDismissRequest = { if (!isBusy) onDismiss() },
-        title = {
-            Text(
-                text = "Edit Metadata",
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
+    Dialog(onDismissRequest = { if (!isBusy) onDismiss() }) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.9f),
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF1e293b)
+        ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 500.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxSize()
             ) {
+                // Header with title and X button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Edit Metadata",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        enabled = !isBusy,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = if (!isBusy) Color(0xFF9ca3af) else Color(0xFF4b5563)
+                        )
+                    }
+                }
+
+                // Scrollable content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                 // Embed result message
                 embedResult?.let { result ->
                     val isSuccess = result.contains("success", ignoreCase = true)
@@ -1845,105 +1877,103 @@ fun EditMetadataDialog(
                     maxLines = 5,
                     colors = editTextFieldColors()
                 )
-            }
-        },
-        confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Save button
-                Button(
-                    onClick = {
-                        val request = AudiobookUpdateRequest(
-                            title = title.ifBlank { null },
-                            subtitle = subtitle.ifBlank { null },
-                            author = author.ifBlank { null },
-                            narrator = narrator.ifBlank { null },
-                            series = series.ifBlank { null },
-                            seriesPosition = seriesPosition.toFloatOrNull(),
-                            genre = genre.ifBlank { null },
-                            tags = tags.ifBlank { null },
-                            publishedYear = publishedYear.toIntOrNull(),
-                            copyrightYear = copyrightYear.toIntOrNull(),
-                            publisher = publisher.ifBlank { null },
-                            description = description.ifBlank { null },
-                            isbn = isbn.ifBlank { null },
-                            asin = asin.ifBlank { null },
-                            language = language.ifBlank { null },
-                            rating = bookRating.toFloatOrNull(),
-                            abridged = if (abridged) true else null,
-                            coverUrl = coverUrl.ifBlank { null }
-                        )
-                        onSave(request)
-                    },
-                    enabled = !isBusy,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF3b82f6)
-                    )
-                ) {
-                    if (isSaving && !isEmbedding) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text("Save")
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Save & Embed button
-                Button(
-                    onClick = {
-                        val request = AudiobookUpdateRequest(
-                            title = title.ifBlank { null },
-                            subtitle = subtitle.ifBlank { null },
-                            author = author.ifBlank { null },
-                            narrator = narrator.ifBlank { null },
-                            series = series.ifBlank { null },
-                            seriesPosition = seriesPosition.toFloatOrNull(),
-                            genre = genre.ifBlank { null },
-                            tags = tags.ifBlank { null },
-                            publishedYear = publishedYear.toIntOrNull(),
-                            copyrightYear = copyrightYear.toIntOrNull(),
-                            publisher = publisher.ifBlank { null },
-                            description = description.ifBlank { null },
-                            isbn = isbn.ifBlank { null },
-                            asin = asin.ifBlank { null },
-                            language = language.ifBlank { null },
-                            rating = bookRating.toFloatOrNull(),
-                            abridged = if (abridged) true else null,
-                            coverUrl = coverUrl.ifBlank { null }
-                        )
-                        onSaveAndEmbed(request)
-                    },
-                    enabled = !isBusy,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF10b981)
-                    )
+                // Bottom buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (isSaving && isEmbedding) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    // Save button
+                    Button(
+                        onClick = {
+                            val request = AudiobookUpdateRequest(
+                                title = title.ifBlank { null },
+                                subtitle = subtitle.ifBlank { null },
+                                author = author.ifBlank { null },
+                                narrator = narrator.ifBlank { null },
+                                series = series.ifBlank { null },
+                                seriesPosition = seriesPosition.toFloatOrNull(),
+                                genre = genre.ifBlank { null },
+                                tags = tags.ifBlank { null },
+                                publishedYear = publishedYear.toIntOrNull(),
+                                copyrightYear = copyrightYear.toIntOrNull(),
+                                publisher = publisher.ifBlank { null },
+                                description = description.ifBlank { null },
+                                isbn = isbn.ifBlank { null },
+                                asin = asin.ifBlank { null },
+                                language = language.ifBlank { null },
+                                rating = bookRating.toFloatOrNull(),
+                                abridged = if (abridged) true else null,
+                                coverUrl = coverUrl.ifBlank { null }
+                            )
+                            onSave(request)
+                        },
+                        enabled = !isBusy,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3b82f6)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (isSaving && !isEmbedding) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text("Save")
                     }
-                    Text("Save & Embed")
+
+                    // Save & Embed button
+                    Button(
+                        onClick = {
+                            val request = AudiobookUpdateRequest(
+                                title = title.ifBlank { null },
+                                subtitle = subtitle.ifBlank { null },
+                                author = author.ifBlank { null },
+                                narrator = narrator.ifBlank { null },
+                                series = series.ifBlank { null },
+                                seriesPosition = seriesPosition.toFloatOrNull(),
+                                genre = genre.ifBlank { null },
+                                tags = tags.ifBlank { null },
+                                publishedYear = publishedYear.toIntOrNull(),
+                                copyrightYear = copyrightYear.toIntOrNull(),
+                                publisher = publisher.ifBlank { null },
+                                description = description.ifBlank { null },
+                                isbn = isbn.ifBlank { null },
+                                asin = asin.ifBlank { null },
+                                language = language.ifBlank { null },
+                                rating = bookRating.toFloatOrNull(),
+                                abridged = if (abridged) true else null,
+                                coverUrl = coverUrl.ifBlank { null }
+                            )
+                            onSaveAndEmbed(request)
+                        },
+                        enabled = !isBusy,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10b981)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (isSaving && isEmbedding) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text("Save & Embed")
+                    }
                 }
             }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isBusy
-            ) {
-                Text("Cancel", color = Color(0xFF9ca3af))
-            }
-        },
-        containerColor = Color(0xFF1e293b)
-    )
+        }
+    }
 
     // Metadata Preview Dialog - shows when a search result is selected
     selectedResultForPreview?.let { result ->
@@ -1959,6 +1989,8 @@ fun EditMetadataDialog(
             currentTags = tags,
             currentPublisher = publisher,
             currentPublishedYear = publishedYear,
+            currentCopyrightYear = copyrightYear,
+            currentIsbn = isbn,
             currentDescription = description,
             currentLanguage = language,
             currentRating = bookRating,
@@ -1977,6 +2009,8 @@ fun EditMetadataDialog(
                 if (selectedFields.contains("tags")) result.tags?.let { tags = it }
                 if (selectedFields.contains("publisher")) result.publisher?.let { publisher = it }
                 if (selectedFields.contains("publishedYear")) result.publishedYear?.let { publishedYear = it.toString() }
+                if (selectedFields.contains("copyrightYear")) result.copyrightYear?.let { copyrightYear = it.toString() }
+                if (selectedFields.contains("isbn")) result.isbn?.let { isbn = it }
                 if (selectedFields.contains("description")) result.description?.let { description = it }
                 if (selectedFields.contains("language")) result.language?.let { language = it }
                 if (selectedFields.contains("rating")) result.rating?.let { bookRating = it.toString() }
@@ -2006,6 +2040,8 @@ private fun MetadataPreviewDialog(
     currentTags: String,
     currentPublisher: String,
     currentPublishedYear: String,
+    currentCopyrightYear: String,
+    currentIsbn: String,
     currentDescription: String,
     currentLanguage: String,
     currentRating: String,
@@ -2029,6 +2065,8 @@ private fun MetadataPreviewDialog(
         if (result.tags != null && result.tags != currentTags) selectedFields["tags"] = true
         if (result.publisher != null && result.publisher != currentPublisher) selectedFields["publisher"] = true
         if (result.publishedYear != null && result.publishedYear.toString() != currentPublishedYear) selectedFields["publishedYear"] = true
+        if (result.copyrightYear != null && result.copyrightYear.toString() != currentCopyrightYear) selectedFields["copyrightYear"] = true
+        if (result.isbn != null && result.isbn != currentIsbn) selectedFields["isbn"] = true
         if (result.description != null && result.description != currentDescription) selectedFields["description"] = true
         if (result.language != null && result.language != currentLanguage) selectedFields["language"] = true
         if (result.rating != null && result.rating.toString() != currentRating) selectedFields["rating"] = true
@@ -2036,28 +2074,57 @@ private fun MetadataPreviewDialog(
         if (result.image != null && result.image != currentCoverUrl) selectedFields["coverUrl"] = true
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Apply Metadata",
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF1e293b)
+        ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxSize()
             ) {
-                Text(
-                    text = "Select fields to apply:",
-                    fontSize = 12.sp,
-                    color = Color(0xFF9ca3af)
-                )
+                // Header with title and X button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Apply Metadata",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF9ca3af)
+                        )
+                    }
+                }
+
+                // Scrollable content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Select fields to apply:",
+                        fontSize = 12.sp,
+                        color = Color(0xFF9ca3af)
+                    )
 
                 // Field rows with checkboxes
                 result.title?.let { newValue ->
@@ -2190,6 +2257,32 @@ private fun MetadataPreviewDialog(
                     }
                 }
 
+                result.copyrightYear?.let { newValue ->
+                    if (newValue.toString() != currentCopyrightYear) {
+                        FieldPreviewRow(
+                            fieldName = "Copyright Year",
+                            fieldKey = "copyrightYear",
+                            oldValue = currentCopyrightYear.ifBlank { "(empty)" },
+                            newValue = newValue.toString(),
+                            isSelected = selectedFields["copyrightYear"] ?: false,
+                            onSelectionChange = { selectedFields["copyrightYear"] = it }
+                        )
+                    }
+                }
+
+                result.isbn?.let { newValue ->
+                    if (newValue != currentIsbn) {
+                        FieldPreviewRow(
+                            fieldName = "ISBN",
+                            fieldKey = "isbn",
+                            oldValue = currentIsbn.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["isbn"] ?: false,
+                            onSelectionChange = { selectedFields["isbn"] = it }
+                        )
+                    }
+                }
+
                 result.language?.let { newValue ->
                     if (newValue != currentLanguage) {
                         FieldPreviewRow(
@@ -2255,36 +2348,41 @@ private fun MetadataPreviewDialog(
                     }
                 }
 
-                if (selectedFields.isEmpty()) {
-                    Text(
-                        text = "No new values to apply - all fields match current values.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF6b7280),
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
+                    if (selectedFields.isEmpty()) {
+                        Text(
+                            text = "No new values to apply - all fields match current values.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF6b7280),
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Bottom button
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF1e293b)
+                ) {
+                    Button(
+                        onClick = {
+                            onApply(selectedFields.filter { it.value }.keys)
+                        },
+                        enabled = selectedFields.any { it.value },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3b82f6)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text("Apply Selected")
+                    }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onApply(selectedFields.filter { it.value }.keys)
-                },
-                enabled = selectedFields.any { it.value },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3b82f6)
-                )
-            ) {
-                Text("Apply Selected")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
-            }
-        },
-        containerColor = Color(0xFF1e293b)
-    )
+        }
+    }
 }
 
 @Composable
@@ -2372,9 +2470,12 @@ private fun MetadataSearchResultItem(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Cover image preview
-            if (result.image != null) {
+            if (!result.image.isNullOrBlank()) {
                 AsyncImage(
-                    model = result.image,
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(result.image)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = "Cover",
                     modifier = Modifier
                         .size(50.dp)
