@@ -604,6 +604,7 @@ fun PlayerScreen(
                     // Use local state for smooth dragging, only seek on release
                     var isDragging by remember { mutableStateOf(false) }
                     var dragPosition by remember { mutableStateOf(0f) }
+                    var wasPlayingBeforeDrag by remember { mutableStateOf(false) }
 
                     // The displayed position: use drag position while dragging, actual position otherwise
                     val displayedPosition = if (isDragging) dragPosition else currentPosition.toFloat()
@@ -653,12 +654,20 @@ fun PlayerScreen(
                         Slider(
                             value = if (duration > 0) displayedPosition else 0f,
                             onValueChange = { newValue ->
+                                if (!isDragging) {
+                                    // Capture playing state when drag starts
+                                    wasPlayingBeforeDrag = isPlaying
+                                }
                                 isDragging = true
                                 dragPosition = newValue
                             },
                             onValueChangeFinished = {
-                                // Seek and start playing when user releases the slider
-                                AudioPlaybackService.instance?.seekToAndPlay(dragPosition.toLong())
+                                // Seek to position, only resume playback if it was playing before
+                                if (wasPlayingBeforeDrag) {
+                                    AudioPlaybackService.instance?.seekToAndPlay(dragPosition.toLong())
+                                } else {
+                                    AudioPlaybackService.instance?.seekTo(dragPosition.toLong())
+                                }
                                 isDragging = false
                             },
                             valueRange = 0f..duration.toFloat().coerceAtLeast(1f),

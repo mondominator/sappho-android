@@ -135,6 +135,7 @@ dependencies {
     // Accompanist (Compose utilities)
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

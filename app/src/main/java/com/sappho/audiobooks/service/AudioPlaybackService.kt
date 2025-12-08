@@ -993,11 +993,15 @@ class AudioPlaybackService : MediaLibraryService() {
 
     fun seekTo(seconds: Long) {
         player?.seekTo(seconds * 1000)
+        // Immediately update UI position so slider doesn't snap back
+        playerState.updatePosition(seconds)
     }
 
     fun seekToAndPlay(seconds: Long) {
         player?.let {
             it.seekTo(seconds * 1000)
+            // Immediately update UI position so slider doesn't snap back
+            playerState.updatePosition(seconds)
             if (!it.isPlaying) {
                 it.play()
             }
