@@ -44,6 +44,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sappho.audiobooks.R
+import com.sappho.audiobooks.BuildConfig
 import com.sappho.audiobooks.presentation.home.HomeScreen
 import com.sappho.audiobooks.domain.model.User
 import com.sappho.audiobooks.presentation.library.LibraryScreen
@@ -108,6 +109,7 @@ fun MainScreen(
     var showUserMenu by remember { mutableStateOf(false) }
     val user by viewModel.user.collectAsState()
     val serverUrl by viewModel.serverUrl.collectAsState()
+    val serverVersion by viewModel.serverVersion.collectAsState()
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -124,6 +126,7 @@ fun MainScreen(
                 navController = navController,
                 user = user,
                 serverUrl = serverUrl,
+                serverVersion = serverVersion,
                 showUserMenu = showUserMenu,
                 onUserMenuToggle = { showUserMenu = !showUserMenu },
                 onProfileClick = {
@@ -528,6 +531,7 @@ fun TopBar(
     navController: NavHostController,
     user: User?,
     serverUrl: String?,
+    serverVersion: String?,
     showUserMenu: Boolean,
     onUserMenuToggle: () -> Unit,
     onProfileClick: () -> Unit,
@@ -540,6 +544,7 @@ fun TopBar(
     onDownloadsClick: () -> Unit,
     downloadCount: Int
 ) {
+    val appVersion = BuildConfig.VERSION_NAME
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
@@ -687,6 +692,29 @@ fun TopBar(
                         text = "Logout",
                         onClick = onLogout
                     )
+
+                    // Version info at the bottom
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Column {
+                            Text(
+                                text = "App v$appVersion",
+                                color = Color(0xFF6b7280),
+                                fontSize = 11.sp
+                            )
+                            if (serverVersion != null) {
+                                Text(
+                                    text = "Server v$serverVersion",
+                                    color = Color(0xFF6b7280),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
