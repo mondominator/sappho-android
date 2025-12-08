@@ -351,6 +351,22 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    fun loadBackupRetention() {
+        if ("backupRetention" in loadedSections) return
+        loadedSections.add("backupRetention")
+
+        viewModelScope.launch {
+            try {
+                val response = api.getBackupRetention()
+                if (response.isSuccessful) {
+                    _backupRetention.value = response.body()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminViewModel", "Backup retention exception", e)
+            }
+        }
+    }
+
     fun refreshBackups() {
         viewModelScope.launch {
             _loadingSection.value = "backups"
@@ -608,6 +624,44 @@ class AdminViewModel @Inject constructor(
                 _message.value = "Failed to load jobs"
             } finally {
                 _loadingSection.value = null
+            }
+        }
+    }
+
+    fun refreshJobs() {
+        viewModelScope.launch {
+            _loadingSection.value = "jobs"
+            try {
+                val response = api.getJobs()
+                if (response.isSuccessful) {
+                    val jobsMap = response.body()?.jobs ?: emptyMap()
+                    _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to refresh jobs"
+            } finally {
+                _loadingSection.value = null
+            }
+        }
+    }
+
+    fun triggerJob(jobId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.triggerJob(jobId)
+                if (response.isSuccessful) {
+                    _message.value = response.body()?.message ?: "Job triggered successfully"
+                    refreshJobs()
+                } else {
+                    _message.value = "Failed to trigger job"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }

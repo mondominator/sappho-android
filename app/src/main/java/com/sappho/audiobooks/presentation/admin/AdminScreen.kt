@@ -36,15 +36,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 enum class AdminTab(val title: String, val icon: ImageVector) {
+    STATISTICS("Statistics", Icons.Outlined.BarChart),
     LIBRARY("Library", Icons.Outlined.LibraryBooks),
-    UPLOAD("Upload", Icons.Outlined.Upload),
     SERVER("Server", Icons.Outlined.Dns),
     AI("AI", Icons.Outlined.Psychology),
     USERS("Users", Icons.Outlined.People),
     BACKUP("Backup", Icons.Outlined.Backup),
-    MAINTENANCE("Maintenance", Icons.Outlined.Build),
-    LOGS("Logs", Icons.Outlined.Article),
-    STATISTICS("Statistics", Icons.Outlined.BarChart)
+    LOGS("Logs", Icons.Outlined.Article)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +51,7 @@ fun AdminScreen(
     onBack: () -> Unit,
     viewModel: AdminViewModel = hiltViewModel()
 ) {
-    var selectedTab by remember { mutableStateOf(AdminTab.LIBRARY) }
+    var selectedTab by remember { mutableStateOf(AdminTab.STATISTICS) }
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -109,15 +107,13 @@ fun AdminScreen(
 
             // Content - show tab immediately, let each tab handle its own loading
             when (selectedTab) {
+                AdminTab.STATISTICS -> StatisticsTab(viewModel)
                 AdminTab.LIBRARY -> LibraryTab(viewModel)
-                AdminTab.UPLOAD -> UploadTab(viewModel)
                 AdminTab.SERVER -> ServerSettingsTab(viewModel)
                 AdminTab.AI -> AiSettingsTab(viewModel)
                 AdminTab.USERS -> UsersTab(viewModel)
                 AdminTab.BACKUP -> BackupTab(viewModel)
-                AdminTab.MAINTENANCE -> MaintenanceTab(viewModel)
                 AdminTab.LOGS -> LogsTab(viewModel)
-                AdminTab.STATISTICS -> StatisticsTab(viewModel)
             }
         }
     }
@@ -159,12 +155,17 @@ private fun AdminTabChip(
 @Composable
 private fun LibraryTab(viewModel: AdminViewModel) {
     val serverSettings by viewModel.serverSettings.collectAsState()
+    val duplicates by viewModel.duplicates.collectAsState()
+    val jobs by viewModel.jobs.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
     val isLoading = loadingSection == "serverSettings"
     var showEditDialog by remember { mutableStateOf(false) }
+    var selectedDuplicateGroup by remember { mutableStateOf<DuplicateGroup?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadServerSettings()
+        viewModel.loadDuplicates()
+        viewModel.loadJobs()
     }
 
     Column(
@@ -174,7 +175,7 @@ private fun LibraryTab(viewModel: AdminViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        AdminSectionCard(title = "Library Actions", icon = Icons.Outlined.Refresh) {
+        AdminSectionCard(title = "Library Actions") {
             ActionButton(
                 text = "Scan Library",
                 description = "Scan for new audiobooks",
@@ -182,8 +183,8 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                 onClick = { viewModel.scanLibrary() }
             )
             ActionButton(
-                text = "Force Rescan",
-                description = "Rescan all audiobook metadata",
+                text = "Refresh Library",
+                description = "Re-import all audiobooks (preserves progress)",
                 icon = Icons.Outlined.Refresh,
                 onClick = { viewModel.forceRescan() }
             )
@@ -228,6 +229,103 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                 }
             }
         }
+
+        // Duplicates section
+        if (duplicates.isNotEmpty()) {
+            AdminSectionCard(title = "Duplicates (${duplicates.size} groups)", icon = Icons.Outlined.ContentCopy) {
+                duplicates.forEach { group ->
+                    DuplicateGroupCard(
+                        group = group,
+                        onClick = { selectedDuplicateGroup = group }
+                    )
+                }
+            }
+        }
+
+        // Jobs section
+        if (jobs.isNotEmpty()) {
+            AdminSectionCard(title = "Scheduled Jobs", icon = Icons.Outlined.Schedule) {
+                jobs.forEach { job ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF374151).copy(alpha = 0.5f)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(job.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    job.description?.let { desc ->
+                                        Text(desc, color = Color(0xFF9ca3af), fontSize = 12.sp)
+                                    }
+                                }
+                                if (job.canTrigger == true) {
+                                    Button(
+                                        onClick = { viewModel.triggerJob(job.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6)),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.PlayArrow,
+                                            contentDescription = "Trigger",
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Run", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                val statusColor = when (job.status.lowercase()) {
+                                    "running" -> Color(0xFF10b981)
+                                    "scheduled" -> Color(0xFF3b82f6)
+                                    "idle" -> Color(0xFF9ca3af)
+                                    else -> Color(0xFF9ca3af)
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = statusColor.copy(alpha = 0.2f)
+                                ) {
+                                    Text(
+                                        job.status.uppercase(),
+                                        color = statusColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                                job.interval?.let {
+                                    Text("Interval: $it", color = Color(0xFF6b7280), fontSize = 11.sp)
+                                }
+                            }
+                            job.lastRun?.let { lastRun ->
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Last run: ${formatBackupDate(lastRun)}", color = Color(0xFF6b7280), fontSize = 11.sp)
+                            }
+                            job.lastResult?.let { result ->
+                                Text("Result: $result", color = Color(0xFF9ca3af), fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                            job.nextRun?.let { nextRun ->
+                                Text("Next: ${formatBackupDate(nextRun)}", color = Color(0xFF3b82f6), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Edit Dialog
@@ -243,6 +341,18 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                 }
             )
         }
+    }
+
+    // Duplicate Merge Dialog
+    selectedDuplicateGroup?.let { group ->
+        DuplicateMergeDialog(
+            group = group,
+            onDismiss = { selectedDuplicateGroup = null },
+            onMerge = { keepId, deleteIds ->
+                viewModel.mergeDuplicates(keepId, deleteIds)
+                selectedDuplicateGroup = null
+            }
+        )
     }
 }
 
@@ -541,7 +651,8 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
     val aiSettings by viewModel.aiSettings.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
     val isLoading = loadingSection == "aiSettings"
-    var showEditDialog by remember { mutableStateOf(false) }
+    var showProviderDialog by remember { mutableStateOf(false) }
+    var showRecapDialog by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<AiTestResponse?>(null) }
     // Track if initial load is done (separate from loading indicator)
     var hasLoaded by remember { mutableStateOf(false) }
@@ -566,12 +677,12 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
     ) {
         val settings = aiSettings
         if (settings != null) {
-            // AI is configured - show current settings with edit option
+            // AI Provider settings with its own edit button
             AdminSectionCard(
                 title = "AI Provider",
                 icon = Icons.Outlined.Psychology,
                 action = {
-                    IconButton(onClick = { showEditDialog = true }) {
+                    IconButton(onClick = { showProviderDialog = true }) {
                         Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
                     }
                 }
@@ -595,7 +706,16 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                 }
             }
 
-            AdminSectionCard(title = "Recap Settings", icon = Icons.Outlined.AutoStories) {
+            // Recap Settings with its own edit button
+            AdminSectionCard(
+                title = "Recap Settings",
+                icon = Icons.Outlined.AutoStories,
+                action = {
+                    IconButton(onClick = { showRecapDialog = true }) {
+                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
+                    }
+                }
+            ) {
                 InfoRow(
                     label = "Offensive Mode",
                     value = if (settings.recapOffensiveMode == true) "Enabled" else "Disabled"
@@ -680,7 +800,7 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
-                    onClick = { showEditDialog = true },
+                    onClick = { showProviderDialog = true },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
                 ) {
@@ -692,8 +812,8 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
         }
     }
 
-    // AI Settings Edit Dialog - works for both new and existing settings
-    if (showEditDialog) {
+    // AI Provider Edit Dialog
+    if (showProviderDialog) {
         val settings = aiSettings ?: AiSettings(
             aiProvider = null,
             openaiApiKey = null,
@@ -704,19 +824,41 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
             recapOffensiveMode = false,
             recapDefaultPrompt = null
         )
-        EditAiSettingsDialog(
+        EditAiProviderDialog(
             settings = settings,
-            onDismiss = { showEditDialog = false },
+            onDismiss = { showProviderDialog = false },
             onSave = { update ->
                 viewModel.updateAiSettings(update)
-                showEditDialog = false
+                showProviderDialog = false
+            }
+        )
+    }
+
+    // Recap Settings Edit Dialog
+    if (showRecapDialog) {
+        val settings = aiSettings ?: AiSettings(
+            aiProvider = null,
+            openaiApiKey = null,
+            openaiModel = "gpt-3.5-turbo",
+            geminiApiKey = null,
+            geminiModel = "gemini-pro",
+            recapCustomPrompt = null,
+            recapOffensiveMode = false,
+            recapDefaultPrompt = null
+        )
+        EditRecapSettingsDialog(
+            settings = settings,
+            onDismiss = { showRecapDialog = false },
+            onSave = { update ->
+                viewModel.updateAiSettings(update)
+                showRecapDialog = false
             }
         )
     }
 }
 
 @Composable
-private fun EditAiSettingsDialog(
+private fun EditAiProviderDialog(
     settings: AiSettings,
     onDismiss: () -> Unit,
     onSave: (AiSettingsUpdate) -> Unit
@@ -726,19 +868,16 @@ private fun EditAiSettingsDialog(
     var openaiModel by remember { mutableStateOf(settings.openaiModel ?: "gpt-3.5-turbo") }
     var geminiApiKey by remember { mutableStateOf(settings.geminiApiKey ?: "") }
     var geminiModel by remember { mutableStateOf(settings.geminiModel ?: "gemini-pro") }
-    var customPrompt by remember { mutableStateOf(settings.recapCustomPrompt ?: "") }
-    var offensiveMode by remember { mutableStateOf(settings.recapOffensiveMode ?: false) }
     var showApiKey by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit AI Settings", color = Color.White) },
+        title = { Text("Edit AI Provider", color = Color.White) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Provider Selection
                 Text("AI Provider", color = Color(0xFF9ca3af), fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("openai", "gemini", "").forEach { p ->
@@ -813,10 +952,51 @@ private fun EditAiSettingsDialog(
                         colors = adminTextFieldColors()
                     )
                 }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(AiSettingsUpdate(
+                        aiProvider = provider.ifBlank { null },
+                        openaiApiKey = openaiApiKey.ifBlank { null },
+                        openaiModel = openaiModel.ifBlank { null },
+                        geminiApiKey = geminiApiKey.ifBlank { null },
+                        geminiModel = geminiModel.ifBlank { null },
+                        recapCustomPrompt = settings.recapCustomPrompt,
+                        recapOffensiveMode = settings.recapOffensiveMode
+                    ))
+                }
+            ) {
+                Text("Save", color = Color(0xFF3b82f6))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
+}
 
-                Divider(color = Color(0xFF374151))
+@Composable
+private fun EditRecapSettingsDialog(
+    settings: AiSettings,
+    onDismiss: () -> Unit,
+    onSave: (AiSettingsUpdate) -> Unit
+) {
+    var customPrompt by remember { mutableStateOf(settings.recapCustomPrompt ?: "") }
+    var offensiveMode by remember { mutableStateOf(settings.recapOffensiveMode ?: false) }
 
-                Text("Recap Settings", color = Color(0xFF9ca3af), fontSize = 12.sp)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Recap Settings", color = Color.White) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -846,11 +1026,11 @@ private fun EditAiSettingsDialog(
             TextButton(
                 onClick = {
                     onSave(AiSettingsUpdate(
-                        aiProvider = provider.ifBlank { null },
-                        openaiApiKey = openaiApiKey.ifBlank { null },
-                        openaiModel = openaiModel.ifBlank { null },
-                        geminiApiKey = geminiApiKey.ifBlank { null },
-                        geminiModel = geminiModel.ifBlank { null },
+                        aiProvider = settings.aiProvider,
+                        openaiApiKey = settings.openaiApiKey,
+                        openaiModel = settings.openaiModel,
+                        geminiApiKey = settings.geminiApiKey,
+                        geminiModel = settings.geminiModel,
                         recapCustomPrompt = customPrompt.ifBlank { null },
                         recapOffensiveMode = offensiveMode
                     ))
@@ -1206,7 +1386,6 @@ private fun EditUserDialog(
 @Composable
 private fun BackupTab(viewModel: AdminViewModel) {
     val backups by viewModel.backups.collectAsState()
-    val retention by viewModel.backupRetention.collectAsState()
     var backupToDelete by remember { mutableStateOf<BackupInfo?>(null) }
     var backupToRestore by remember { mutableStateOf<BackupInfo?>(null) }
 
@@ -1241,25 +1420,24 @@ private fun BackupTab(viewModel: AdminViewModel) {
             }
         }
 
-        retention?.let { ret ->
-            AdminSectionCard(title = "Retention Settings", icon = Icons.Outlined.Schedule) {
-                InfoRow(label = "Max Backups", value = ret.maxBackups.toString())
-                InfoRow(label = "Auto Backup", value = if (ret.autoBackup == true) "Enabled" else "Disabled")
-                ret.backupIntervalDays?.let { days ->
-                    InfoRow(label = "Interval", value = "$days days")
+        if (backups.isEmpty()) {
+            Text(
+                "No backups found",
+                color = Color(0xFF9ca3af),
+                fontSize = 14.sp,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(backups) { backup ->
+                    BackupCard(
+                        backup = backup,
+                        onRestore = { backupToRestore = backup },
+                        onDelete = { backupToDelete = backup }
+                    )
                 }
-            }
-        }
-
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(backups) { backup ->
-                BackupCard(
-                    backup = backup,
-                    onRestore = { backupToRestore = backup },
-                    onDelete = { backupToDelete = backup }
-                )
             }
         }
     }
@@ -1370,132 +1548,220 @@ private fun BackupCard(
     }
 }
 
-// ============ Maintenance Tab ============
 @Composable
-private fun MaintenanceTab(viewModel: AdminViewModel) {
-    val duplicates by viewModel.duplicates.collectAsState()
-    val jobs by viewModel.jobs.collectAsState()
-    var showClearLibraryDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadDuplicates()
-        viewModel.loadJobs()
-    }
-
-    Column(
+private fun DuplicateGroupCard(
+    group: DuplicateGroup,
+    onClick: () -> Unit
+) {
+    Surface(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFF374151).copy(alpha = 0.5f)
     ) {
-        AdminSectionCard(title = "Library Actions", icon = Icons.Outlined.Build) {
-            ActionButton(
-                text = "Scan Library",
-                description = "Scan for new audiobooks",
-                icon = Icons.Outlined.Search,
-                onClick = { viewModel.scanLibrary() }
-            )
-            ActionButton(
-                text = "Force Rescan",
-                description = "Rescan all audiobook metadata",
-                icon = Icons.Outlined.Refresh,
-                onClick = { viewModel.forceRescan() }
-            )
-            ActionButton(
-                text = "Clear Library",
-                description = "Remove all audiobooks from database",
-                icon = Icons.Outlined.DeleteForever,
-                color = Color(0xFFef4444),
-                onClick = { showClearLibraryDialog = true }
-            )
-        }
-
-        if (duplicates.isNotEmpty()) {
-            AdminSectionCard(title = "Duplicates (${duplicates.size})", icon = Icons.Outlined.ContentCopy) {
-                duplicates.take(5).forEach { group ->
-                    Column {
-                        Text(
-                            text = "${group.books.firstOrNull()?.title ?: "Unknown"} (${group.books.size} copies)",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                        group.matchReason?.let { reason ->
-                            Text(
-                                text = reason,
-                                color = Color(0xFF6b7280),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                if (duplicates.size > 5) {
-                    Text(
-                        "And ${duplicates.size - 5} more...",
-                        color = Color(0xFF9ca3af),
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        }
-
-        if (jobs.isNotEmpty()) {
-            AdminSectionCard(title = "Scheduled Jobs", icon = Icons.Outlined.Schedule) {
-                jobs.forEach { job ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(job.name, color = Color.White, fontSize = 14.sp)
-                            Text(
-                                "Status: ${job.status}",
-                                color = Color(0xFF9ca3af),
-                                fontSize = 12.sp
-                            )
-                        }
-                        job.nextRun?.let {
-                            Text(
-                                "Next: ${formatBackupDate(it)}",
-                                color = Color(0xFF6b7280),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-        }
-    }
-
-    if (showClearLibraryDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearLibraryDialog = false },
-            title = { Text("Clear Library", color = Color.White) },
-            text = {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "This will remove ALL audiobooks from the database. Audio files will not be deleted. Are you sure?",
-                    color = Color(0xFFef4444)
+                    text = group.books.firstOrNull()?.title ?: "Unknown",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.clearLibrary { showClearLibraryDialog = false }
-                    }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Clear Library", color = Color(0xFFef4444))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFFf59e0b).copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            "${group.books.size} copies",
+                            color = Color(0xFFf59e0b),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    group.matchReason?.let { reason ->
+                        Text(
+                            text = reason,
+                            color = Color(0xFF6b7280),
+                            fontSize = 12.sp
+                        )
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearLibraryDialog = false }) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
-                }
-            },
-            containerColor = Color(0xFF1e293b)
-        )
+            }
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "View",
+                tint = Color(0xFF6b7280),
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
+}
+
+@Composable
+private fun DuplicateMergeDialog(
+    group: DuplicateGroup,
+    onDismiss: () -> Unit,
+    onMerge: (keepId: Int, deleteIds: List<Int>) -> Unit
+) {
+    var selectedKeepId by remember { mutableStateOf(group.suggestedKeep ?: group.books.firstOrNull()?.id) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("Merge Duplicates", color = Color.White)
+                Text(
+                    "Select the copy to keep. Others will be deleted.",
+                    color = Color(0xFF9ca3af),
+                    fontSize = 12.sp
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                group.books.forEach { book ->
+                    val isSelected = selectedKeepId == book.id
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedKeepId = book.id },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) Color(0xFF3b82f6).copy(alpha = 0.2f) else Color(0xFF374151),
+                        border = if (isSelected) androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            Color(0xFF3b82f6)
+                        ) else null
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { selectedKeepId = book.id },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = Color(0xFF3b82f6),
+                                    unselectedColor = Color(0xFF6b7280)
+                                )
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = book.title,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                book.author?.let { author ->
+                                    Text(
+                                        text = "by $author",
+                                        color = Color(0xFF9ca3af),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                book.filePath?.let { path ->
+                                    Text(
+                                        text = path.substringAfterLast("/"),
+                                        color = Color(0xFF6b7280),
+                                        fontSize = 11.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                book.createdAt?.let { created ->
+                                    Text(
+                                        text = "Added: ${formatBackupDate(created)}",
+                                        color = Color(0xFF6b7280),
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+                            if (group.suggestedKeep == book.id) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFF10b981).copy(alpha = 0.2f)
+                                ) {
+                                    Text(
+                                        "Suggested",
+                                        color = Color(0xFF10b981),
+                                        fontSize = 9.sp,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Warning
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFef4444).copy(alpha = 0.1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Outlined.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFef4444),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            "This will permanently delete ${group.books.size - 1} duplicate(s). Files will also be removed from disk.",
+                            color = Color(0xFFef4444),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    selectedKeepId?.let { keepId ->
+                        val deleteIds = group.books.filter { it.id != keepId }.map { it.id }
+                        onMerge(keepId, deleteIds)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFef4444)),
+                enabled = selectedKeepId != null
+            ) {
+                Text("Merge & Delete")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
 }
 
 // ============ Logs Tab ============
@@ -1507,6 +1773,7 @@ private fun LogsTab(viewModel: AdminViewModel) {
     val isLoading = loadingSection == "logs"
     var selectedLevel by remember { mutableStateOf<String?>(null) }
     var autoRefresh by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     // Initial load
     LaunchedEffect(Unit) {
@@ -1528,11 +1795,20 @@ private fun LogsTab(viewModel: AdminViewModel) {
         }
     }
 
+    // Filter logs by search query
+    val filteredLogs = remember(logs, searchQuery) {
+        if (searchQuery.isBlank()) logs
+        else logs.filter { log ->
+            log.message.contains(searchQuery, ignoreCase = true) ||
+            log.source?.contains(searchQuery, ignoreCase = true) == true
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1582,6 +1858,27 @@ private fun LogsTab(viewModel: AdminViewModel) {
             }
         }
 
+        // Search field
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Search logs...", color = Color(0xFF6b7280)) },
+            leadingIcon = {
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = Color(0xFF6b7280))
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color(0xFF6b7280))
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            colors = adminTextFieldColors(),
+            shape = RoundedCornerShape(8.dp)
+        )
+
         // Level filter chips
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(null to "All", "info" to "Info", "warn" to "Warn", "error" to "Error").forEach { (level, label) ->
@@ -1599,6 +1896,15 @@ private fun LogsTab(viewModel: AdminViewModel) {
             }
         }
 
+        // Search results count
+        if (searchQuery.isNotEmpty()) {
+            Text(
+                "${filteredLogs.size} of ${logs.size} logs match",
+                color = Color(0xFF9ca3af),
+                fontSize = 12.sp
+            )
+        }
+
         if (isLoading && logs.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
@@ -1606,18 +1912,21 @@ private fun LogsTab(viewModel: AdminViewModel) {
             ) {
                 CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
             }
-        } else if (logs.isEmpty()) {
+        } else if (filteredLogs.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No logs available", color = Color(0xFF9ca3af))
+                Text(
+                    if (searchQuery.isNotEmpty()) "No logs match your search" else "No logs available",
+                    color = Color(0xFF9ca3af)
+                )
             }
         } else {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(logs) { log ->
+                items(filteredLogs) { log ->
                     LogEntryCard(log)
                 }
             }
@@ -1872,7 +2181,7 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
 @Composable
 private fun AdminSectionCard(
     title: String,
-    icon: ImageVector,
+    icon: ImageVector? = null,
     modifier: Modifier = Modifier,
     action: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
@@ -1894,12 +2203,14 @@ private fun AdminSectionCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = Color(0xFF3b82f6),
-                        modifier = Modifier.size(20.dp)
-                    )
+                    icon?.let {
+                        Icon(
+                            imageVector = it,
+                            contentDescription = null,
+                            tint = Color(0xFF3b82f6),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     Text(
                         text = title,
                         fontSize = 16.sp,
@@ -2074,9 +2385,12 @@ private fun formatBackupDate(dateString: String): String {
     }
 }
 
-// ============ Upload Tab ============
+// ============ Upload Dialog ============
 @Composable
-private fun UploadTab(viewModel: AdminViewModel) {
+private fun UploadDialog(
+    viewModel: AdminViewModel,
+    onDismiss: () -> Unit
+) {
     val context = LocalContext.current
     val uploadState by viewModel.uploadState.collectAsState()
     val uploadProgress by viewModel.uploadProgress.collectAsState()
@@ -2093,192 +2407,180 @@ private fun UploadTab(viewModel: AdminViewModel) {
         selectedFiles = uris
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        AdminSectionCard(title = "Upload Audiobooks", icon = Icons.Outlined.Upload) {
-            Text(
-                text = "Select audio files to upload to your library. Supported formats: MP3, M4A, M4B, FLAC, OGG, WAV",
-                color = Color(0xFF9ca3af),
-                fontSize = 14.sp,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            // File picker button
-            Button(
-                onClick = { filePickerLauncher.launch(arrayOf("audio/*")) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3b82f6)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.FolderOpen,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Select Files")
+    AlertDialog(
+        onDismissRequest = {
+            if (uploadState != UploadState.UPLOADING) {
+                viewModel.clearUploadResult()
+                onDismiss()
             }
-
-            // Selected files display
-            if (selectedFiles.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
+        },
+        title = { Text("Upload Audiobooks", color = Color.White) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text(
-                    text = "${selectedFiles.size} file(s) selected",
-                    color = Color(0xFF10b981),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    text = "Supported: MP3, M4A, M4B, FLAC, OGG, WAV",
+                    color = Color(0xFF9ca3af),
+                    fontSize = 12.sp
                 )
 
-                selectedFiles.forEach { uri ->
-                    val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "Unknown file"
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                // File picker button
+                Button(
+                    onClick = { filePickerLauncher.launch(arrayOf("audio/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Select Files")
+                }
+
+                // Selected files display
+                if (selectedFiles.isNotEmpty()) {
+                    Text(
+                        text = "${selectedFiles.size} file(s) selected",
+                        color = Color(0xFF10b981),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    selectedFiles.take(5).forEach { uri ->
+                        val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "Unknown file"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Outlined.AudioFile, contentDescription = null, tint = Color(0xFF9ca3af), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(fileName, color = Color(0xFFd1d5db), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    if (selectedFiles.size > 5) {
+                        Text("...and ${selectedFiles.size - 5} more", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    }
+
+                    TextButton(onClick = { selectedFiles = emptyList() }) {
+                        Text("Clear selection", color = Color(0xFFef4444), fontSize = 12.sp)
+                    }
+
+                    // Optional metadata
+                    Text("Optional metadata (leave blank to auto-detect)", color = Color(0xFF6b7280), fontSize = 11.sp)
+
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = adminTextFieldColors()
+                    )
+
+                    OutlinedTextField(
+                        value = author,
+                        onValueChange = { author = it },
+                        label = { Text("Author") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = adminTextFieldColors()
+                    )
+
+                    OutlinedTextField(
+                        value = narrator,
+                        onValueChange = { narrator = it },
+                        label = { Text("Narrator") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = adminTextFieldColors()
+                    )
+                }
+
+                // Upload progress
+                if (uploadState == UploadState.UPLOADING) {
+                    LinearProgressIndicator(
+                        progress = uploadProgress,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFF3b82f6)
+                    )
+                    Text(
+                        "Uploading... ${(uploadProgress * 100).toInt()}%",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 12.sp
+                    )
+                }
+
+                // Upload result
+                uploadResult?.let { result ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (result.success) Color(0xFF10b981).copy(alpha = 0.1f) else Color(0xFFef4444).copy(alpha = 0.1f)
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.AudioFile,
-                            contentDescription = null,
-                            tint = Color(0xFF9ca3af),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = fileName,
-                            color = Color(0xFFd1d5db),
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                if (result.success) Icons.Outlined.CheckCircle else Icons.Outlined.Error,
+                                contentDescription = null,
+                                tint = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                result.message ?: if (result.success) "Upload complete" else "Upload failed",
+                                color = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                                fontSize = 13.sp
+                            )
+                        }
                     }
                 }
-
-                // Clear selection button
-                TextButton(
-                    onClick = { selectedFiles = emptyList() }
+            }
+        },
+        confirmButton = {
+            if (selectedFiles.isNotEmpty() && uploadResult == null) {
+                Button(
+                    onClick = {
+                        viewModel.uploadAudiobooks(
+                            context = context,
+                            uris = selectedFiles,
+                            title = title.ifBlank { null },
+                            author = author.ifBlank { null },
+                            narrator = narrator.ifBlank { null }
+                        )
+                    },
+                    enabled = uploadState != UploadState.UPLOADING,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10b981))
                 ) {
-                    Text("Clear selection", color = Color(0xFFef4444), fontSize = 12.sp)
-                }
-            }
-        }
-
-        // Optional metadata section (only show when files selected)
-        if (selectedFiles.isNotEmpty()) {
-            AdminSectionCard(title = "Optional Metadata", icon = Icons.Outlined.Edit) {
-                Text(
-                    text = "Leave blank to auto-detect from file metadata",
-                    color = Color(0xFF9ca3af),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = adminTextFieldColors()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = author,
-                    onValueChange = { author = it },
-                    label = { Text("Author") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = adminTextFieldColors()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = narrator,
-                    onValueChange = { narrator = it },
-                    label = { Text("Narrator") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = adminTextFieldColors()
-                )
-            }
-
-            // Upload button
-            Button(
-                onClick = {
-                    viewModel.uploadAudiobooks(
-                        context = context,
-                        uris = selectedFiles,
-                        title = title.ifBlank { null },
-                        author = author.ifBlank { null },
-                        narrator = narrator.ifBlank { null }
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = uploadState != UploadState.UPLOADING,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF10b981)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                if (uploadState == UploadState.UPLOADING) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Uploading... ${(uploadProgress * 100).toInt()}%")
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.CloudUpload,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Upload")
                 }
-            }
-        }
-
-        // Upload result
-        uploadResult?.let { result ->
-            AdminSectionCard(
-                title = if (result.success) "Upload Complete" else "Upload Failed",
-                icon = if (result.success) Icons.Outlined.CheckCircle else Icons.Outlined.Error
-            ) {
-                Text(
-                    text = result.message ?: if (result.success) "Files uploaded successfully" else "Upload failed",
-                    color = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
-                    fontSize = 14.sp
-                )
-
-                if (result.success) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(
-                        onClick = {
-                            selectedFiles = emptyList()
-                            title = ""
-                            author = ""
-                            narrator = ""
-                            viewModel.clearUploadResult()
-                        }
-                    ) {
-                        Text("Upload more files", color = Color(0xFF3b82f6))
-                    }
+            } else if (uploadResult != null) {
+                Button(
+                    onClick = {
+                        selectedFiles = emptyList()
+                        title = ""
+                        author = ""
+                        narrator = ""
+                        viewModel.clearUploadResult()
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                ) {
+                    Text("Done")
                 }
             }
-        }
-    }
+        },
+        dismissButton = {
+            if (uploadState != UploadState.UPLOADING && uploadResult == null) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = Color(0xFF9ca3af))
+                }
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
 }
 
 enum class UploadState {
