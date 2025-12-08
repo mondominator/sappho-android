@@ -830,24 +830,17 @@ fun TopBar(
                 navItems.forEach { (screen, icon, label) ->
                     IconButton(
                         onClick = {
-                            if (screen == Screen.Home) {
-                                // Home button pops all pages back to home
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Home.route) {
-                                        inclusive = true
-                                    }
-                                    launchSingleTop = true
+                            // Use base route for Library (without parameters)
+                            val route = when (screen) {
+                                Screen.Library -> Screen.Library.baseRoute
+                                else -> screen.route
+                            }
+                            navController.navigate(route) {
+                                // Pop up to home to avoid building up a large back stack
+                                popUpTo(Screen.Home.route) {
+                                    saveState = false
                                 }
-                            } else {
-                                // Use base route for Library (without parameters)
-                                val route = if (screen == Screen.Library) Screen.Library.baseRoute else screen.route
-                                navController.navigate(route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                                launchSingleTop = true
                             }
                         },
                         modifier = Modifier.size(48.dp)

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.*
 import com.sappho.audiobooks.data.repository.AuthRepository
+import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.User
 import com.sappho.audiobooks.domain.model.UserStats
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +22,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val api: SapphoApi,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    val userPreferences: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _user = MutableStateFlow<User?>(null)
