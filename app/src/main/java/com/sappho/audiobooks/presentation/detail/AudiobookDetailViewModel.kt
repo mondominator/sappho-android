@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
 import com.sappho.audiobooks.data.remote.AverageRating
+import com.sappho.audiobooks.data.remote.ChapterUpdate
+import com.sappho.audiobooks.data.remote.ChapterUpdateRequest
+import com.sappho.audiobooks.data.remote.FetchChaptersRequest
 import com.sappho.audiobooks.data.remote.MetadataSearchResult
 import com.sappho.audiobooks.data.remote.RatingRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
@@ -92,6 +95,18 @@ class AudiobookDetailViewModel @Inject constructor(
 
     private val _embedMetadataResult = MutableStateFlow<String?>(null)
     val embedMetadataResult: StateFlow<String?> = _embedMetadataResult
+
+    private val _isSavingChapters = MutableStateFlow(false)
+    val isSavingChapters: StateFlow<Boolean> = _isSavingChapters
+
+    private val _chapterSaveResult = MutableStateFlow<String?>(null)
+    val chapterSaveResult: StateFlow<String?> = _chapterSaveResult
+
+    private val _isFetchingChapters = MutableStateFlow(false)
+    val isFetchingChapters: StateFlow<Boolean> = _isFetchingChapters
+
+    private val _fetchChaptersResult = MutableStateFlow<String?>(null)
+    val fetchChaptersResult: StateFlow<String?> = _fetchChaptersResult
 
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
@@ -404,7 +419,21 @@ class AudiobookDetailViewModel @Inject constructor(
                     if (response.isSuccessful) {
                         _embedMetadataResult.value = response.body()?.message ?: "Metadata embedded successfully"
                     } else {
-                        _embedMetadataResult.value = "Failed to embed: ${response.code()}"
+                        // Try to parse error message from server response
+                        val errorBody = response.errorBody()?.string()
+                        val errorMessage = try {
+                            // Server may return JSON with error field
+                            val jsonError = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
+                            jsonError.get("error")?.asString ?: jsonError.get("message")?.asString
+                        } catch (e: Exception) {
+                            null
+                        }
+
+                        _embedMetadataResult.value = when {
+                            response.code() == 500 && errorMessage != null -> "Server error: $errorMessage"
+                            response.code() == 500 -> "Server error: Embedding tools (tone/ffmpeg) may not be configured on server"
+                            else -> "Failed to embed: ${response.code()} ${errorMessage ?: ""}"
+                        }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -418,5 +447,69 @@ class AudiobookDetailViewModel @Inject constructor(
 
     fun clearEmbedMetadataResult() {
         _embedMetadataResult.value = null
+    }
+
+    fun updateChapters(chapters: List<ChapterUpdate>, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isSavingChapters.value) return@launch
+                _isSavingChapters.value = true
+                _chapterSaveResult.value = null
+                try {
+                    val response = api.updateChapters(book.id, ChapterUpdateRequest(chapters))
+                    if (response.isSuccessful) {
+                        _chapterSaveResult.value = response.body()?.message ?: "Chapters updated successfully"
+                        // Reload chapters to get updated data
+                        loadAudiobook(book.id)
+                        onSuccess()
+                    } else {
+                        _chapterSaveResult.value = "Failed to update chapters: ${response.code()}"
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _chapterSaveResult.value = "Error: ${e.message}"
+                } finally {
+                    _isSavingChapters.value = false
+                }
+            }
+        }
+    }
+
+    fun fetchChaptersFromAudnexus(asin: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isFetchingChapters.value) return@launch
+                _isFetchingChapters.value = true
+                _fetchChaptersResult.value = null
+                try {
+                    val response = api.fetchChapters(book.id, FetchChaptersRequest(asin))
+                    if (response.isSuccessful) {
+                        _fetchChaptersResult.value = response.body()?.message ?: "Chapters fetched successfully"
+                        // Reload chapters to get the new data
+                        loadAudiobook(book.id)
+                        onSuccess()
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        _fetchChaptersResult.value = when (response.code()) {
+                            404 -> "No chapters found for this ASIN"
+                            else -> "Failed to fetch chapters: ${response.code()}"
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _fetchChaptersResult.value = "Error: ${e.message}"
+                } finally {
+                    _isFetchingChapters.value = false
+                }
+            }
+        }
+    }
+
+    fun clearChapterSaveResult() {
+        _chapterSaveResult.value = null
+    }
+
+    fun clearFetchChaptersResult() {
+        _fetchChaptersResult.value = null
     }
 }
