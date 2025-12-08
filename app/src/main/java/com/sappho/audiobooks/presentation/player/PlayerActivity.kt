@@ -657,8 +657,8 @@ fun PlayerScreen(
                                 dragPosition = newValue
                             },
                             onValueChangeFinished = {
-                                // Only seek when user releases the slider
-                                AudioPlaybackService.instance?.seekTo(dragPosition.toLong())
+                                // Seek and start playing when user releases the slider
+                                AudioPlaybackService.instance?.seekToAndPlay(dragPosition.toLong())
                                 isDragging = false
                             },
                             valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
