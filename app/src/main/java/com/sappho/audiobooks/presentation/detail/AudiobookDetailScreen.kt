@@ -1336,15 +1336,23 @@ fun EditMetadataDialog(
     onFetchChapters: (String) -> Unit
 ) {
     var title by remember { mutableStateOf(audiobook.title) }
+    var subtitle by remember { mutableStateOf(audiobook.subtitle ?: "") }
     var author by remember { mutableStateOf(audiobook.author ?: "") }
     var narrator by remember { mutableStateOf(audiobook.narrator ?: "") }
     var series by remember { mutableStateOf(audiobook.series ?: "") }
     var seriesPosition by remember { mutableStateOf(audiobook.seriesPosition?.toString() ?: "") }
     var genre by remember { mutableStateOf(audiobook.genre ?: "") }
+    var tags by remember { mutableStateOf(audiobook.tags ?: "") }
     var publishedYear by remember { mutableStateOf(audiobook.publishYear?.toString() ?: "") }
+    var copyrightYear by remember { mutableStateOf(audiobook.copyrightYear?.toString() ?: "") }
+    var publisher by remember { mutableStateOf(audiobook.publisher ?: "") }
     var description by remember { mutableStateOf(audiobook.description ?: "") }
     var isbn by remember { mutableStateOf(audiobook.isbn ?: "") }
     var asin by remember { mutableStateOf(audiobook.asin ?: "") }
+    var language by remember { mutableStateOf(audiobook.language ?: "") }
+    var bookRating by remember { mutableStateOf(audiobook.rating?.toString() ?: "") }
+    var abridged by remember { mutableStateOf((audiobook.abridged ?: 0) == 1) }
+    var coverUrl by remember { mutableStateOf("") }
     var showSearchResults by remember { mutableStateOf(false) }
     var selectedResultHasChapters by remember { mutableStateOf(false) }
 
@@ -1522,15 +1530,22 @@ fun EditMetadataDialog(
                                     onSelect = {
                                         // Populate form fields with selected result
                                         result.title?.let { title = it }
+                                        result.subtitle?.let { subtitle = it }
                                         result.author?.let { author = it }
                                         result.narrator?.let { narrator = it }
                                         result.series?.let { series = it }
                                         result.seriesPosition?.let { seriesPosition = it.toString() }
                                         result.genre?.let { genre = it }
+                                        result.tags?.let { tags = it }
                                         result.publishedYear?.let { publishedYear = it.toString() }
+                                        result.publisher?.let { publisher = it }
                                         result.description?.let { description = it }
+                                        result.language?.let { language = it }
+                                        result.rating?.let { bookRating = it.toString() }
                                         // Capture ASIN and chapters availability for Audible results
                                         result.asin?.let { asin = it }
+                                        // Set cover URL if available
+                                        result.image?.let { coverUrl = it }
                                         selectedResultHasChapters = result.hasChapters == true && result.asin != null
                                         showSearchResults = false
                                     }
@@ -1551,11 +1566,30 @@ fun EditMetadataDialog(
 
                 Divider(color = Color(0xFF374151))
 
+                // ===== BASIC INFO SECTION =====
+                Text(
+                    text = "Basic Info",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF9ca3af),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
                 // Title
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Subtitle
+                OutlinedTextField(
+                    value = subtitle,
+                    onValueChange = { subtitle = it },
+                    label = { Text("Subtitle") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = editTextFieldColors()
@@ -1604,6 +1638,16 @@ fun EditMetadataDialog(
                     )
                 }
 
+                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+
+                // ===== CLASSIFICATION SECTION =====
+                Text(
+                    text = "Classification",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF9ca3af)
+                )
+
                 // Genre
                 OutlinedTextField(
                     value = genre,
@@ -1614,14 +1658,111 @@ fun EditMetadataDialog(
                     colors = editTextFieldColors()
                 )
 
-                // Published Year
+                // Tags
                 OutlinedTextField(
-                    value = publishedYear,
-                    onValueChange = { publishedYear = it },
-                    label = { Text("Published Year") },
+                    value = tags,
+                    onValueChange = { tags = it },
+                    label = { Text("Tags (comma-separated)") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = editTextFieldColors()
+                )
+
+                // Language
+                OutlinedTextField(
+                    value = language,
+                    onValueChange = { language = it },
+                    label = { Text("Language") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Rating and Abridged row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = bookRating,
+                        onValueChange = { bookRating = it },
+                        label = { Text("Rating") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = editTextFieldColors()
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Checkbox(
+                            checked = abridged,
+                            onCheckedChange = { abridged = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF3b82f6),
+                                uncheckedColor = Color(0xFF9ca3af)
+                            )
+                        )
+                        Text(
+                            text = "Abridged",
+                            color = Color(0xFFE0E7F1),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+
+                // ===== PUBLISHING SECTION =====
+                Text(
+                    text = "Publishing",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF9ca3af)
+                )
+
+                // Publisher
+                OutlinedTextField(
+                    value = publisher,
+                    onValueChange = { publisher = it },
+                    label = { Text("Publisher") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Published Year and Copyright Year row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = publishedYear,
+                        onValueChange = { publishedYear = it },
+                        label = { Text("Published Year") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = editTextFieldColors()
+                    )
+                    OutlinedTextField(
+                        value = copyrightYear,
+                        onValueChange = { copyrightYear = it },
+                        label = { Text("Copyright Year") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = editTextFieldColors()
+                    )
+                }
+
+                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+
+                // ===== IDENTIFIERS SECTION =====
+                Text(
+                    text = "Identifiers",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF9ca3af)
                 )
 
                 // ISBN
@@ -1670,6 +1811,46 @@ fun EditMetadataDialog(
                     }
                 }
 
+                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+
+                // ===== COVER SECTION =====
+                Text(
+                    text = "Cover Image",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF9ca3af)
+                )
+
+                // Cover URL
+                OutlinedTextField(
+                    value = coverUrl,
+                    onValueChange = { coverUrl = it },
+                    label = { Text("Cover Image URL") },
+                    placeholder = { Text("Enter URL to download cover", color = Color(0xFF6b7280)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                if (coverUrl.isNotBlank()) {
+                    Text(
+                        text = "Cover will be downloaded from URL when saved",
+                        fontSize = 11.sp,
+                        color = Color(0xFF10b981),
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+
+                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+
+                // ===== DESCRIPTION SECTION =====
+                Text(
+                    text = "Description",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF9ca3af)
+                )
+
                 // Description (multi-line)
                 OutlinedTextField(
                     value = description,
@@ -1692,15 +1873,23 @@ fun EditMetadataDialog(
                     onClick = {
                         val request = AudiobookUpdateRequest(
                             title = title.ifBlank { null },
+                            subtitle = subtitle.ifBlank { null },
                             author = author.ifBlank { null },
                             narrator = narrator.ifBlank { null },
                             series = series.ifBlank { null },
                             seriesPosition = seriesPosition.toFloatOrNull(),
                             genre = genre.ifBlank { null },
+                            tags = tags.ifBlank { null },
                             publishedYear = publishedYear.toIntOrNull(),
+                            copyrightYear = copyrightYear.toIntOrNull(),
+                            publisher = publisher.ifBlank { null },
                             description = description.ifBlank { null },
                             isbn = isbn.ifBlank { null },
-                            asin = asin.ifBlank { null }
+                            asin = asin.ifBlank { null },
+                            language = language.ifBlank { null },
+                            rating = bookRating.toFloatOrNull(),
+                            abridged = if (abridged) true else null,
+                            coverUrl = coverUrl.ifBlank { null }
                         )
                         onSave(request)
                     },
@@ -1725,15 +1914,23 @@ fun EditMetadataDialog(
                     onClick = {
                         val request = AudiobookUpdateRequest(
                             title = title.ifBlank { null },
+                            subtitle = subtitle.ifBlank { null },
                             author = author.ifBlank { null },
                             narrator = narrator.ifBlank { null },
                             series = series.ifBlank { null },
                             seriesPosition = seriesPosition.toFloatOrNull(),
                             genre = genre.ifBlank { null },
+                            tags = tags.ifBlank { null },
                             publishedYear = publishedYear.toIntOrNull(),
+                            copyrightYear = copyrightYear.toIntOrNull(),
+                            publisher = publisher.ifBlank { null },
                             description = description.ifBlank { null },
                             isbn = isbn.ifBlank { null },
-                            asin = asin.ifBlank { null }
+                            asin = asin.ifBlank { null },
+                            language = language.ifBlank { null },
+                            rating = bookRating.toFloatOrNull(),
+                            abridged = if (abridged) true else null,
+                            coverUrl = coverUrl.ifBlank { null }
                         )
                         onSaveAndEmbed(request)
                     },
@@ -1778,80 +1975,117 @@ private fun MetadataSearchResultItem(
         shape = RoundedCornerShape(6.dp),
         color = Color(0xFF1e293b)
     ) {
-        Column(
+        Row(
             modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = result.title ?: "Unknown Title",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+            // Cover image preview
+            if (result.image != null) {
+                AsyncImage(
+                    model = result.image,
+                    contentDescription = "Cover",
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    contentScale = ContentScale.Crop
                 )
+            } else {
+                // Placeholder when no image
                 Surface(
+                    modifier = Modifier.size(50.dp),
                     shape = RoundedCornerShape(4.dp),
-                    color = when (result.source.lowercase()) {
-                        "audible" -> Color(0xFFf97316).copy(alpha = 0.2f)
-                        "google" -> Color(0xFF3b82f6).copy(alpha = 0.2f)
-                        else -> Color(0xFF10b981).copy(alpha = 0.2f)
+                    color = Color(0xFF374151)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = null,
+                            tint = Color(0xFF6b7280),
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
+                }
+            }
+
+            // Text content
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = result.source.replaceFirstChar { it.uppercase() },
-                        fontSize = 10.sp,
-                        color = when (result.source.lowercase()) {
-                            "audible" -> Color(0xFFfb923c)
-                            "google" -> Color(0xFF60a5fa)
-                            else -> Color(0xFF34d399)
-                        },
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            result.author?.let { author ->
-                Text(
-                    text = "by $author",
-                    fontSize = 12.sp,
-                    color = Color(0xFF9ca3af),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                result.narrator?.let { narrator ->
-                    Text(
-                        text = "Narrated: $narrator",
-                        fontSize = 11.sp,
-                        color = Color(0xFF6b7280),
+                        text = result.title ?: "Unknown Title",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        modifier = Modifier.weight(1f)
                     )
-                }
-                result.series?.let { series ->
-                    val seriesText = if (result.seriesPosition != null) {
-                        "$series #${result.seriesPosition}"
-                    } else {
-                        series
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = when (result.source.lowercase()) {
+                            "audible" -> Color(0xFFf97316).copy(alpha = 0.2f)
+                            "google" -> Color(0xFF3b82f6).copy(alpha = 0.2f)
+                            else -> Color(0xFF10b981).copy(alpha = 0.2f)
+                        }
+                    ) {
+                        Text(
+                            text = result.source.replaceFirstChar { it.uppercase() },
+                            fontSize = 10.sp,
+                            color = when (result.source.lowercase()) {
+                                "audible" -> Color(0xFFfb923c)
+                                "google" -> Color(0xFF60a5fa)
+                                else -> Color(0xFF34d399)
+                            },
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
+                }
+
+                result.author?.let { author ->
                     Text(
-                        text = seriesText,
-                        fontSize = 11.sp,
-                        color = Color(0xFF8b5cf6),
+                        text = "by $author",
+                        fontSize = 12.sp,
+                        color = Color(0xFF9ca3af),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    result.narrator?.let { narrator ->
+                        Text(
+                            text = "Narrated: $narrator",
+                            fontSize = 11.sp,
+                            color = Color(0xFF6b7280),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+                    result.series?.let { series ->
+                        val seriesText = if (result.seriesPosition != null) {
+                            "$series #${result.seriesPosition}"
+                        } else {
+                            series
+                        }
+                        Text(
+                            text = seriesText,
+                            fontSize = 11.sp,
+                            color = Color(0xFF8b5cf6),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
