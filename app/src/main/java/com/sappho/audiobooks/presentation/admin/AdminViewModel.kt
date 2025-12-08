@@ -545,6 +545,52 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    fun refreshStatistics() {
+        viewModelScope.launch {
+            _loadingSection.value = "statistics"
+            try {
+                val response = api.getLibraryStatistics()
+                if (response.isSuccessful) {
+                    _statistics.value = response.body()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminViewModel", "Statistics refresh exception", e)
+            } finally {
+                _loadingSection.value = null
+            }
+        }
+    }
+
+    fun refreshLibraryTab() {
+        viewModelScope.launch {
+            _loadingSection.value = "library"
+            try {
+                // Refresh server settings
+                val settingsResponse = api.getServerSettings()
+                if (settingsResponse.isSuccessful) {
+                    _serverSettings.value = settingsResponse.body()
+                }
+
+                // Refresh duplicates
+                val duplicatesResponse = api.getDuplicates()
+                if (duplicatesResponse.isSuccessful) {
+                    _duplicates.value = duplicatesResponse.body()?.duplicateGroups ?: emptyList()
+                }
+
+                // Refresh jobs
+                val jobsResponse = api.getJobs()
+                if (jobsResponse.isSuccessful) {
+                    val jobsMap = jobsResponse.body()?.jobs ?: emptyMap()
+                    _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminViewModel", "Library tab refresh exception", e)
+            } finally {
+                _loadingSection.value = null
+            }
+        }
+    }
+
     fun loadDuplicates() {
         if ("duplicates" in loadedSections) return
         loadedSections.add("duplicates")

@@ -14,6 +14,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.SwipeRefreshIndicator
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -158,9 +162,10 @@ private fun LibraryTab(viewModel: AdminViewModel) {
     val duplicates by viewModel.duplicates.collectAsState()
     val jobs by viewModel.jobs.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
-    val isLoading = loadingSection == "serverSettings"
+    val isLoading = loadingSection == "serverSettings" || loadingSection == "library"
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedDuplicateGroup by remember { mutableStateOf<DuplicateGroup?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadServerSettings()
@@ -168,13 +173,35 @@ private fun LibraryTab(viewModel: AdminViewModel) {
         viewModel.loadJobs()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    LaunchedEffect(loadingSection) {
+        if (loadingSection != "library") isRefreshing = false
+    }
+
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+
+    SwipeRefresh(
+        state = swipeRefreshState,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.refreshLibraryTab()
+        },
+        indicator = { state, trigger ->
+            SwipeRefreshIndicator(
+                state = state,
+                refreshTriggerDistance = trigger,
+                backgroundColor = Color(0xFF1e293b),
+                contentColor = Color(0xFF3b82f6)
+            )
+        },
+        modifier = Modifier.fillMaxSize()
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         AdminSectionCard(title = "Library Actions") {
             ActionButton(
                 text = "Scan Library",
@@ -325,6 +352,7 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                     }
                 }
             }
+        }
         }
     }
 
@@ -1052,44 +1080,67 @@ private fun EditRecapSettingsDialog(
 @Composable
 private fun UsersTab(viewModel: AdminViewModel) {
     val users by viewModel.users.collectAsState()
+    val loadingSection by viewModel.loadingSection.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingUser by remember { mutableStateOf<UserInfo?>(null) }
     var userToDelete by remember { mutableStateOf<UserInfo?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadUsers()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "User Management",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Button(
-                onClick = { showCreateDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Add User")
-            }
-        }
+    LaunchedEffect(loadingSection) {
+        if (loadingSection != "users") isRefreshing = false
+    }
 
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+
+    SwipeRefresh(
+        state = swipeRefreshState,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.refreshUsers()
+        },
+        indicator = { state, trigger ->
+            SwipeRefreshIndicator(
+                state = state,
+                refreshTriggerDistance = trigger,
+                backgroundColor = Color(0xFF1e293b),
+                contentColor = Color(0xFF3b82f6)
+            )
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
         LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "User Management",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Button(
+                        onClick = { showCreateDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add User")
+                    }
+                }
+            }
+
             items(users) { user ->
                 UserCard(
                     user = user,
@@ -1386,51 +1437,76 @@ private fun EditUserDialog(
 @Composable
 private fun BackupTab(viewModel: AdminViewModel) {
     val backups by viewModel.backups.collectAsState()
+    val loadingSection by viewModel.loadingSection.collectAsState()
     var backupToDelete by remember { mutableStateOf<BackupInfo?>(null) }
     var backupToRestore by remember { mutableStateOf<BackupInfo?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadBackups()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Backups",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Button(
-                onClick = { viewModel.createBackup() },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Create Backup")
-            }
-        }
+    LaunchedEffect(loadingSection) {
+        if (loadingSection != "backups") isRefreshing = false
+    }
 
-        if (backups.isEmpty()) {
-            Text(
-                "No backups found",
-                color = Color(0xFF9ca3af),
-                fontSize = 14.sp,
-                modifier = Modifier.padding(vertical = 16.dp)
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+
+    SwipeRefresh(
+        state = swipeRefreshState,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.refreshBackups()
+        },
+        indicator = { state, trigger ->
+            SwipeRefreshIndicator(
+                state = state,
+                refreshTriggerDistance = trigger,
+                backgroundColor = Color(0xFF1e293b),
+                contentColor = Color(0xFF3b82f6)
             )
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Backups",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Button(
+                        onClick = { viewModel.createBackup() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Create Backup")
+                    }
+                }
+            }
+
+            if (backups.isEmpty()) {
+                item {
+                    Text(
+                        "No backups found",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                }
+            } else {
                 items(backups) { backup ->
                     BackupCard(
                         backup = backup,
@@ -1774,6 +1850,8 @@ private fun LogsTab(viewModel: AdminViewModel) {
     var selectedLevel by remember { mutableStateOf<String?>(null) }
     var autoRefresh by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var showClearConfirmation by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     // Initial load
     LaunchedEffect(Unit) {
@@ -1783,6 +1861,11 @@ private fun LogsTab(viewModel: AdminViewModel) {
     // Filter change - force refresh
     LaunchedEffect(selectedLevel) {
         viewModel.refreshLogs(level = selectedLevel)
+    }
+
+    // Reset refreshing when loading completes
+    LaunchedEffect(loadingSection) {
+        if (loadingSection != "logs") isRefreshing = false
     }
 
     // Auto-refresh every 5 seconds when enabled
@@ -1804,12 +1887,30 @@ private fun LogsTab(viewModel: AdminViewModel) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+
+    SwipeRefresh(
+        state = swipeRefreshState,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.refreshLogs(level = selectedLevel)
+        },
+        indicator = { state, trigger ->
+            SwipeRefreshIndicator(
+                state = state,
+                refreshTriggerDistance = trigger,
+                backgroundColor = Color(0xFF1e293b),
+                contentColor = Color(0xFF3b82f6)
+            )
+        },
+        modifier = Modifier.fillMaxSize()
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1852,7 +1953,7 @@ private fun LogsTab(viewModel: AdminViewModel) {
                 IconButton(onClick = { viewModel.refreshLogs(level = selectedLevel) }) {
                     Icon(Icons.Outlined.Refresh, contentDescription = "Refresh", tint = Color(0xFF3b82f6))
                 }
-                IconButton(onClick = { viewModel.clearLogs() }) {
+                IconButton(onClick = { showClearConfirmation = true }) {
                     Icon(Icons.Outlined.Delete, contentDescription = "Clear", tint = Color(0xFFef4444))
                 }
             }
@@ -1931,6 +2032,32 @@ private fun LogsTab(viewModel: AdminViewModel) {
                 }
             }
         }
+        }
+    }
+
+    // Clear Logs Confirmation Dialog
+    if (showClearConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmation = false },
+            title = { Text("Clear Logs", color = Color.White) },
+            text = { Text("Are you sure you want to clear all logs? This action cannot be undone.", color = Color(0xFF9ca3af)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearLogs()
+                        showClearConfirmation = false
+                    }
+                ) {
+                    Text("Clear", color = Color(0xFFef4444))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmation = false }) {
+                    Text("Cancel", color = Color(0xFF9ca3af))
+                }
+            },
+            containerColor = Color(0xFF1e293b)
+        )
     }
 }
 
@@ -1988,26 +2115,50 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
     val statistics by viewModel.statistics.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
     val isLoading = loadingSection == "statistics"
+    var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadStatistics()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    // Reset refreshing when loading completes
+    LaunchedEffect(isLoading) {
+        if (!isLoading) isRefreshing = false
+    }
+
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+
+    SwipeRefresh(
+        state = swipeRefreshState,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.refreshStatistics()
+        },
+        indicator = { state, trigger ->
+            SwipeRefreshIndicator(
+                state = state,
+                refreshTriggerDistance = trigger,
+                backgroundColor = Color(0xFF1e293b),
+                contentColor = Color(0xFF3b82f6)
+            )
+        },
+        modifier = Modifier.fillMaxSize()
     ) {
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
-            }
-        } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (isLoading && !isRefreshing) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                }
+            } else {
             statistics?.let { stats ->
                 // Totals row
                 stats.totals?.let { totals ->
@@ -2173,6 +2324,7 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                     Text("No statistics available", color = Color(0xFF9ca3af))
                 }
             }
+        }
         }
     }
 }

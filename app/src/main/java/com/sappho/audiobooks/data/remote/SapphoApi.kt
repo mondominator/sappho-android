@@ -729,7 +729,7 @@ data class JobInfo(
     @com.google.gson.annotations.SerializedName("nextRun")
     val nextRun: String?,
     val canTrigger: Boolean?,
-    val lastResult: String?
+    val lastResult: Any?  // Can be an object with scan results or error info
 )
 
 data class TriggerJobResponse(
