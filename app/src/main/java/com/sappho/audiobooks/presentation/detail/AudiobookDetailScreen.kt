@@ -1355,6 +1355,7 @@ fun EditMetadataDialog(
     var coverUrl by remember { mutableStateOf("") }
     var showSearchResults by remember { mutableStateOf(false) }
     var selectedResultHasChapters by remember { mutableStateOf(false) }
+    var selectedResultForPreview by remember { mutableStateOf<MetadataSearchResult?>(null) }
 
     // When search results come in, show them
     LaunchedEffect(searchResults) {
@@ -1528,26 +1529,8 @@ fun EditMetadataDialog(
                                 MetadataSearchResultItem(
                                     result = result,
                                     onSelect = {
-                                        // Populate form fields with selected result
-                                        result.title?.let { title = it }
-                                        result.subtitle?.let { subtitle = it }
-                                        result.author?.let { author = it }
-                                        result.narrator?.let { narrator = it }
-                                        result.series?.let { series = it }
-                                        result.seriesPosition?.let { seriesPosition = it.toString() }
-                                        result.genre?.let { genre = it }
-                                        result.tags?.let { tags = it }
-                                        result.publishedYear?.let { publishedYear = it.toString() }
-                                        result.publisher?.let { publisher = it }
-                                        result.description?.let { description = it }
-                                        result.language?.let { language = it }
-                                        result.rating?.let { bookRating = it.toString() }
-                                        // Capture ASIN and chapters availability for Audible results
-                                        result.asin?.let { asin = it }
-                                        // Set cover URL if available
-                                        result.image?.let { coverUrl = it }
-                                        selectedResultHasChapters = result.hasChapters == true && result.asin != null
-                                        showSearchResults = false
+                                        // Show preview dialog instead of directly applying
+                                        selectedResultForPreview = result
                                     }
                                 )
                             }
@@ -1961,6 +1944,415 @@ fun EditMetadataDialog(
         },
         containerColor = Color(0xFF1e293b)
     )
+
+    // Metadata Preview Dialog - shows when a search result is selected
+    selectedResultForPreview?.let { result ->
+        MetadataPreviewDialog(
+            result = result,
+            currentTitle = title,
+            currentSubtitle = subtitle,
+            currentAuthor = author,
+            currentNarrator = narrator,
+            currentSeries = series,
+            currentSeriesPosition = seriesPosition,
+            currentGenre = genre,
+            currentTags = tags,
+            currentPublisher = publisher,
+            currentPublishedYear = publishedYear,
+            currentDescription = description,
+            currentLanguage = language,
+            currentRating = bookRating,
+            currentAsin = asin,
+            currentCoverUrl = coverUrl,
+            onDismiss = { selectedResultForPreview = null },
+            onApply = { selectedFields ->
+                // Apply only selected fields
+                if (selectedFields.contains("title")) result.title?.let { title = it }
+                if (selectedFields.contains("subtitle")) result.subtitle?.let { subtitle = it }
+                if (selectedFields.contains("author")) result.author?.let { author = it }
+                if (selectedFields.contains("narrator")) result.narrator?.let { narrator = it }
+                if (selectedFields.contains("series")) result.series?.let { series = it }
+                if (selectedFields.contains("seriesPosition")) result.seriesPosition?.let { seriesPosition = it.toString() }
+                if (selectedFields.contains("genre")) result.genre?.let { genre = it }
+                if (selectedFields.contains("tags")) result.tags?.let { tags = it }
+                if (selectedFields.contains("publisher")) result.publisher?.let { publisher = it }
+                if (selectedFields.contains("publishedYear")) result.publishedYear?.let { publishedYear = it.toString() }
+                if (selectedFields.contains("description")) result.description?.let { description = it }
+                if (selectedFields.contains("language")) result.language?.let { language = it }
+                if (selectedFields.contains("rating")) result.rating?.let { bookRating = it.toString() }
+                if (selectedFields.contains("asin")) result.asin?.let { asin = it }
+                if (selectedFields.contains("coverUrl")) result.image?.let { coverUrl = it }
+
+                // Update chapter availability
+                selectedResultHasChapters = result.hasChapters == true && result.asin != null
+
+                selectedResultForPreview = null
+                showSearchResults = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun MetadataPreviewDialog(
+    result: MetadataSearchResult,
+    currentTitle: String,
+    currentSubtitle: String,
+    currentAuthor: String,
+    currentNarrator: String,
+    currentSeries: String,
+    currentSeriesPosition: String,
+    currentGenre: String,
+    currentTags: String,
+    currentPublisher: String,
+    currentPublishedYear: String,
+    currentDescription: String,
+    currentLanguage: String,
+    currentRating: String,
+    currentAsin: String,
+    currentCoverUrl: String,
+    onDismiss: () -> Unit,
+    onApply: (Set<String>) -> Unit
+) {
+    // Track which fields are selected
+    val selectedFields = remember { mutableStateMapOf<String, Boolean>() }
+
+    // Initialize with fields that have new values different from current
+    LaunchedEffect(result) {
+        if (result.title != null && result.title != currentTitle) selectedFields["title"] = true
+        if (result.subtitle != null && result.subtitle != currentSubtitle) selectedFields["subtitle"] = true
+        if (result.author != null && result.author != currentAuthor) selectedFields["author"] = true
+        if (result.narrator != null && result.narrator != currentNarrator) selectedFields["narrator"] = true
+        if (result.series != null && result.series != currentSeries) selectedFields["series"] = true
+        if (result.seriesPosition != null && result.seriesPosition.toString() != currentSeriesPosition) selectedFields["seriesPosition"] = true
+        if (result.genre != null && result.genre != currentGenre) selectedFields["genre"] = true
+        if (result.tags != null && result.tags != currentTags) selectedFields["tags"] = true
+        if (result.publisher != null && result.publisher != currentPublisher) selectedFields["publisher"] = true
+        if (result.publishedYear != null && result.publishedYear.toString() != currentPublishedYear) selectedFields["publishedYear"] = true
+        if (result.description != null && result.description != currentDescription) selectedFields["description"] = true
+        if (result.language != null && result.language != currentLanguage) selectedFields["language"] = true
+        if (result.rating != null && result.rating.toString() != currentRating) selectedFields["rating"] = true
+        if (result.asin != null && result.asin != currentAsin) selectedFields["asin"] = true
+        if (result.image != null && result.image != currentCoverUrl) selectedFields["coverUrl"] = true
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Apply Metadata",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Select fields to apply:",
+                    fontSize = 12.sp,
+                    color = Color(0xFF9ca3af)
+                )
+
+                // Field rows with checkboxes
+                result.title?.let { newValue ->
+                    if (newValue != currentTitle) {
+                        FieldPreviewRow(
+                            fieldName = "Title",
+                            fieldKey = "title",
+                            oldValue = currentTitle.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["title"] ?: false,
+                            onSelectionChange = { selectedFields["title"] = it }
+                        )
+                    }
+                }
+
+                result.subtitle?.let { newValue ->
+                    if (newValue != currentSubtitle) {
+                        FieldPreviewRow(
+                            fieldName = "Subtitle",
+                            fieldKey = "subtitle",
+                            oldValue = currentSubtitle.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["subtitle"] ?: false,
+                            onSelectionChange = { selectedFields["subtitle"] = it }
+                        )
+                    }
+                }
+
+                result.author?.let { newValue ->
+                    if (newValue != currentAuthor) {
+                        FieldPreviewRow(
+                            fieldName = "Author",
+                            fieldKey = "author",
+                            oldValue = currentAuthor.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["author"] ?: false,
+                            onSelectionChange = { selectedFields["author"] = it }
+                        )
+                    }
+                }
+
+                result.narrator?.let { newValue ->
+                    if (newValue != currentNarrator) {
+                        FieldPreviewRow(
+                            fieldName = "Narrator",
+                            fieldKey = "narrator",
+                            oldValue = currentNarrator.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["narrator"] ?: false,
+                            onSelectionChange = { selectedFields["narrator"] = it }
+                        )
+                    }
+                }
+
+                result.series?.let { newValue ->
+                    if (newValue != currentSeries) {
+                        FieldPreviewRow(
+                            fieldName = "Series",
+                            fieldKey = "series",
+                            oldValue = currentSeries.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["series"] ?: false,
+                            onSelectionChange = { selectedFields["series"] = it }
+                        )
+                    }
+                }
+
+                result.seriesPosition?.let { newValue ->
+                    if (newValue.toString() != currentSeriesPosition) {
+                        FieldPreviewRow(
+                            fieldName = "Series #",
+                            fieldKey = "seriesPosition",
+                            oldValue = currentSeriesPosition.ifBlank { "(empty)" },
+                            newValue = newValue.toString(),
+                            isSelected = selectedFields["seriesPosition"] ?: false,
+                            onSelectionChange = { selectedFields["seriesPosition"] = it }
+                        )
+                    }
+                }
+
+                result.genre?.let { newValue ->
+                    if (newValue != currentGenre) {
+                        FieldPreviewRow(
+                            fieldName = "Genre",
+                            fieldKey = "genre",
+                            oldValue = currentGenre.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["genre"] ?: false,
+                            onSelectionChange = { selectedFields["genre"] = it }
+                        )
+                    }
+                }
+
+                result.tags?.let { newValue ->
+                    if (newValue != currentTags) {
+                        FieldPreviewRow(
+                            fieldName = "Tags",
+                            fieldKey = "tags",
+                            oldValue = currentTags.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["tags"] ?: false,
+                            onSelectionChange = { selectedFields["tags"] = it }
+                        )
+                    }
+                }
+
+                result.publisher?.let { newValue ->
+                    if (newValue != currentPublisher) {
+                        FieldPreviewRow(
+                            fieldName = "Publisher",
+                            fieldKey = "publisher",
+                            oldValue = currentPublisher.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["publisher"] ?: false,
+                            onSelectionChange = { selectedFields["publisher"] = it }
+                        )
+                    }
+                }
+
+                result.publishedYear?.let { newValue ->
+                    if (newValue.toString() != currentPublishedYear) {
+                        FieldPreviewRow(
+                            fieldName = "Published Year",
+                            fieldKey = "publishedYear",
+                            oldValue = currentPublishedYear.ifBlank { "(empty)" },
+                            newValue = newValue.toString(),
+                            isSelected = selectedFields["publishedYear"] ?: false,
+                            onSelectionChange = { selectedFields["publishedYear"] = it }
+                        )
+                    }
+                }
+
+                result.language?.let { newValue ->
+                    if (newValue != currentLanguage) {
+                        FieldPreviewRow(
+                            fieldName = "Language",
+                            fieldKey = "language",
+                            oldValue = currentLanguage.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["language"] ?: false,
+                            onSelectionChange = { selectedFields["language"] = it }
+                        )
+                    }
+                }
+
+                result.rating?.let { newValue ->
+                    if (newValue.toString() != currentRating) {
+                        FieldPreviewRow(
+                            fieldName = "Rating",
+                            fieldKey = "rating",
+                            oldValue = currentRating.ifBlank { "(empty)" },
+                            newValue = newValue.toString(),
+                            isSelected = selectedFields["rating"] ?: false,
+                            onSelectionChange = { selectedFields["rating"] = it }
+                        )
+                    }
+                }
+
+                result.asin?.let { newValue ->
+                    if (newValue != currentAsin) {
+                        FieldPreviewRow(
+                            fieldName = "ASIN",
+                            fieldKey = "asin",
+                            oldValue = currentAsin.ifBlank { "(empty)" },
+                            newValue = newValue,
+                            isSelected = selectedFields["asin"] ?: false,
+                            onSelectionChange = { selectedFields["asin"] = it }
+                        )
+                    }
+                }
+
+                result.image?.let { newValue ->
+                    if (newValue != currentCoverUrl) {
+                        FieldPreviewRow(
+                            fieldName = "Cover URL",
+                            fieldKey = "coverUrl",
+                            oldValue = if (currentCoverUrl.isBlank()) "(empty)" else "(current)",
+                            newValue = "(new cover)",
+                            isSelected = selectedFields["coverUrl"] ?: false,
+                            onSelectionChange = { selectedFields["coverUrl"] = it }
+                        )
+                    }
+                }
+
+                result.description?.let { newValue ->
+                    if (newValue != currentDescription) {
+                        FieldPreviewRow(
+                            fieldName = "Description",
+                            fieldKey = "description",
+                            oldValue = if (currentDescription.isBlank()) "(empty)" else "(${currentDescription.take(30)}...)",
+                            newValue = "(${newValue.take(30)}...)",
+                            isSelected = selectedFields["description"] ?: false,
+                            onSelectionChange = { selectedFields["description"] = it }
+                        )
+                    }
+                }
+
+                if (selectedFields.isEmpty()) {
+                    Text(
+                        text = "No new values to apply - all fields match current values.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF6b7280),
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onApply(selectedFields.filter { it.value }.keys)
+                },
+                enabled = selectedFields.any { it.value },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3b82f6)
+                )
+            ) {
+                Text("Apply Selected")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
+}
+
+@Composable
+private fun FieldPreviewRow(
+    fieldName: String,
+    fieldKey: String,
+    oldValue: String,
+    newValue: String,
+    isSelected: Boolean,
+    onSelectionChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(6.dp),
+        color = if (isSelected) Color(0xFF3b82f6).copy(alpha = 0.1f) else Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onSelectionChange(!isSelected) }
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = onSelectionChange,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = Color(0xFF3b82f6),
+                    uncheckedColor = Color(0xFF6b7280)
+                ),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = fieldName,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = oldValue,
+                        fontSize = 11.sp,
+                        color = Color(0xFFef4444),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Text(
+                        text = " → ",
+                        fontSize = 11.sp,
+                        color = Color(0xFF6b7280)
+                    )
+                    Text(
+                        text = newValue,
+                        fontSize = 11.sp,
+                        color = Color(0xFF10b981),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -2016,7 +2408,8 @@ private fun MetadataSearchResultItem(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = result.title ?: "Unknown Title",
@@ -2028,24 +2421,55 @@ private fun MetadataSearchResultItem(
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = when (result.source.lowercase()) {
-                            "audible" -> Color(0xFFf97316).copy(alpha = 0.2f)
-                            "google" -> Color(0xFF3b82f6).copy(alpha = 0.2f)
-                            else -> Color(0xFF10b981).copy(alpha = 0.2f)
-                        }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = result.source.replaceFirstChar { it.uppercase() },
-                            fontSize = 10.sp,
+                        // Chapter availability indicator
+                        if (result.hasChapters == true) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF8b5cf6).copy(alpha = 0.2f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.List,
+                                        contentDescription = null,
+                                        tint = Color(0xFFa78bfa),
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                    Text(
+                                        text = "Ch",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFa78bfa)
+                                    )
+                                }
+                            }
+                        }
+                        // Source badge
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
                             color = when (result.source.lowercase()) {
-                                "audible" -> Color(0xFFfb923c)
-                                "google" -> Color(0xFF60a5fa)
-                                else -> Color(0xFF34d399)
-                            },
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                                "audible" -> Color(0xFFf97316).copy(alpha = 0.2f)
+                                "google" -> Color(0xFF3b82f6).copy(alpha = 0.2f)
+                                else -> Color(0xFF10b981).copy(alpha = 0.2f)
+                            }
+                        ) {
+                            Text(
+                                text = result.source.replaceFirstChar { it.uppercase() },
+                                fontSize = 10.sp,
+                                color = when (result.source.lowercase()) {
+                                    "audible" -> Color(0xFFfb923c)
+                                    "google" -> Color(0xFF60a5fa)
+                                    else -> Color(0xFF34d399)
+                                },
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
 
