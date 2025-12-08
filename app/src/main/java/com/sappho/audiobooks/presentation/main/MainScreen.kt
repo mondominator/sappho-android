@@ -21,6 +21,18 @@ import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.outlined.AudioFile
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Error
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextOverflow
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
@@ -115,6 +127,7 @@ fun MainScreen(
 
     var showCastDialog by remember { mutableStateOf(false) }
     var showDownloadsDialog by remember { mutableStateOf(false) }
+    var showUploadDialog by remember { mutableStateOf(false) }
     var downloadToDelete by remember { mutableStateOf<Int?>(null) }
     val castHelper = viewModel.castHelper
     val downloadManager = viewModel.downloadManager
@@ -169,6 +182,10 @@ fun MainScreen(
                 onDownloadsClick = {
                     showUserMenu = false
                     showDownloadsDialog = true
+                },
+                onUploadClick = {
+                    showUserMenu = false
+                    showUploadDialog = true
                 },
                 downloadCount = downloadedBooks.size
             )
@@ -514,7 +531,233 @@ fun MainScreen(
                 containerColor = Color(0xFF1e293b)
             )
         }
+
+        // Upload Dialog
+        if (showUploadDialog) {
+            UploadDialog(
+                viewModel = viewModel,
+                onDismiss = { showUploadDialog = false }
+            )
+        }
     }
+}
+
+@Composable
+private fun UploadDialog(
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val uploadState by viewModel.uploadState.collectAsState()
+    val uploadProgress by viewModel.uploadProgress.collectAsState()
+    val uploadResult by viewModel.uploadResult.collectAsState()
+
+    var selectedFiles by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var title by remember { mutableStateOf("") }
+    var author by remember { mutableStateOf("") }
+    var narrator by remember { mutableStateOf("") }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        selectedFiles = uris
+    }
+
+    AlertDialog(
+        onDismissRequest = {
+            if (uploadState != UploadState.UPLOADING) {
+                viewModel.clearUploadResult()
+                onDismiss()
+            }
+        },
+        title = { Text("Upload Audiobooks", color = Color.White) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Supported: MP3, M4A, M4B, FLAC, OGG, WAV",
+                    color = Color(0xFF9ca3af),
+                    fontSize = 12.sp
+                )
+
+                // File picker button
+                Button(
+                    onClick = { filePickerLauncher.launch(arrayOf("audio/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Select Files")
+                }
+
+                // Selected files display
+                if (selectedFiles.isNotEmpty()) {
+                    Text(
+                        text = "${selectedFiles.size} file(s) selected",
+                        color = Color(0xFF10b981),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    selectedFiles.take(5).forEach { uri ->
+                        val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "Unknown file"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Outlined.AudioFile, contentDescription = null, tint = Color(0xFF9ca3af), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(fileName, color = Color(0xFFd1d5db), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    if (selectedFiles.size > 5) {
+                        Text("...and ${selectedFiles.size - 5} more", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    }
+
+                    TextButton(onClick = { selectedFiles = emptyList() }) {
+                        Text("Clear selection", color = Color(0xFFef4444), fontSize = 12.sp)
+                    }
+
+                    // Optional metadata
+                    Text("Optional metadata (leave blank to auto-detect)", color = Color(0xFF6b7280), fontSize = 11.sp)
+
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af)
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = author,
+                        onValueChange = { author = it },
+                        label = { Text("Author") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af)
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = narrator,
+                        onValueChange = { narrator = it },
+                        label = { Text("Narrator") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af)
+                        )
+                    )
+                }
+
+                // Upload progress
+                if (uploadState == UploadState.UPLOADING) {
+                    LinearProgressIndicator(
+                        progress = uploadProgress,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFF3b82f6)
+                    )
+                    Text(
+                        "Uploading... ${(uploadProgress * 100).toInt()}%",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 12.sp
+                    )
+                }
+
+                // Upload result
+                uploadResult?.let { result ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (result.success) Color(0xFF10b981).copy(alpha = 0.1f) else Color(0xFFef4444).copy(alpha = 0.1f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                if (result.success) Icons.Outlined.CheckCircle else Icons.Outlined.Error,
+                                contentDescription = null,
+                                tint = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                result.message ?: if (result.success) "Upload complete" else "Upload failed",
+                                color = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (selectedFiles.isNotEmpty() && uploadResult == null) {
+                Button(
+                    onClick = {
+                        viewModel.uploadAudiobooks(
+                            context = context,
+                            uris = selectedFiles,
+                            title = title.ifBlank { null },
+                            author = author.ifBlank { null },
+                            narrator = narrator.ifBlank { null }
+                        )
+                    },
+                    enabled = uploadState != UploadState.UPLOADING,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10b981))
+                ) {
+                    Text("Upload")
+                }
+            } else if (uploadResult != null) {
+                Button(
+                    onClick = {
+                        selectedFiles = emptyList()
+                        title = ""
+                        author = ""
+                        narrator = ""
+                        viewModel.clearUploadResult()
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                ) {
+                    Text("Done")
+                }
+            }
+        },
+        dismissButton = {
+            if (uploadState != UploadState.UPLOADING && uploadResult == null) {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = Color(0xFF9ca3af))
+                }
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
 }
 
 private fun formatFileSize(size: Long): String {
@@ -542,6 +785,7 @@ fun TopBar(
     onDismissMenu: () -> Unit,
     onLogoClick: () -> Unit,
     onDownloadsClick: () -> Unit,
+    onUploadClick: () -> Unit,
     downloadCount: Int
 ) {
     val appVersion = BuildConfig.VERSION_NAME
@@ -681,6 +925,11 @@ fun TopBar(
                         onClick = onDownloadsClick
                     )
                     if (user?.isAdmin == 1) {
+                        UserMenuItem(
+                            icon = Icons.Default.Upload,
+                            text = "Upload",
+                            onClick = onUploadClick
+                        )
                         UserMenuItem(
                             icon = Icons.Default.Settings,
                             text = "Admin",

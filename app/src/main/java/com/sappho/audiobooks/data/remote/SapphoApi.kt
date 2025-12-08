@@ -306,6 +306,9 @@ interface SapphoApi {
     @GET("api/maintenance/jobs")
     suspend fun getJobs(): Response<JobsResponse>
 
+    @POST("api/maintenance/jobs/{jobId}/trigger")
+    suspend fun triggerJob(@Path("jobId") jobId: String): Response<TriggerJobResponse>
+
     // Collections Endpoints
     @GET("api/collections")
     suspend fun getCollections(): Response<List<Collection>>
@@ -725,7 +728,13 @@ data class JobInfo(
     val lastRun: String?,
     @com.google.gson.annotations.SerializedName("nextRun")
     val nextRun: String?,
-    val canTrigger: Boolean?
+    val canTrigger: Boolean?,
+    val lastResult: Any?  // Can be an object with scan results or error info
+)
+
+data class TriggerJobResponse(
+    val success: Boolean,
+    val message: String?
 )
 
 // Collections Data Classes

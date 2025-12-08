@@ -21,7 +21,7 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew clean assembleDebug
 ```
 
-### Running on Emulator
+### Running on Device/Emulator
 ```bash
 # Install and run (requires device/emulator running)
 ./gradlew installDebug
@@ -34,6 +34,8 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 # Check logs
 /Users/mondo/Library/Android/sdk/platform-tools/adb logcat -d | grep "Sappho\|okhttp"
 ```
+
+**IMPORTANT**: After completing code changes, always run `./gradlew installDebug` to install the app on the connected device for user testing.
 
 ## Architecture Overview
 
