@@ -292,7 +292,8 @@ fun MainScreen(
                     },
                     onSeriesClick = { series ->
                         navController.navigate(Screen.Library.createRoute(series = series))
-                    }
+                    },
+                    isAdmin = user?.isAdmin == 1
                 )
             }
         }

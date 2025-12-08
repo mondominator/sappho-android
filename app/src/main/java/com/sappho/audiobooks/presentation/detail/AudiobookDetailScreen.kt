@@ -25,10 +25,12 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.StarHalf
 import androidx.compose.material3.*
+import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +55,7 @@ fun AudiobookDetailScreen(
     onPlayClick: (Int, Int?) -> Unit = { _, _ -> },
     onAuthorClick: (String) -> Unit = {},
     onSeriesClick: (String) -> Unit = {},
+    isAdmin: Boolean = false,
     viewModel: AudiobookDetailViewModel = hiltViewModel()
 ) {
     val audiobook by viewModel.audiobook.collectAsState()
@@ -67,8 +70,11 @@ fun AudiobookDetailScreen(
     val userRating by viewModel.userRating.collectAsState()
     val averageRating by viewModel.averageRating.collectAsState()
     val isUpdatingRating by viewModel.isUpdatingRating.collectAsState()
+    val isSavingMetadata by viewModel.isSavingMetadata.collectAsState()
+    val metadataSaveResult by viewModel.metadataSaveResult.collectAsState()
     var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
+    var showEditMetadataDialog by remember { mutableStateOf(false) }
 
     // Check if this audiobook is currently playing or loaded
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
@@ -110,11 +116,12 @@ fun AudiobookDetailScreen(
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = 80.dp)
                 ) {
-                    // Back Button
-                    Box(
+                    // Back Button and Edit Button (admin only)
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         OutlinedButton(
                             onClick = onBackClick,
@@ -132,6 +139,27 @@ fun AudiobookDetailScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Back", fontSize = 14.sp)
+                        }
+
+                        // Edit button (admin only)
+                        if (isAdmin && !isOffline) {
+                            OutlinedButton(
+                                onClick = { showEditMetadataDialog = true },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF3b82f6)
+                                ),
+                                border = BorderStroke(1.dp, Color(0xFF3b82f6).copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Edit", fontSize = 14.sp)
+                            }
                         }
                     }
 
@@ -952,6 +980,30 @@ fun AudiobookDetailScreen(
                 containerColor = Color(0xFF1e293b)
             )
         }
+
+        // Edit Metadata Dialog (admin only)
+        if (showEditMetadataDialog) {
+            audiobook?.let { book ->
+                EditMetadataDialog(
+                    audiobook = book,
+                    isSaving = isSavingMetadata,
+                    onDismiss = { showEditMetadataDialog = false },
+                    onSave = { request ->
+                        viewModel.updateMetadata(request) {
+                            showEditMetadataDialog = false
+                        }
+                    }
+                )
+            }
+        }
+
+        // Show snackbar for save result
+        metadataSaveResult?.let { result ->
+            LaunchedEffect(result) {
+                kotlinx.coroutines.delay(3000)
+                viewModel.clearMetadataSaveResult()
+            }
+        }
     }
 }
 
@@ -1237,3 +1289,188 @@ private fun AverageRatingDisplay(
         )
     }
 }
+
+@Composable
+fun EditMetadataDialog(
+    audiobook: com.sappho.audiobooks.domain.model.Audiobook,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (AudiobookUpdateRequest) -> Unit
+) {
+    var title by remember { mutableStateOf(audiobook.title) }
+    var author by remember { mutableStateOf(audiobook.author ?: "") }
+    var narrator by remember { mutableStateOf(audiobook.narrator ?: "") }
+    var series by remember { mutableStateOf(audiobook.series ?: "") }
+    var seriesPosition by remember { mutableStateOf(audiobook.seriesPosition?.toString() ?: "") }
+    var genre by remember { mutableStateOf(audiobook.genre ?: "") }
+    var publishedYear by remember { mutableStateOf(audiobook.publishYear?.toString() ?: "") }
+    var description by remember { mutableStateOf(audiobook.description ?: "") }
+    var isbn by remember { mutableStateOf(audiobook.isbn ?: "") }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        title = {
+            Text(
+                text = "Edit Metadata",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Title
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Author
+                OutlinedTextField(
+                    value = author,
+                    onValueChange = { author = it },
+                    label = { Text("Author") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Narrator
+                OutlinedTextField(
+                    value = narrator,
+                    onValueChange = { narrator = it },
+                    label = { Text("Narrator") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Series row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = series,
+                        onValueChange = { series = it },
+                        label = { Text("Series") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = editTextFieldColors()
+                    )
+                    OutlinedTextField(
+                        value = seriesPosition,
+                        onValueChange = { seriesPosition = it },
+                        label = { Text("#") },
+                        modifier = Modifier.width(60.dp),
+                        singleLine = true,
+                        colors = editTextFieldColors()
+                    )
+                }
+
+                // Genre
+                OutlinedTextField(
+                    value = genre,
+                    onValueChange = { genre = it },
+                    label = { Text("Genre") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Published Year
+                OutlinedTextField(
+                    value = publishedYear,
+                    onValueChange = { publishedYear = it },
+                    label = { Text("Published Year") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // ISBN
+                OutlinedTextField(
+                    value = isbn,
+                    onValueChange = { isbn = it },
+                    label = { Text("ISBN") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = editTextFieldColors()
+                )
+
+                // Description (multi-line)
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 100.dp),
+                    maxLines = 5,
+                    colors = editTextFieldColors()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val request = AudiobookUpdateRequest(
+                        title = title.ifBlank { null },
+                        author = author.ifBlank { null },
+                        narrator = narrator.ifBlank { null },
+                        series = series.ifBlank { null },
+                        seriesPosition = seriesPosition.toFloatOrNull(),
+                        genre = genre.ifBlank { null },
+                        publishedYear = publishedYear.toIntOrNull(),
+                        description = description.ifBlank { null },
+                        isbn = isbn.ifBlank { null }
+                    )
+                    onSave(request)
+                },
+                enabled = !isSaving,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3b82f6)
+                )
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSaving
+            ) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
+}
+
+@Composable
+private fun editTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.White,
+    unfocusedTextColor = Color(0xFFd1d5db),
+    focusedBorderColor = Color(0xFF3b82f6),
+    unfocusedBorderColor = Color(0xFF374151),
+    focusedLabelColor = Color(0xFF3b82f6),
+    unfocusedLabelColor = Color(0xFF9ca3af),
+    cursorColor = Color(0xFF3b82f6)
+)

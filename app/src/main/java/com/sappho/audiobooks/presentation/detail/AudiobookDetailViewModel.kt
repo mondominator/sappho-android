@@ -3,6 +3,7 @@ package com.sappho.audiobooks.presentation.detail
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
 import com.sappho.audiobooks.data.remote.AverageRating
 import com.sappho.audiobooks.data.remote.RatingRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
@@ -69,6 +70,12 @@ class AudiobookDetailViewModel @Inject constructor(
 
     private val _isUpdatingRating = MutableStateFlow(false)
     val isUpdatingRating: StateFlow<Boolean> = _isUpdatingRating
+
+    private val _isSavingMetadata = MutableStateFlow(false)
+    val isSavingMetadata: StateFlow<Boolean> = _isSavingMetadata
+
+    private val _metadataSaveResult = MutableStateFlow<String?>(null)
+    val metadataSaveResult: StateFlow<String?> = _metadataSaveResult
 
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
@@ -301,5 +308,35 @@ class AudiobookDetailViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun updateMetadata(request: AudiobookUpdateRequest, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isSavingMetadata.value) return@launch
+                _isSavingMetadata.value = true
+                _metadataSaveResult.value = null
+                try {
+                    val response = api.updateAudiobook(book.id, request)
+                    if (response.isSuccessful) {
+                        _metadataSaveResult.value = "Metadata saved successfully"
+                        // Reload audiobook to get updated data
+                        loadAudiobook(book.id)
+                        onSuccess()
+                    } else {
+                        _metadataSaveResult.value = "Failed to save metadata: ${response.code()}"
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _metadataSaveResult.value = "Error: ${e.message}"
+                } finally {
+                    _isSavingMetadata.value = false
+                }
+            }
+        }
+    }
+
+    fun clearMetadataSaveResult() {
+        _metadataSaveResult.value = null
     }
 }
