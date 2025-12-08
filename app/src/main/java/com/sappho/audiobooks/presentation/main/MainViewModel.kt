@@ -25,10 +25,14 @@ class MainViewModel @Inject constructor(
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl
 
+    private val _serverVersion = MutableStateFlow<String?>(null)
+    val serverVersion: StateFlow<String?> = _serverVersion
+
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
         loadCachedUser() // Load cached user first for immediate display
         loadUser()
+        loadServerVersion()
     }
 
     private fun loadCachedUser() {
@@ -66,6 +70,19 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 // Offline - keep using cached user
                 android.util.Log.e("MainViewModel", "Exception loading user (offline?)", e)
+            }
+        }
+    }
+
+    private fun loadServerVersion() {
+        viewModelScope.launch {
+            try {
+                val response = api.getHealth()
+                if (response.isSuccessful) {
+                    _serverVersion.value = response.body()?.version
+                }
+            } catch (e: Exception) {
+                // Ignore errors - version is optional
             }
         }
     }
