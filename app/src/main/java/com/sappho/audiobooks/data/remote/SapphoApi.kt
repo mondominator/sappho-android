@@ -200,6 +200,30 @@ interface SapphoApi {
         @Body request: AudiobookUpdateRequest
     ): Response<com.sappho.audiobooks.domain.model.Audiobook>
 
+    // Upload Endpoints
+    @Multipart
+    @POST("api/upload")
+    suspend fun uploadAudiobook(
+        @Part file: MultipartBody.Part,
+        @Part("title") title: RequestBody? = null,
+        @Part("author") author: RequestBody? = null,
+        @Part("narrator") narrator: RequestBody? = null
+    ): Response<UploadResponse>
+
+    @Multipart
+    @POST("api/upload/batch")
+    suspend fun uploadBatch(
+        @Part files: List<MultipartBody.Part>
+    ): Response<BatchUploadResponse>
+
+    @Multipart
+    @POST("api/upload/multi-file")
+    suspend fun uploadMultiFile(
+        @Part files: List<MultipartBody.Part>,
+        @Part("title") title: RequestBody? = null,
+        @Part("author") author: RequestBody? = null
+    ): Response<UploadResponse>
+
     // Backup Endpoints
     @GET("api/backup")
     suspend fun getBackups(): Response<BackupsResponse>
@@ -294,15 +318,6 @@ interface SapphoApi {
 
     @GET("api/collections/for-book/{bookId}")
     suspend fun getCollectionsForBook(@Path("bookId") bookId: Int): Response<List<CollectionForBook>>
-
-    // Upload Endpoints
-    @Multipart
-    @POST("api/upload")
-    suspend fun uploadAudiobook(
-        @Part file: MultipartBody.Part,
-        @Part("title") title: RequestBody?,
-        @Part("author") author: RequestBody?
-    ): Response<UploadResponse>
 }
 
 data class ProfileUpdateRequest(
@@ -747,5 +762,16 @@ data class UploadResponse(
     val success: Boolean,
     val audiobook: com.sappho.audiobooks.domain.model.Audiobook?,
     val message: String?,
+    val error: String?
+)
+
+data class BatchUploadResponse(
+    val results: List<BatchUploadResult>?
+)
+
+data class BatchUploadResult(
+    val success: Boolean,
+    val filename: String?,
+    val audiobook: com.sappho.audiobooks.domain.model.Audiobook?,
     val error: String?
 )
