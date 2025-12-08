@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.StarHalf
 import androidx.compose.material3.*
 import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
+import com.sappho.audiobooks.data.remote.ChapterUpdate
 import com.sappho.audiobooks.data.remote.MetadataSearchResult
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -79,6 +80,10 @@ fun AudiobookDetailScreen(
     val metadataSearchError by viewModel.metadataSearchError.collectAsState()
     val isEmbeddingMetadata by viewModel.isEmbeddingMetadata.collectAsState()
     val embedMetadataResult by viewModel.embedMetadataResult.collectAsState()
+    val isSavingChapters by viewModel.isSavingChapters.collectAsState()
+    val chapterSaveResult by viewModel.chapterSaveResult.collectAsState()
+    val isFetchingChapters by viewModel.isFetchingChapters.collectAsState()
+    val fetchChaptersResult by viewModel.fetchChaptersResult.collectAsState()
     var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
     var showEditMetadataDialog by remember { mutableStateOf(false) }
@@ -905,56 +910,34 @@ fun AudiobookDetailScreen(
 
         // Chapters Dialog
         if (showChaptersDialog) {
-            AlertDialog(
-                onDismissRequest = { showChaptersDialog = false },
-                title = { Text("Chapters", color = Color.White) },
-                text = {
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 400.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        itemsIndexed(chapters) { index, chapter ->
-                            TextButton(
-                                onClick = {
-                                    audiobook?.let { book ->
-                                        if (currentAudiobook?.id == book.id) {
-                                            AudioPlaybackService.instance?.seekToAndPlay(chapter.startTime.toLong())
-                                        } else {
-                                            onPlayClick(book.id, chapter.startTime.toInt())
-                                        }
-                                    }
-                                    showChaptersDialog = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = chapter.title ?: "Chapter ${index + 1}",
-                                        color = Color.White,
-                                        modifier = Modifier.weight(1f).padding(end = 8.dp),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = formatTime(chapter.startTime.toLong()),
-                                        color = Color(0xFF9ca3af),
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
+            ChaptersDialog(
+                chapters = chapters,
+                audiobook = audiobook,
+                currentAudiobook = currentAudiobook,
+                isAdmin = isAdmin,
+                isSavingChapters = isSavingChapters,
+                chapterSaveResult = chapterSaveResult,
+                isFetchingChapters = isFetchingChapters,
+                fetchChaptersResult = fetchChaptersResult,
+                onChapterClick = { chapter ->
+                    audiobook?.let { book ->
+                        if (currentAudiobook?.id == book.id) {
+                            AudioPlaybackService.instance?.seekToAndPlay(chapter.startTime.toLong())
+                        } else {
+                            onPlayClick(book.id, chapter.startTime.toInt())
                         }
                     }
+                    showChaptersDialog = false
                 },
-                confirmButton = {
-                    TextButton(onClick = { showChaptersDialog = false }) {
-                        Text("Close", color = Color(0xFF3b82f6))
-                    }
+                onSaveChapters = { chapterUpdates ->
+                    viewModel.updateChapters(chapterUpdates) {}
                 },
-                containerColor = Color(0xFF1e293b)
+                onFetchChapters = { asin ->
+                    viewModel.fetchChaptersFromAudnexus(asin) {}
+                },
+                onClearChapterSaveResult = { viewModel.clearChapterSaveResult() },
+                onClearFetchChaptersResult = { viewModel.clearFetchChaptersResult() },
+                onDismiss = { showChaptersDialog = false }
             )
         }
 
@@ -996,13 +979,16 @@ fun AudiobookDetailScreen(
                     isSaving = isSavingMetadata,
                     isSearching = isSearchingMetadata,
                     isEmbedding = isEmbeddingMetadata,
+                    isFetchingChapters = isFetchingChapters,
                     searchResults = metadataSearchResults,
                     searchError = metadataSearchError,
                     embedResult = embedMetadataResult,
+                    fetchChaptersResult = fetchChaptersResult,
                     onDismiss = {
                         showEditMetadataDialog = false
                         viewModel.clearMetadataSearchResults()
                         viewModel.clearEmbedMetadataResult()
+                        viewModel.clearFetchChaptersResult()
                     },
                     onSave = { request ->
                         viewModel.updateMetadata(request) {
@@ -1020,8 +1006,21 @@ fun AudiobookDetailScreen(
                     },
                     onClearSearch = {
                         viewModel.clearMetadataSearchResults()
+                    },
+                    onFetchChapters = { asin ->
+                        viewModel.fetchChaptersFromAudnexus(asin) {}
                     }
                 )
+            }
+        }
+
+        // Close dialog on successful embed
+        LaunchedEffect(embedMetadataResult) {
+            if (embedMetadataResult?.contains("success", ignoreCase = true) == true) {
+                kotlinx.coroutines.delay(1500)
+                showEditMetadataDialog = false
+                viewModel.clearMetadataSearchResults()
+                viewModel.clearEmbedMetadataResult()
             }
         }
 
@@ -1324,14 +1323,17 @@ fun EditMetadataDialog(
     isSaving: Boolean,
     isSearching: Boolean,
     isEmbedding: Boolean,
+    isFetchingChapters: Boolean,
     searchResults: List<MetadataSearchResult>,
     searchError: String?,
     embedResult: String?,
+    fetchChaptersResult: String?,
     onDismiss: () -> Unit,
     onSave: (AudiobookUpdateRequest) -> Unit,
     onSaveAndEmbed: (AudiobookUpdateRequest) -> Unit,
     onSearch: (String, String) -> Unit,
-    onClearSearch: () -> Unit
+    onClearSearch: () -> Unit,
+    onFetchChapters: (String) -> Unit
 ) {
     var title by remember { mutableStateOf(audiobook.title) }
     var author by remember { mutableStateOf(audiobook.author ?: "") }
@@ -1342,7 +1344,9 @@ fun EditMetadataDialog(
     var publishedYear by remember { mutableStateOf(audiobook.publishYear?.toString() ?: "") }
     var description by remember { mutableStateOf(audiobook.description ?: "") }
     var isbn by remember { mutableStateOf(audiobook.isbn ?: "") }
+    var asin by remember { mutableStateOf(audiobook.asin ?: "") }
     var showSearchResults by remember { mutableStateOf(false) }
+    var selectedResultHasChapters by remember { mutableStateOf(false) }
 
     // When search results come in, show them
     LaunchedEffect(searchResults) {
@@ -1351,7 +1355,7 @@ fun EditMetadataDialog(
         }
     }
 
-    val isBusy = isSaving || isSearching || isEmbedding
+    val isBusy = isSaving || isSearching || isEmbedding || isFetchingChapters
 
     AlertDialog(
         onDismissRequest = { if (!isBusy) onDismiss() },
@@ -1387,6 +1391,23 @@ fun EditMetadataDialog(
                     }
                 }
 
+                // Fetch chapters result message
+                fetchChaptersResult?.let { result ->
+                    val isSuccess = result.contains("success", ignoreCase = true)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSuccess) Color(0xFF10b981).copy(alpha = 0.15f) else Color(0xFFef4444).copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = result,
+                            fontSize = 12.sp,
+                            color = if (isSuccess) Color(0xFF34d399) else Color(0xFFf87171),
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+
                 // Embedding progress indicator
                 if (isEmbedding) {
                     Row(
@@ -1404,6 +1425,27 @@ fun EditMetadataDialog(
                             text = "Embedding metadata into file...",
                             fontSize = 12.sp,
                             color = Color(0xFF34d399)
+                        )
+                    }
+                }
+
+                // Fetching chapters progress indicator
+                if (isFetchingChapters) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color(0xFF8b5cf6),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Fetching chapters from Audnexus...",
+                            fontSize = 12.sp,
+                            color = Color(0xFFa78bfa)
                         )
                     }
                 }
@@ -1487,6 +1529,9 @@ fun EditMetadataDialog(
                                         result.genre?.let { genre = it }
                                         result.publishedYear?.let { publishedYear = it.toString() }
                                         result.description?.let { description = it }
+                                        // Capture ASIN and chapters availability for Audible results
+                                        result.asin?.let { asin = it }
+                                        selectedResultHasChapters = result.hasChapters == true && result.asin != null
                                         showSearchResults = false
                                     }
                                 )
@@ -1589,6 +1634,42 @@ fun EditMetadataDialog(
                     colors = editTextFieldColors()
                 )
 
+                // ASIN with Fetch Chapters button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = asin,
+                        onValueChange = {
+                            asin = it
+                            // Enable fetch chapters if valid ASIN format
+                            selectedResultHasChapters = it.matches(Regex("^[A-Z0-9]{10}$", RegexOption.IGNORE_CASE))
+                        },
+                        label = { Text("ASIN") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        colors = editTextFieldColors()
+                    )
+                    Button(
+                        onClick = { onFetchChapters(asin) },
+                        enabled = !isBusy && asin.isNotBlank() && asin.matches(Regex("^[A-Z0-9]{10}$", RegexOption.IGNORE_CASE)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF8b5cf6)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.List,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Chapters", fontSize = 12.sp)
+                    }
+                }
+
                 // Description (multi-line)
                 OutlinedTextField(
                     value = description,
@@ -1618,7 +1699,8 @@ fun EditMetadataDialog(
                             genre = genre.ifBlank { null },
                             publishedYear = publishedYear.toIntOrNull(),
                             description = description.ifBlank { null },
-                            isbn = isbn.ifBlank { null }
+                            isbn = isbn.ifBlank { null },
+                            asin = asin.ifBlank { null }
                         )
                         onSave(request)
                     },
@@ -1650,7 +1732,8 @@ fun EditMetadataDialog(
                             genre = genre.ifBlank { null },
                             publishedYear = publishedYear.toIntOrNull(),
                             description = description.ifBlank { null },
-                            isbn = isbn.ifBlank { null }
+                            isbn = isbn.ifBlank { null },
+                            asin = asin.ifBlank { null }
                         )
                         onSaveAndEmbed(request)
                     },
@@ -1785,3 +1868,311 @@ private fun editTextFieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedLabelColor = Color(0xFF9ca3af),
     cursorColor = Color(0xFF3b82f6)
 )
+
+@Composable
+private fun ChaptersDialog(
+    chapters: List<com.sappho.audiobooks.domain.model.Chapter>,
+    audiobook: com.sappho.audiobooks.domain.model.Audiobook?,
+    currentAudiobook: com.sappho.audiobooks.domain.model.Audiobook?,
+    isAdmin: Boolean,
+    isSavingChapters: Boolean,
+    chapterSaveResult: String?,
+    isFetchingChapters: Boolean,
+    fetchChaptersResult: String?,
+    onChapterClick: (com.sappho.audiobooks.domain.model.Chapter) -> Unit,
+    onSaveChapters: (List<ChapterUpdate>) -> Unit,
+    onFetchChapters: (String) -> Unit,
+    onClearChapterSaveResult: () -> Unit,
+    onClearFetchChaptersResult: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var isEditMode by remember { mutableStateOf(false) }
+    var editedTitles by remember(chapters) {
+        mutableStateOf(chapters.associate { it.id to (it.title ?: "Chapter ${chapters.indexOf(it) + 1}") })
+    }
+    var showAsinInput by remember { mutableStateOf(false) }
+    var asinInput by remember(audiobook) { mutableStateOf(audiobook?.asin ?: "") }
+
+    val isBusy = isSavingChapters || isFetchingChapters
+
+    // Reset edit mode when chapters change (after save/fetch)
+    LaunchedEffect(chapters) {
+        if (!isBusy) {
+            editedTitles = chapters.associate { it.id to (it.title ?: "Chapter ${chapters.indexOf(it) + 1}") }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isBusy) onDismiss() },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Chapters", color = Color.White)
+                if (isAdmin && !isEditMode) {
+                    IconButton(
+                        onClick = { isEditMode = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit chapters",
+                            tint = Color(0xFF3b82f6),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Result messages
+                chapterSaveResult?.let { result ->
+                    val isSuccess = result.contains("success", ignoreCase = true)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSuccess) Color(0xFF10b981).copy(alpha = 0.15f) else Color(0xFFef4444).copy(alpha = 0.15f)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = result,
+                                fontSize = 12.sp,
+                                color = if (isSuccess) Color(0xFF34d399) else Color(0xFFf87171),
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = onClearChapterSaveResult,
+                                contentPadding = PaddingValues(4.dp)
+                            ) {
+                                Text("Dismiss", fontSize = 10.sp, color = Color(0xFF9ca3af))
+                            }
+                        }
+                    }
+                }
+
+                fetchChaptersResult?.let { result ->
+                    val isSuccess = result.contains("success", ignoreCase = true)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSuccess) Color(0xFF10b981).copy(alpha = 0.15f) else Color(0xFFef4444).copy(alpha = 0.15f)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = result,
+                                fontSize = 12.sp,
+                                color = if (isSuccess) Color(0xFF34d399) else Color(0xFFf87171),
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = onClearFetchChaptersResult,
+                                contentPadding = PaddingValues(4.dp)
+                            ) {
+                                Text("Dismiss", fontSize = 10.sp, color = Color(0xFF9ca3af))
+                            }
+                        }
+                    }
+                }
+
+                // Admin controls when in edit mode
+                if (isAdmin && isEditMode) {
+                    // ASIN lookup section
+                    if (showAsinInput) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = asinInput,
+                                onValueChange = { asinInput = it },
+                                label = { Text("ASIN", fontSize = 12.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                enabled = !isBusy,
+                                colors = editTextFieldColors(),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                            )
+                            Button(
+                                onClick = {
+                                    if (asinInput.isNotBlank()) {
+                                        onFetchChapters(asinInput)
+                                        showAsinInput = false
+                                    }
+                                },
+                                enabled = !isBusy && asinInput.isNotBlank(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF8b5cf6)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                if (isFetchingChapters) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text("Fetch", fontSize = 12.sp)
+                                }
+                            }
+                            TextButton(
+                                onClick = { showAsinInput = false },
+                                enabled = !isBusy
+                            ) {
+                                Text("Cancel", fontSize = 12.sp, color = Color(0xFF9ca3af))
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = { showAsinInput = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isBusy,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF8b5cf6).copy(alpha = 0.15f),
+                                contentColor = Color(0xFFa78bfa)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Lookup Chapters from Audnexus")
+                        }
+                    }
+
+                    Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                }
+
+                // Chapter list
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 350.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    itemsIndexed(chapters) { index, chapter ->
+                        if (isEditMode && isAdmin) {
+                            // Edit mode - show text fields
+                            OutlinedTextField(
+                                value = editedTitles[chapter.id] ?: "",
+                                onValueChange = { newTitle ->
+                                    editedTitles = editedTitles.toMutableMap().apply {
+                                        put(chapter.id, newTitle)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                enabled = !isBusy,
+                                leadingIcon = {
+                                    Text(
+                                        text = "${index + 1}.",
+                                        color = Color(0xFF9ca3af),
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    Text(
+                                        text = formatTime(chapter.startTime.toLong()),
+                                        color = Color(0xFF9ca3af),
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                },
+                                colors = editTextFieldColors(),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
+                            )
+                        } else {
+                            // View mode - clickable chapter
+                            TextButton(
+                                onClick = { onChapterClick(chapter) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = chapter.title ?: "Chapter ${index + 1}",
+                                        color = Color.White,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = formatTime(chapter.startTime.toLong()),
+                                        color = Color(0xFF9ca3af),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (isEditMode && isAdmin) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(
+                        onClick = {
+                            isEditMode = false
+                            // Reset to original titles
+                            editedTitles = chapters.associate { it.id to (it.title ?: "Chapter ${chapters.indexOf(it) + 1}") }
+                        },
+                        enabled = !isBusy
+                    ) {
+                        Text("Cancel", color = Color(0xFF9ca3af))
+                    }
+                    Button(
+                        onClick = {
+                            val updates = editedTitles.map { (id, title) ->
+                                ChapterUpdate(id, title)
+                            }
+                            onSaveChapters(updates)
+                            isEditMode = false
+                        },
+                        enabled = !isBusy,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3b82f6)
+                        )
+                    ) {
+                        if (isSavingChapters) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text("Save")
+                    }
+                }
+            } else {
+                TextButton(onClick = onDismiss) {
+                    Text("Close", color = Color(0xFF3b82f6))
+                }
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
+}
