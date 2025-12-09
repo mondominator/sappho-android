@@ -1,9 +1,11 @@
 package com.sappho.audiobooks.presentation.library
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -2825,6 +2827,13 @@ fun AllBooksView(
     val sortOption by viewModel.userPreferences.librarySortOption.collectAsState()
     val sortAscending by viewModel.userPreferences.librarySortAscending.collectAsState()
     val filterOption by viewModel.userPreferences.libraryFilterOption.collectAsState()
+    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
+    val selectedBookIds by viewModel.selectedBookIds.collectAsState()
+    val collections by viewModel.collections.collectAsState()
+
+    var showBatchCollectionDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Filter audiobooks using the persisted filter option
     val filteredBooks = remember(allBooks, filterOption) {
@@ -2868,72 +2877,150 @@ fun AllBooksView(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBackClick) {
-                Icon(
-                    imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            if (isSelectionMode && selectedBookIds.isNotEmpty()) {
+                BatchActionBar(
+                    selectedCount = selectedBookIds.size,
+                    onMarkFinished = {
+                        viewModel.batchMarkFinished { _, message ->
+                            scope.launch { snackbarHostState.showSnackbar(message) }
+                        }
+                    },
+                    onClearProgress = {
+                        viewModel.batchClearProgress { _, message ->
+                            scope.launch { snackbarHostState.showSnackbar(message) }
+                        }
+                    },
+                    onAddToReadingList = {
+                        viewModel.batchAddToReadingList { _, message ->
+                            scope.launch { snackbarHostState.showSnackbar(message) }
+                        }
+                    },
+                    onAddToCollection = { showBatchCollectionDialog = true },
+                    onCancel = { viewModel.exitSelectionMode() }
                 )
             }
-            Text(
-                text = "${sortedBooks.size} ${if (sortedBooks.size == 1) "Book" else "Books"}",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
-
-        // Filters
-        Row(
+        },
+        containerColor = Color.Transparent
+    ) { paddingValues ->
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
         ) {
-            // Progress Filter
-            FilterOptionDropdown(
-                currentOption = filterOption,
-                onOptionSelect = { viewModel.userPreferences.setLibraryFilterOption(it) },
-                modifier = Modifier.weight(1f)
-            )
-
-            // Sort Filter
-            SortOptionDropdown(
-                currentOption = sortOption,
-                onOptionSelect = { viewModel.userPreferences.setLibrarySortOption(it) },
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        // Books Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(sortedBooks.size) { index ->
-                val book = sortedBooks[index]
-                BookGridItem(
-                    book = book,
-                    serverUrl = serverUrl,
-                    showSeriesPosition = sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.SERIES_POSITION,
-                    onClick = { onAudiobookClick(book.id) }
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = {
+                    if (isSelectionMode) viewModel.exitSelectionMode() else onBackClick()
+                }) {
+                    Icon(
+                        imageVector = if (isSelectionMode) Icons.Default.Close else Icons.Filled.ArrowBack,
+                        contentDescription = if (isSelectionMode) "Cancel selection" else "Back",
+                        tint = Color.White
+                    )
+                }
+                Text(
+                    text = if (isSelectionMode) "${selectedBookIds.size} selected" else "${sortedBooks.size} ${if (sortedBooks.size == 1) "Book" else "Books"}",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
                 )
+                if (isSelectionMode) {
+                    TextButton(onClick = {
+                        if (selectedBookIds.size == sortedBooks.size) {
+                            viewModel.deselectAllBooks()
+                        } else {
+                            viewModel.selectAllBooks(sortedBooks.map { it.id })
+                        }
+                    }) {
+                        Text(
+                            text = if (selectedBookIds.size == sortedBooks.size) "Deselect All" else "Select All",
+                            color = Color(0xFF3B82F6)
+                        )
+                    }
+                }
+            }
+
+            // Filters (hide in selection mode)
+            if (!isSelectionMode) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Progress Filter
+                    FilterOptionDropdown(
+                        currentOption = filterOption,
+                        onOptionSelect = { viewModel.userPreferences.setLibraryFilterOption(it) },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // Sort Filter
+                    SortOptionDropdown(
+                        currentOption = sortOption,
+                        onOptionSelect = { viewModel.userPreferences.setLibrarySortOption(it) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // Books Grid
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(sortedBooks.size) { index ->
+                    val book = sortedBooks[index]
+                    val isSelected = selectedBookIds.contains(book.id)
+                    SelectableBookGridItem(
+                        book = book,
+                        serverUrl = serverUrl,
+                        showSeriesPosition = sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.SERIES_POSITION,
+                        isSelectionMode = isSelectionMode,
+                        isSelected = isSelected,
+                        onClick = {
+                            if (isSelectionMode) {
+                                viewModel.toggleBookSelection(book.id)
+                            } else {
+                                onAudiobookClick(book.id)
+                            }
+                        },
+                        onLongClick = {
+                            if (!isSelectionMode) {
+                                viewModel.toggleSelectionMode()
+                                viewModel.toggleBookSelection(book.id)
+                            }
+                        }
+                    )
+                }
             }
         }
+    }
+
+    // Batch add to collection dialog
+    if (showBatchCollectionDialog) {
+        SelectCollectionDialog(
+            collections = collections,
+            onDismiss = { showBatchCollectionDialog = false },
+            onSelect = { collectionId ->
+                viewModel.batchAddToCollection(collectionId) { _, message ->
+                    scope.launch { snackbarHostState.showSnackbar(message) }
+                }
+                showBatchCollectionDialog = false
+            }
+        )
     }
 }
 
@@ -3055,6 +3142,265 @@ fun SortOptionDropdown(
             }
         }
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SelectableBookGridItem(
+    book: com.sappho.audiobooks.domain.model.Audiobook,
+    serverUrl: String?,
+    showSeriesPosition: Boolean = false,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {}
+) {
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(8.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+    ) {
+        // Cover Image
+        if (book.coverImage != null && serverUrl != null) {
+            AsyncImage(
+                model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                contentDescription = book.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(Color(0xFF374151), Color(0xFF1f2937))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = book.title.take(2).uppercase(),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+
+        // Selection overlay
+        if (isSelectionMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (isSelected) Color.Black.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.2f))
+            )
+            // Checkbox
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(if (isSelected) Color(0xFF3B82F6) else Color(0xFF374151))
+                    .border(2.dp, Color.White, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        } else {
+            // Series position badge (only show when not in selection mode)
+            if (showSeriesPosition && book.seriesPosition != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .background(Color(0xFF3b82f6), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "#${formatSeriesPosition(book.seriesPosition)}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Reading list indicator
+            if (book.isFavorite) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(24.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.BookmarkAdded,
+                        contentDescription = "On reading list",
+                        tint = Color(0xFF3b82f6),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+
+        // Progress bar
+        val progress = book.progress
+        if (progress != null && (progress.position > 0 || progress.completed == 1) && book.duration != null) {
+            val progressPercent = if (progress.completed == 1) 1f
+                else (progress.position.toFloat() / book.duration.toFloat()).coerceIn(0f, 1f)
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .background(Color.Black.copy(alpha = 0.7f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progressPercent)
+                        .background(
+                            if (progress.completed == 1)
+                                Brush.horizontalGradient(listOf(Color(0xFF10b981), Color(0xFF34d399)))
+                            else
+                                Brush.horizontalGradient(listOf(Color(0xFF3b82f6), Color(0xFF60a5fa)))
+                        )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun BatchActionBar(
+    selectedCount: Int,
+    onMarkFinished: () -> Unit,
+    onClearProgress: () -> Unit,
+    onAddToReadingList: () -> Unit,
+    onAddToCollection: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Surface(
+        color = Color(0xFF1f2937),
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Mark Finished
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(onClick = onMarkFinished)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.CheckCircle, contentDescription = "Mark Finished", tint = Color(0xFF10b981))
+                Text("Finished", fontSize = 10.sp, color = Color(0xFF9ca3af))
+            }
+            // Clear Progress
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(onClick = onClearProgress)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Clear Progress", tint = Color(0xFFf59e0b))
+                Text("Clear", fontSize = 10.sp, color = Color(0xFF9ca3af))
+            }
+            // Add to Reading List
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(onClick = onAddToReadingList)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.BookmarkAdd, contentDescription = "Add to Reading List", tint = Color(0xFF3b82f6))
+                Text("Reading List", fontSize = 10.sp, color = Color(0xFF9ca3af))
+            }
+            // Add to Collection
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(onClick = onAddToCollection)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.FolderSpecial, contentDescription = "Add to Collection", tint = Color(0xFF3B82F6))
+                Text("Collection", fontSize = 10.sp, color = Color(0xFF9ca3af))
+            }
+        }
+    }
+}
+
+@Composable
+fun SelectCollectionDialog(
+    collections: List<com.sappho.audiobooks.data.remote.Collection>,
+    onDismiss: () -> Unit,
+    onSelect: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add to Collection", color = Color.White) },
+        text = {
+            if (collections.isEmpty()) {
+                Text("No collections yet. Create one first.", color = Color(0xFF9ca3af))
+            } else {
+                LazyColumn {
+                    items(collections) { collection ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(collection.id) }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FolderSpecial,
+                                contentDescription = null,
+                                tint = Color(0xFFf59e0b),
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(collection.name, color = Color.White)
+                                Text(
+                                    "${collection.bookCount ?: 0} books",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF6b7280)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1f2937)
+    )
 }
 
 @Composable
