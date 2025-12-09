@@ -218,3 +218,13 @@ For security vulnerabilities, use **GitHub Security Advisories** instead of regu
 - Don't use automerge - wait for pipelines to give results before moving on or declaring success
 - Wait for user testing before shipping/merging
 - Never bypass merge rules
+
+## Release Checklist
+
+Before creating a new release, update the version number in `app/build.gradle.kts`:
+- `versionCode` - increment by 1
+- `versionName` - update to match the release tag (e.g., "1.3.0")
+
+The app version is displayed in two places which both use `BuildConfig.VERSION_NAME`:
+- User dropdown menu (HomeScreen.kt)
+- About section in Profile (ProfileScreen.kt)

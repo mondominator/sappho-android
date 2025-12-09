@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.sappho.audiobooks.BuildConfig
 import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.launch
 import java.io.File
@@ -851,7 +852,7 @@ private fun SettingsTab(
                     fontSize = 15.sp
                 )
                 Text(
-                    text = "1.1.0",
+                    text = BuildConfig.VERSION_NAME,
                     color = Color(0xFF9ca3af),
                     fontSize = 14.sp
                 )
