@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -337,6 +338,7 @@ fun ProfileScreen(
                             user = user,
                             isSaving = isSaving,
                             serverVersion = serverVersion,
+                            userPreferences = viewModel.userPreferences,
                             onEditProfile = { isEditMode = true },
                             onChangePassword = { showPasswordDialog = true },
                             onLogout = onLogout
@@ -759,16 +761,54 @@ private fun SettingsTab(
     user: com.sappho.audiobooks.domain.model.User?,
     isSaving: Boolean,
     serverVersion: String?,
+    userPreferences: UserPreferencesRepository,
     onEditProfile: () -> Unit,
     onChangePassword: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val skipForward by userPreferences.skipForwardSeconds.collectAsState()
+    val skipBackward by userPreferences.skipBackwardSeconds.collectAsState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        // Playback Section
+        SectionCard(
+            title = "Playback",
+            icon = Icons.Outlined.PlayCircle
+        ) {
+            // Skip Forward Setting
+            SkipIntervalSelector(
+                label = "Skip Forward",
+                currentValue = skipForward,
+                options = UserPreferencesRepository.SKIP_FORWARD_OPTIONS,
+                onValueChange = { userPreferences.setSkipForwardSeconds(it) }
+            )
+
+            Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+
+            // Skip Backward Setting
+            SkipIntervalSelector(
+                label = "Skip Back",
+                currentValue = skipBackward,
+                options = UserPreferencesRepository.SKIP_BACKWARD_OPTIONS,
+                onValueChange = { userPreferences.setSkipBackwardSeconds(it) }
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Changes take effect on next playback start",
+                color = Color(0xFF6b7280),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Account Section
         SectionCard(
             title = "Account",
@@ -1011,5 +1051,63 @@ private fun formatListenTime(seconds: Long): String {
         hours > 0 -> "${hours}h ${minutes}m"
         minutes > 0 -> "${minutes}m"
         else -> "${seconds}s"
+    }
+}
+
+@Composable
+private fun SkipIntervalSelector(
+    label: String,
+    currentValue: Int,
+    options: List<Int>,
+    onValueChange: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "${currentValue}s",
+                color = Color(0xFF3b82f6),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            options.forEach { seconds ->
+                val isSelected = seconds == currentValue
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onValueChange(seconds) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF3b82f6) else Color(0xFF374151)
+                ) {
+                    Text(
+                        text = "${seconds}s",
+                        color = if (isSelected) Color.White else Color(0xFF9ca3af),
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp)
+                    )
+                }
+            }
+        }
     }
 }
