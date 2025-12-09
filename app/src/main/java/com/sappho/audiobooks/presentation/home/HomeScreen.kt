@@ -20,6 +20,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -331,23 +334,12 @@ fun AudiobookCard(
                     }
                 }
 
-                // Reading list indicator
+                // Reading list ribbon (top-right corner)
                 if (book.isFavorite) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .size(24.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.BookmarkAdded,
-                            contentDescription = "On reading list",
-                            tint = Color(0xFF3b82f6),
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
+                    ReadingListRibbon(
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        size = 28f
+                    )
                 }
             }
 
@@ -399,5 +391,40 @@ fun AudiobookCard(
                 }
             )
         }
+    }
+}
+
+/**
+ * Reading list corner ribbon - blue folded ribbon on top-right corner
+ */
+@Composable
+private fun ReadingListRibbon(
+    modifier: Modifier = Modifier,
+    size: Float = 32f
+) {
+    Canvas(
+        modifier = modifier.size(size.dp)
+    ) {
+        val ribbonColor = Color(0xFF3b82f6)
+        val shadowColor = Color(0xFF1d4ed8)
+
+        // Main triangle (folded corner)
+        val trianglePath = Path().apply {
+            moveTo(0f, 0f)
+            lineTo(this@Canvas.size.width, 0f)
+            lineTo(this@Canvas.size.width, this@Canvas.size.height)
+            close()
+        }
+        drawPath(trianglePath, ribbonColor, style = Fill)
+
+        // Shadow fold line (darker edge to create 3D folded effect)
+        val foldPath = Path().apply {
+            moveTo(0f, 0f)
+            lineTo(this@Canvas.size.width * 0.3f, this@Canvas.size.height * 0.3f)
+            lineTo(this@Canvas.size.width * 0.4f, this@Canvas.size.height * 0.25f)
+            lineTo(this@Canvas.size.width * 0.1f, 0f)
+            close()
+        }
+        drawPath(foldPath, shadowColor.copy(alpha = 0.4f), style = Fill)
     }
 }
