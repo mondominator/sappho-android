@@ -3,7 +3,7 @@ package com.sappho.audiobooks.presentation.library
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sappho.audiobooks.data.remote.SapphoApi
+import com.sappho.audiobooks.data.remote.*
 import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.AuthorInfo
 import com.sappho.audiobooks.domain.model.GenreCategoryData
@@ -107,9 +107,27 @@ class LibraryViewModel @Inject constructor(
     private val _aiConfigured = MutableStateFlow(false)
     val aiConfigured: StateFlow<Boolean> = _aiConfigured.asStateFlow()
 
+    // Collections state
+    private val _collections = MutableStateFlow<List<com.sappho.audiobooks.data.remote.Collection>>(emptyList())
+    val collections: StateFlow<List<com.sappho.audiobooks.data.remote.Collection>> = _collections.asStateFlow()
+
+    private val _selectedCollection = MutableStateFlow<CollectionDetail?>(null)
+    val selectedCollection: StateFlow<CollectionDetail?> = _selectedCollection.asStateFlow()
+
+    private val _collectionsForBook = MutableStateFlow<List<CollectionForBook>>(emptyList())
+    val collectionsForBook: StateFlow<List<CollectionForBook>> = _collectionsForBook.asStateFlow()
+
+    // Batch selection state
+    private val _selectedBookIds = MutableStateFlow<Set<Int>>(emptySet())
+    val selectedBookIds: StateFlow<Set<Int>> = _selectedBookIds.asStateFlow()
+
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
+
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
         loadCategories()
+        loadCollections()
         checkAiStatus()
     }
 
@@ -164,6 +182,258 @@ class LibraryViewModel @Inject constructor(
 
     fun refresh() {
         loadCategories()
+        loadCollections()
+    }
+
+    // Collection methods
+    fun loadCollections() {
+        viewModelScope.launch {
+            try {
+                val response = api.getCollections()
+                if (response.isSuccessful) {
+                    _collections.value = response.body() ?: emptyList()
+                    Log.d("LibraryViewModel", "Loaded ${_collections.value.size} collections")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error loading collections", e)
+            }
+        }
+    }
+
+    fun loadCollectionDetail(collectionId: Int) {
+        viewModelScope.launch {
+            try {
+                val response = api.getCollection(collectionId)
+                if (response.isSuccessful) {
+                    _selectedCollection.value = response.body()
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error loading collection detail", e)
+            }
+        }
+    }
+
+    fun clearSelectedCollection() {
+        _selectedCollection.value = null
+    }
+
+    fun createCollection(name: String, description: String?, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.createCollection(CreateCollectionRequest(name, description))
+                if (response.isSuccessful) {
+                    loadCollections()
+                    onResult(true, "Collection created")
+                } else {
+                    onResult(false, "Failed to create collection")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error creating collection", e)
+                onResult(false, e.message ?: "Error creating collection")
+            }
+        }
+    }
+
+    fun updateCollection(collectionId: Int, name: String, description: String?, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.updateCollection(collectionId, UpdateCollectionRequest(name, description))
+                if (response.isSuccessful) {
+                    loadCollections()
+                    _selectedCollection.value?.let { if (it.id == collectionId) loadCollectionDetail(collectionId) }
+                    onResult(true, "Collection updated")
+                } else {
+                    onResult(false, "Failed to update collection")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error updating collection", e)
+                onResult(false, e.message ?: "Error updating collection")
+            }
+        }
+    }
+
+    fun deleteCollection(collectionId: Int, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.deleteCollection(collectionId)
+                if (response.isSuccessful) {
+                    loadCollections()
+                    if (_selectedCollection.value?.id == collectionId) {
+                        _selectedCollection.value = null
+                    }
+                    onResult(true, "Collection deleted")
+                } else {
+                    onResult(false, "Failed to delete collection")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error deleting collection", e)
+                onResult(false, e.message ?: "Error deleting collection")
+            }
+        }
+    }
+
+    fun addBookToCollection(collectionId: Int, bookId: Int, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.addToCollection(collectionId, AddToCollectionRequest(bookId))
+                if (response.isSuccessful) {
+                    loadCollections()
+                    _selectedCollection.value?.let { if (it.id == collectionId) loadCollectionDetail(collectionId) }
+                    onResult(true, "Added to collection")
+                } else {
+                    onResult(false, "Failed to add to collection")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error adding to collection", e)
+                onResult(false, e.message ?: "Error adding to collection")
+            }
+        }
+    }
+
+    fun removeBookFromCollection(collectionId: Int, bookId: Int, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = api.removeFromCollection(collectionId, bookId)
+                if (response.isSuccessful) {
+                    loadCollections()
+                    _selectedCollection.value?.let { if (it.id == collectionId) loadCollectionDetail(collectionId) }
+                    onResult(true, "Removed from collection")
+                } else {
+                    onResult(false, "Failed to remove from collection")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error removing from collection", e)
+                onResult(false, e.message ?: "Error removing from collection")
+            }
+        }
+    }
+
+    fun loadCollectionsForBook(bookId: Int) {
+        viewModelScope.launch {
+            try {
+                val response = api.getCollectionsForBook(bookId)
+                if (response.isSuccessful) {
+                    _collectionsForBook.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error loading collections for book", e)
+            }
+        }
+    }
+
+    // Batch selection methods
+    fun toggleSelectionMode() {
+        _isSelectionMode.value = !_isSelectionMode.value
+        if (!_isSelectionMode.value) {
+            _selectedBookIds.value = emptySet()
+        }
+    }
+
+    fun exitSelectionMode() {
+        _isSelectionMode.value = false
+        _selectedBookIds.value = emptySet()
+    }
+
+    fun toggleBookSelection(bookId: Int) {
+        val current = _selectedBookIds.value.toMutableSet()
+        if (current.contains(bookId)) {
+            current.remove(bookId)
+        } else {
+            current.add(bookId)
+        }
+        _selectedBookIds.value = current
+        if (current.isEmpty()) {
+            _isSelectionMode.value = false
+        }
+    }
+
+    fun selectAllBooks(bookIds: List<Int>) {
+        _selectedBookIds.value = bookIds.toSet()
+    }
+
+    fun deselectAllBooks() {
+        _selectedBookIds.value = emptySet()
+    }
+
+    // Batch actions using proper batch endpoints
+    fun batchMarkFinished(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val ids = _selectedBookIds.value.toList()
+                val response = api.batchMarkFinished(BatchActionRequest(ids))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCategories()
+                    exitSelectionMode()
+                    onResult(true, "Marked $count books as finished")
+                } else {
+                    onResult(false, "Failed to mark books as finished")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error in batch mark finished", e)
+                onResult(false, e.message ?: "Error marking books finished")
+            }
+        }
+    }
+
+    fun batchClearProgress(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val ids = _selectedBookIds.value.toList()
+                val response = api.batchClearProgress(BatchActionRequest(ids))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCategories()
+                    exitSelectionMode()
+                    onResult(true, "Cleared progress for $count books")
+                } else {
+                    onResult(false, "Failed to clear progress")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error in batch clear progress", e)
+                onResult(false, e.message ?: "Error clearing progress")
+            }
+        }
+    }
+
+    fun batchAddToReadingList(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val ids = _selectedBookIds.value.toList()
+                val response = api.batchAddToReadingList(BatchActionRequest(ids))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCategories()
+                    exitSelectionMode()
+                    onResult(true, "Added $count books to reading list")
+                } else {
+                    onResult(false, "Failed to add to reading list")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error in batch add to reading list", e)
+                onResult(false, e.message ?: "Error adding to reading list")
+            }
+        }
+    }
+
+    fun batchAddToCollection(collectionId: Int, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val ids = _selectedBookIds.value.toList()
+                val response = api.batchAddToCollection(BatchAddToCollectionRequest(ids, collectionId))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCollections()
+                    exitSelectionMode()
+                    onResult(true, "Added $count books to collection")
+                } else {
+                    onResult(false, "Failed to add to collection")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error in batch add to collection", e)
+                onResult(false, e.message ?: "Error adding to collection")
+            }
+        }
     }
 
     fun loadCategories() {
