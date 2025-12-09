@@ -3303,37 +3303,49 @@ fun BatchActionBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(horizontal = 8.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Mark Finished
-            IconButton(onClick = onMarkFinished) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = "Mark Finished", tint = Color(0xFF10b981))
-                    Text("Finished", fontSize = 10.sp, color = Color(0xFF9ca3af))
-                }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(onClick = onMarkFinished)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.CheckCircle, contentDescription = "Mark Finished", tint = Color(0xFF10b981))
+                Text("Finished", fontSize = 10.sp, color = Color(0xFF9ca3af))
             }
             // Clear Progress
-            IconButton(onClick = onClearProgress) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Clear Progress", tint = Color(0xFFf59e0b))
-                    Text("Clear", fontSize = 10.sp, color = Color(0xFF9ca3af))
-                }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(onClick = onClearProgress)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Clear Progress", tint = Color(0xFFf59e0b))
+                Text("Clear", fontSize = 10.sp, color = Color(0xFF9ca3af))
             }
             // Add to Reading List
-            IconButton(onClick = onAddToReadingList) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.BookmarkAdd, contentDescription = "Add to Reading List", tint = Color(0xFF3b82f6))
-                    Text("Reading List", fontSize = 10.sp, color = Color(0xFF9ca3af))
-                }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(onClick = onAddToReadingList)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.BookmarkAdd, contentDescription = "Add to Reading List", tint = Color(0xFF3b82f6))
+                Text("Reading List", fontSize = 10.sp, color = Color(0xFF9ca3af))
             }
             // Add to Collection
-            IconButton(onClick = onAddToCollection) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.FolderSpecial, contentDescription = "Add to Collection", tint = Color(0xFF3B82F6))
-                    Text("Collection", fontSize = 10.sp, color = Color(0xFF9ca3af))
-                }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable(onClick = onAddToCollection)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.FolderSpecial, contentDescription = "Add to Collection", tint = Color(0xFF3B82F6))
+                Text("Collection", fontSize = 10.sp, color = Color(0xFF9ca3af))
             }
         }
     }
