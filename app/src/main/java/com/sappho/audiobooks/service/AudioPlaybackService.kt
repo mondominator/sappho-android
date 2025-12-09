@@ -756,21 +756,12 @@ class AudioPlaybackService : MediaLibraryService() {
 
         serviceScope.launch {
             try {
-                val response = api.getAudiobooks(limit = 500)
+                // Use the dedicated /meta/in-progress endpoint for proper server-side filtering and sorting
+                val response = api.getInProgress(limit = 25)
                 if (response.isSuccessful) {
-                    val audiobooks = response.body()?.audiobooks ?: emptyList()
-                    android.util.Log.d("AudioPlaybackService", "Loaded ${audiobooks.size} audiobooks for Continue Listening")
+                    val inProgressBooks = response.body() ?: emptyList()
+                    android.util.Log.d("AudioPlaybackService", "Loaded ${inProgressBooks.size} in-progress books from server")
 
-                    val inProgressBooks = audiobooks.filter { book ->
-                        val hasProgress = book.progress != null && book.progress.position > 0
-                        val notCompleted = book.progress?.completed != 1
-                        hasProgress && notCompleted
-                    }.sortedByDescending { book ->
-                        // Sort by last listened time (most recent first)
-                        book.progress?.lastListened ?: ""
-                    }.take(25)
-
-                    android.util.Log.d("AudioPlaybackService", "Found ${inProgressBooks.size} in-progress books")
                     inProgressBooks.forEach { book ->
                         android.util.Log.d("AudioPlaybackService", "  - ${book.title}: position=${book.progress?.position}, completed=${book.progress?.completed}")
                     }
@@ -780,11 +771,11 @@ class AudioPlaybackService : MediaLibraryService() {
                     }
                     future.set(LibraryResult.ofItemList(ImmutableList.copyOf(mediaItems), params))
                 } else {
-                    android.util.Log.e("AudioPlaybackService", "Failed to load audiobooks: ${response.code()}")
+                    android.util.Log.e("AudioPlaybackService", "Failed to load in-progress books: ${response.code()}")
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AudioPlaybackService", "Exception loading audiobooks", e)
+                android.util.Log.e("AudioPlaybackService", "Exception loading in-progress books", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
             }
         }
@@ -797,21 +788,22 @@ class AudioPlaybackService : MediaLibraryService() {
 
         serviceScope.launch {
             try {
-                val response = api.getAudiobooks(limit = 100)
+                // Use the dedicated /meta/recent endpoint for proper server-side sorting
+                val response = api.getRecentlyAdded(limit = 20)
                 if (response.isSuccessful) {
-                    val audiobooks = response.body()?.audiobooks ?: emptyList()
-                    val recentBooks = audiobooks
-                        .sortedByDescending { it.createdAt }
-                        .take(20)
+                    val recentBooks = response.body() ?: emptyList()
+                    android.util.Log.d("AudioPlaybackService", "Loaded ${recentBooks.size} recently added books")
 
                     val mediaItems = recentBooks.map { book ->
                         createPlayableMediaItem(book)
                     }
                     future.set(LibraryResult.ofItemList(ImmutableList.copyOf(mediaItems), params))
                 } else {
+                    android.util.Log.e("AudioPlaybackService", "Failed to load recent books: ${response.code()}")
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
             } catch (e: Exception) {
+                android.util.Log.e("AudioPlaybackService", "Exception loading recent books", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
             }
         }
