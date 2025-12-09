@@ -98,9 +98,9 @@ interface SapphoApi {
         @Body request: FetchChaptersRequest
     ): Response<FetchChaptersResponse>
 
-    // Files
-    @GET("api/audiobooks/{id}/files")
-    suspend fun getFiles(@Path("id") audiobookId: Int): Response<List<AudiobookFile>>
+    // Directory Files
+    @GET("api/audiobooks/{id}/directory-files")
+    suspend fun getFiles(@Path("id") audiobookId: Int): Response<List<DirectoryFile>>
 
     // Delete
     @DELETE("api/audiobooks/{id}")
