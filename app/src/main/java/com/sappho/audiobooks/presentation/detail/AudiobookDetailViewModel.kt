@@ -14,7 +14,7 @@ import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.remote.UserRating
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
-import com.sappho.audiobooks.domain.model.AudiobookFile
+import com.sappho.audiobooks.domain.model.DirectoryFile
 import com.sappho.audiobooks.domain.model.Chapter
 import com.sappho.audiobooks.domain.model.Progress
 import com.sappho.audiobooks.service.DownloadService
@@ -48,8 +48,8 @@ class AudiobookDetailViewModel @Inject constructor(
     private val _chapters = MutableStateFlow<List<Chapter>>(emptyList())
     val chapters: StateFlow<List<Chapter>> = _chapters
 
-    private val _files = MutableStateFlow<List<AudiobookFile>>(emptyList())
-    val files: StateFlow<List<AudiobookFile>> = _files
+    private val _files = MutableStateFlow<List<DirectoryFile>>(emptyList())
+    val files: StateFlow<List<DirectoryFile>> = _files
 
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl

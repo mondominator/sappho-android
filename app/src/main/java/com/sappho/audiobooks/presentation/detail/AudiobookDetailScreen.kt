@@ -622,7 +622,7 @@ fun AudiobookDetailScreen(
                                                     .padding(12.dp)
                                             ) {
                                                 Text(
-                                                    text = file.filename,
+                                                    text = file.name,
                                                     color = Color(0xFFE0E7F1),
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.Medium
@@ -903,6 +903,14 @@ fun AudiobookDetailScreen(
                                 "${minutes}m"
                             }
                             MetadataItem("Duration", durationText)
+                        }
+
+                        // Format - derived from first file's extension
+                        files.firstOrNull()?.let { firstFile ->
+                            val format = firstFile.extension.removePrefix(".").uppercase()
+                            if (format.isNotEmpty()) {
+                                MetadataItem("Format", format)
+                            }
                         }
                     }
 

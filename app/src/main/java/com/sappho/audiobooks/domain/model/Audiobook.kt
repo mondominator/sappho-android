@@ -61,6 +61,14 @@ data class AudiobookFile(
     val mimeType: String?
 )
 
+// Response from /api/audiobooks/{id}/directory-files endpoint
+data class DirectoryFile(
+    val name: String,
+    val path: String,
+    val size: Long,
+    val extension: String
+)
+
 data class AuthResponse(
     val token: String,
     val user: User
