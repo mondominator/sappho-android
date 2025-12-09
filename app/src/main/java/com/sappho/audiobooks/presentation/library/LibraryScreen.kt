@@ -2893,8 +2893,8 @@ fun AllBooksView(
                             scope.launch { snackbarHostState.showSnackbar(message) }
                         }
                     },
-                    onToggleFavorite = {
-                        viewModel.batchToggleFavorite { _, message ->
+                    onAddToReadingList = {
+                        viewModel.batchAddToReadingList { _, message ->
                             scope.launch { snackbarHostState.showSnackbar(message) }
                         }
                     },
@@ -3292,7 +3292,7 @@ fun BatchActionBar(
     selectedCount: Int,
     onMarkFinished: () -> Unit,
     onClearProgress: () -> Unit,
-    onToggleFavorite: () -> Unit,
+    onAddToReadingList: () -> Unit,
     onAddToCollection: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -3321,11 +3321,11 @@ fun BatchActionBar(
                     Text("Clear", fontSize = 10.sp, color = Color(0xFF9ca3af))
                 }
             }
-            // Toggle Favorite
-            IconButton(onClick = onToggleFavorite) {
+            // Add to Reading List
+            IconButton(onClick = onAddToReadingList) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Favorite, contentDescription = "Toggle Favorite", tint = Color(0xFFef4444))
-                    Text("Favorite", fontSize = 10.sp, color = Color(0xFF9ca3af))
+                    Icon(Icons.Default.BookmarkAdd, contentDescription = "Add to Reading List", tint = Color(0xFF3b82f6))
+                    Text("Reading List", fontSize = 10.sp, color = Color(0xFF9ca3af))
                 }
             }
             // Add to Collection

@@ -348,6 +348,22 @@ interface SapphoApi {
 
     @GET("api/collections/for-book/{bookId}")
     suspend fun getCollectionsForBook(@Path("bookId") bookId: Int): Response<List<CollectionForBook>>
+
+    // Batch Actions Endpoints
+    @POST("api/audiobooks/batch/mark-finished")
+    suspend fun batchMarkFinished(@Body request: BatchActionRequest): Response<BatchActionResponse>
+
+    @POST("api/audiobooks/batch/clear-progress")
+    suspend fun batchClearProgress(@Body request: BatchActionRequest): Response<BatchActionResponse>
+
+    @POST("api/audiobooks/batch/add-to-reading-list")
+    suspend fun batchAddToReadingList(@Body request: BatchActionRequest): Response<BatchActionResponse>
+
+    @POST("api/audiobooks/batch/remove-from-reading-list")
+    suspend fun batchRemoveFromReadingList(@Body request: BatchActionRequest): Response<BatchActionResponse>
+
+    @POST("api/audiobooks/batch/add-to-collection")
+    suspend fun batchAddToCollection(@Body request: BatchAddToCollectionRequest): Response<BatchActionResponse>
 }
 
 data class ProfileUpdateRequest(
@@ -868,4 +884,22 @@ data class FetchChaptersRequest(
 data class FetchChaptersResponse(
     val message: String?,
     val chapters: List<com.sappho.audiobooks.domain.model.Chapter>?
+)
+
+// Batch Action Data Classes
+data class BatchActionRequest(
+    @com.google.gson.annotations.SerializedName("audiobook_ids")
+    val audiobookIds: List<Int>
+)
+
+data class BatchAddToCollectionRequest(
+    @com.google.gson.annotations.SerializedName("audiobook_ids")
+    val audiobookIds: List<Int>,
+    @com.google.gson.annotations.SerializedName("collection_id")
+    val collectionId: Int
+)
+
+data class BatchActionResponse(
+    val success: Boolean,
+    val count: Int?
 )

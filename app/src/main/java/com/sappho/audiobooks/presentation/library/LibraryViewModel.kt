@@ -355,23 +355,20 @@ class LibraryViewModel @Inject constructor(
         _selectedBookIds.value = emptySet()
     }
 
-    // Batch actions
+    // Batch actions using proper batch endpoints
     fun batchMarkFinished(onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {
                 val ids = _selectedBookIds.value.toList()
-                var successCount = 0
-                for (id in ids) {
-                    try {
-                        val response = api.markFinished(id)
-                        if (response.isSuccessful) successCount++
-                    } catch (e: Exception) {
-                        Log.e("LibraryViewModel", "Error marking book $id finished", e)
-                    }
+                val response = api.batchMarkFinished(BatchActionRequest(ids))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCategories()
+                    exitSelectionMode()
+                    onResult(true, "Marked $count books as finished")
+                } else {
+                    onResult(false, "Failed to mark books as finished")
                 }
-                loadCategories()
-                exitSelectionMode()
-                onResult(true, "Marked $successCount books as finished")
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch mark finished", e)
                 onResult(false, e.message ?: "Error marking books finished")
@@ -383,18 +380,15 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val ids = _selectedBookIds.value.toList()
-                var successCount = 0
-                for (id in ids) {
-                    try {
-                        val response = api.clearProgress(id)
-                        if (response.isSuccessful) successCount++
-                    } catch (e: Exception) {
-                        Log.e("LibraryViewModel", "Error clearing progress for book $id", e)
-                    }
+                val response = api.batchClearProgress(BatchActionRequest(ids))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCategories()
+                    exitSelectionMode()
+                    onResult(true, "Cleared progress for $count books")
+                } else {
+                    onResult(false, "Failed to clear progress")
                 }
-                loadCategories()
-                exitSelectionMode()
-                onResult(true, "Cleared progress for $successCount books")
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch clear progress", e)
                 onResult(false, e.message ?: "Error clearing progress")
@@ -402,25 +396,22 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun batchToggleFavorite(onResult: (Boolean, String) -> Unit) {
+    fun batchAddToReadingList(onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {
                 val ids = _selectedBookIds.value.toList()
-                var successCount = 0
-                for (id in ids) {
-                    try {
-                        val response = api.toggleFavorite(id)
-                        if (response.isSuccessful) successCount++
-                    } catch (e: Exception) {
-                        Log.e("LibraryViewModel", "Error toggling favorite for book $id", e)
-                    }
+                val response = api.batchAddToReadingList(BatchActionRequest(ids))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCategories()
+                    exitSelectionMode()
+                    onResult(true, "Added $count books to reading list")
+                } else {
+                    onResult(false, "Failed to add to reading list")
                 }
-                loadCategories()
-                exitSelectionMode()
-                onResult(true, "Toggled favorite for $successCount books")
             } catch (e: Exception) {
-                Log.e("LibraryViewModel", "Error in batch toggle favorite", e)
-                onResult(false, e.message ?: "Error toggling favorites")
+                Log.e("LibraryViewModel", "Error in batch add to reading list", e)
+                onResult(false, e.message ?: "Error adding to reading list")
             }
         }
     }
@@ -429,18 +420,15 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val ids = _selectedBookIds.value.toList()
-                var successCount = 0
-                for (id in ids) {
-                    try {
-                        val response = api.addToCollection(collectionId, AddToCollectionRequest(id))
-                        if (response.isSuccessful) successCount++
-                    } catch (e: Exception) {
-                        Log.e("LibraryViewModel", "Error adding book $id to collection", e)
-                    }
+                val response = api.batchAddToCollection(BatchAddToCollectionRequest(ids, collectionId))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCollections()
+                    exitSelectionMode()
+                    onResult(true, "Added $count books to collection")
+                } else {
+                    onResult(false, "Failed to add to collection")
                 }
-                loadCollections()
-                exitSelectionMode()
-                onResult(true, "Added $successCount books to collection")
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch add to collection", e)
                 onResult(false, e.message ?: "Error adding to collection")
