@@ -56,6 +56,10 @@ class AdminViewModel @Inject constructor(
     private val _jobs = MutableStateFlow<List<JobInfo>>(emptyList())
     val jobs: StateFlow<List<JobInfo>> = _jobs
 
+    // API Keys
+    private val _apiKeys = MutableStateFlow<List<ApiKey>>(emptyList())
+    val apiKeys: StateFlow<List<ApiKey>> = _apiKeys
+
     // Loading states per section to avoid global spinner
     private val _loadingSection = MutableStateFlow<String?>(null)
     val loadingSection: StateFlow<String?> = _loadingSection
@@ -763,6 +767,112 @@ class AdminViewModel @Inject constructor(
                     onConfirmed()
                 } else {
                     _message.value = "Failed to clear library"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // ============ API Keys ============
+    fun loadApiKeys() {
+        if ("apiKeys" in loadedSections) return
+        loadedSections.add("apiKeys")
+
+        viewModelScope.launch {
+            _loadingSection.value = "apiKeys"
+            try {
+                val response = api.getApiKeys()
+                if (response.isSuccessful) {
+                    _apiKeys.value = response.body() ?: emptyList()
+                } else {
+                    android.util.Log.e("AdminViewModel", "API keys error: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminViewModel", "API keys exception", e)
+                _message.value = "Failed to load API keys"
+            } finally {
+                _loadingSection.value = null
+            }
+        }
+    }
+
+    fun refreshApiKeys() {
+        viewModelScope.launch {
+            _loadingSection.value = "apiKeys"
+            try {
+                val response = api.getApiKeys()
+                if (response.isSuccessful) {
+                    _apiKeys.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to load API keys"
+            } finally {
+                _loadingSection.value = null
+            }
+        }
+    }
+
+    fun createApiKey(name: String, permissions: String, expiresInDays: Int?, onSuccess: (CreateApiKeyResponse) -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val request = CreateApiKeyRequest(name, permissions, expiresInDays)
+                val response = api.createApiKey(request)
+                if (response.isSuccessful) {
+                    response.body()?.let { createResponse ->
+                        _message.value = "API key created"
+                        refreshApiKeys()
+                        onSuccess(createResponse)
+                    }
+                } else {
+                    _message.value = "Failed to create API key"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun toggleApiKeyActive(apiKey: ApiKey) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val newActiveState = if (apiKey.isActive == 1) 0 else 1
+                val request = UpdateApiKeyRequest(isActive = newActiveState)
+                val response = api.updateApiKey(apiKey.id, request)
+                if (response.isSuccessful) {
+                    _message.value = if (newActiveState == 1) "API key activated" else "API key deactivated"
+                    refreshApiKeys()
+                } else {
+                    _message.value = "Failed to update API key"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteApiKey(id: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.deleteApiKey(id)
+                if (response.isSuccessful) {
+                    _message.value = "API key deleted"
+                    refreshApiKeys()
+                } else {
+                    _message.value = "Failed to delete API key"
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

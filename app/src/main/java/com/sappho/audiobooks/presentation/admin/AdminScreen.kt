@@ -45,6 +45,7 @@ enum class AdminTab(val title: String, val icon: ImageVector) {
     SERVER("Server", Icons.Outlined.Dns),
     AI("AI", Icons.Outlined.Psychology),
     USERS("Users", Icons.Outlined.People),
+    API_KEYS("API Keys", Icons.Outlined.Key),
     BACKUP("Backup", Icons.Outlined.Backup),
     LOGS("Logs", Icons.Outlined.Article)
 }
@@ -116,6 +117,7 @@ fun AdminScreen(
                 AdminTab.SERVER -> ServerSettingsTab(viewModel)
                 AdminTab.AI -> AiSettingsTab(viewModel)
                 AdminTab.USERS -> UsersTab(viewModel)
+                AdminTab.API_KEYS -> ApiKeysTab(viewModel)
                 AdminTab.BACKUP -> BackupTab(viewModel)
                 AdminTab.LOGS -> LogsTab(viewModel)
             }
@@ -1427,6 +1429,481 @@ private fun EditUserDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
+}
+
+// ============ API Keys Tab ============
+@Composable
+private fun ApiKeysTab(viewModel: AdminViewModel) {
+    val apiKeys by viewModel.apiKeys.collectAsState()
+    val loadingSection by viewModel.loadingSection.collectAsState()
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var keyToDelete by remember { mutableStateOf<ApiKey?>(null) }
+    var newlyCreatedKey by remember { mutableStateOf<CreateApiKeyResponse?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadApiKeys()
+    }
+
+    LaunchedEffect(loadingSection) {
+        if (loadingSection != "apiKeys") isRefreshing = false
+    }
+
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+
+    SwipeRefresh(
+        state = swipeRefreshState,
+        onRefresh = {
+            isRefreshing = true
+            viewModel.refreshApiKeys()
+        },
+        indicator = { state, trigger ->
+            SwipeRefreshIndicator(
+                state = state,
+                refreshTriggerDistance = trigger,
+                backgroundColor = Color(0xFF1e293b),
+                contentColor = Color(0xFF3b82f6)
+            )
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "API Key Management",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Button(
+                        onClick = { showCreateDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Create Key")
+                    }
+                }
+            }
+
+            item {
+                Text(
+                    "API keys allow external applications to access your library. " +
+                    "Keep your keys secure and revoke any that are compromised.",
+                    color = Color(0xFF9ca3af),
+                    fontSize = 13.sp
+                )
+            }
+
+            if (loadingSection == "apiKeys" && apiKeys.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                    }
+                }
+            } else if (apiKeys.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Outlined.Key,
+                                contentDescription = null,
+                                tint = Color(0xFF6b7280),
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "No API keys yet",
+                                color = Color(0xFF6b7280),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(apiKeys) { apiKey ->
+                    ApiKeyCard(
+                        apiKey = apiKey,
+                        onToggleActive = { viewModel.toggleApiKeyActive(apiKey) },
+                        onDelete = { keyToDelete = apiKey }
+                    )
+                }
+            }
+        }
+    }
+
+    // Create API Key Dialog
+    if (showCreateDialog) {
+        CreateApiKeyDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name, permissions, expiresInDays ->
+                viewModel.createApiKey(name, permissions, expiresInDays) { response ->
+                    showCreateDialog = false
+                    newlyCreatedKey = response
+                }
+            }
+        )
+    }
+
+    // Show newly created key dialog (only time full key is visible)
+    newlyCreatedKey?.let { response ->
+        NewApiKeyDialog(
+            response = response,
+            onDismiss = { newlyCreatedKey = null }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    keyToDelete?.let { apiKey ->
+        AlertDialog(
+            onDismissRequest = { keyToDelete = null },
+            title = { Text("Delete API Key", color = Color.White) },
+            text = { Text("Are you sure you want to delete '${apiKey.name}'? This action cannot be undone.", color = Color(0xFF9ca3af)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteApiKey(apiKey.id)
+                        keyToDelete = null
+                    }
+                ) {
+                    Text("Delete", color = Color(0xFFef4444))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { keyToDelete = null }) {
+                    Text("Cancel", color = Color(0xFF9ca3af))
+                }
+            },
+            containerColor = Color(0xFF1e293b)
+        )
+    }
+}
+
+@Composable
+private fun ApiKeyCard(
+    apiKey: ApiKey,
+    onToggleActive: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val isActive = apiKey.isActive == 1
+    val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF1e293b)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = apiKey.name,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (isActive) Color(0xFF10b981).copy(alpha = 0.2f) else Color(0xFFef4444).copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            if (isActive) "Active" else "Inactive",
+                            color = if (isActive) Color(0xFF10b981) else Color(0xFFef4444),
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = onToggleActive) {
+                        Icon(
+                            if (isActive) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
+                            contentDescription = if (isActive) "Deactivate" else "Activate",
+                            tint = if (isActive) Color(0xFF10b981) else Color(0xFF6b7280)
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = Color(0xFFef4444))
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column {
+                    Text("Key", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    Text(
+                        "${apiKey.keyPrefix}...",
+                        color = Color(0xFF9ca3af),
+                        fontSize = 13.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
+                Column {
+                    Text("Permissions", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    Text(
+                        apiKey.permissions.replaceFirstChar { it.uppercase() },
+                        color = Color(0xFF9ca3af),
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column {
+                    Text("Created", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    Text(
+                        try {
+                            dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(apiKey.createdAt) ?: Date())
+                        } catch (e: Exception) { apiKey.createdAt },
+                        color = Color(0xFF9ca3af),
+                        fontSize = 13.sp
+                    )
+                }
+                apiKey.lastUsedAt?.let { lastUsed ->
+                    Column {
+                        Text("Last Used", color = Color(0xFF6b7280), fontSize = 11.sp)
+                        Text(
+                            try {
+                                dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(lastUsed) ?: Date())
+                            } catch (e: Exception) { lastUsed },
+                            color = Color(0xFF9ca3af),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+                apiKey.expiresAt?.let { expires ->
+                    Column {
+                        Text("Expires", color = Color(0xFF6b7280), fontSize = 11.sp)
+                        Text(
+                            try {
+                                dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(expires) ?: Date())
+                            } catch (e: Exception) { expires },
+                            color = Color(0xFF9ca3af),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CreateApiKeyDialog(
+    onDismiss: () -> Unit,
+    onCreate: (name: String, permissions: String, expiresInDays: Int?) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var permissions by remember { mutableStateOf("read") }
+    var expiresInDays by remember { mutableStateOf("") }
+    var expanded by remember { mutableStateOf(false) }
+
+    val permissionOptions = listOf("read", "write", "admin")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Create API Key", color = Color.White) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Key Name") },
+                    placeholder = { Text("e.g., Android App") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF3b82f6),
+                        unfocusedBorderColor = Color(0xFF374151)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = permissions.replaceFirstChar { it.uppercase() },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Permissions") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151)
+                        ),
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.background(Color(0xFF374151))
+                    ) {
+                        permissionOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.replaceFirstChar { it.uppercase() }, color = Color.White) },
+                                onClick = {
+                                    permissions = option
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = expiresInDays,
+                    onValueChange = { expiresInDays = it.filter { c -> c.isDigit() } },
+                    label = { Text("Expires In (days)") },
+                    placeholder = { Text("Leave empty for no expiration") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF3b82f6),
+                        unfocusedBorderColor = Color(0xFF374151)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onCreate(name, permissions, expiresInDays.toIntOrNull())
+                    }
+                },
+                enabled = name.isNotBlank()
+            ) {
+                Text("Create", color = Color(0xFF3b82f6))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF9ca3af))
+            }
+        },
+        containerColor = Color(0xFF1e293b)
+    )
+}
+
+@Composable
+private fun NewApiKeyDialog(
+    response: CreateApiKeyResponse,
+    onDismiss: () -> Unit
+) {
+    var copied by remember { mutableStateOf(false) }
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF10b981))
+                Text("API Key Created", color = Color.White)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    "Your new API key has been created. Copy it now - you won't be able to see it again!",
+                    color = Color(0xFFfbbf24),
+                    fontSize = 13.sp
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF0f172a)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            response.key,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(response.key))
+                                copied = true
+                            }
+                        ) {
+                            Icon(
+                                if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                                contentDescription = "Copy",
+                                tint = if (copied) Color(0xFF10b981) else Color(0xFF3b82f6)
+                            )
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Name: ${response.name}", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                    Text("Permissions: ${response.permissions.replaceFirstChar { it.uppercase() }}", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done", color = Color(0xFF3b82f6))
             }
         },
         containerColor = Color(0xFF1e293b)
