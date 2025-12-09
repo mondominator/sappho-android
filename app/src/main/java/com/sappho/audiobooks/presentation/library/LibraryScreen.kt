@@ -2822,39 +2822,50 @@ fun AllBooksView(
 ) {
     val allBooks by viewModel.allAudiobooks.collectAsState()
     val serverUrl by viewModel.serverUrl.collectAsState()
+    val sortOption by viewModel.userPreferences.librarySortOption.collectAsState()
+    val sortAscending by viewModel.userPreferences.librarySortAscending.collectAsState()
+    val filterOption by viewModel.userPreferences.libraryFilterOption.collectAsState()
 
-    var sortBy by remember { mutableStateOf("title") }
-    var progressFilter by remember { mutableStateOf("all") }
-
-    // Filter audiobooks
-    val filteredBooks = remember(allBooks, progressFilter) {
+    // Filter audiobooks using the persisted filter option
+    val filteredBooks = remember(allBooks, filterOption) {
         allBooks.filter { book ->
             val isFinished = book.progress?.completed == 1
             val hasProgress = book.progress != null && book.progress.position > 0
 
-            when (progressFilter) {
-                "hide-finished" -> !isFinished
-                "in-progress" -> hasProgress && !isFinished
-                "not-started" -> !hasProgress && !isFinished
-                "finished" -> isFinished
-                else -> true
+            when (filterOption) {
+                com.sappho.audiobooks.data.repository.LibraryFilterOption.HIDE_FINISHED -> !isFinished
+                com.sappho.audiobooks.data.repository.LibraryFilterOption.IN_PROGRESS -> hasProgress && !isFinished
+                com.sappho.audiobooks.data.repository.LibraryFilterOption.NOT_STARTED -> !hasProgress && !isFinished
+                com.sappho.audiobooks.data.repository.LibraryFilterOption.FINISHED -> isFinished
+                com.sappho.audiobooks.data.repository.LibraryFilterOption.ALL -> true
             }
         }
     }
 
-    // Sort audiobooks
-    val sortedBooks = remember(filteredBooks, sortBy) {
-        filteredBooks.sortedWith(
-            when (sortBy) {
-                "title" -> compareBy { it.title }
-                "author" -> compareBy { it.author ?: "" }
-                "series" -> compareBy<com.sappho.audiobooks.domain.model.Audiobook> { it.series ?: "\uFFFF" }
-                    .thenBy { it.seriesPosition ?: 0f }
-                "genre" -> compareBy { it.genre ?: "" }
-                "recent" -> compareByDescending { it.createdAt }
-                else -> compareBy { it.title }
+    // Sort audiobooks using the persisted sort option
+    val sortedBooks = remember(filteredBooks, sortOption, sortAscending) {
+        val comparator: Comparator<com.sappho.audiobooks.domain.model.Audiobook> = when (sortOption) {
+            com.sappho.audiobooks.data.repository.LibrarySortOption.TITLE -> compareBy { it.title.lowercase() }
+            com.sappho.audiobooks.data.repository.LibrarySortOption.AUTHOR -> compareBy { it.author?.lowercase() ?: "" }
+            com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_ADDED -> compareByDescending { it.createdAt }
+            com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_LISTENED -> compareByDescending { it.progress?.lastListened ?: "" }
+            com.sappho.audiobooks.data.repository.LibrarySortOption.DURATION -> compareBy { it.duration ?: 0 }
+            com.sappho.audiobooks.data.repository.LibrarySortOption.PROGRESS -> compareByDescending {
+                val pos = it.progress?.position ?: 0
+                val dur = it.duration ?: 1
+                if (dur > 0) pos.toFloat() / dur else 0f
             }
-        )
+            com.sappho.audiobooks.data.repository.LibrarySortOption.SERIES_POSITION -> compareBy<com.sappho.audiobooks.domain.model.Audiobook> { it.series ?: "\uFFFF" }
+                .thenBy { it.seriesPosition ?: 0f }
+        }
+        val sorted = filteredBooks.sortedWith(comparator)
+        if (sortAscending || sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_ADDED ||
+            sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_LISTENED ||
+            sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.PROGRESS) {
+            sorted
+        } else {
+            sorted.reversed()
+        }
     }
 
     Column(
@@ -2892,46 +2903,16 @@ fun AllBooksView(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Progress Filter
-            FilterDropdown(
-                label = "Show",
-                value = when (progressFilter) {
-                    "all" -> "All Books"
-                    "hide-finished" -> "Hide Finished"
-                    "in-progress" -> "In Progress"
-                    "not-started" -> "Not Started"
-                    "finished" -> "Finished"
-                    else -> "All Books"
-                },
-                options = listOf(
-                    "all" to "All Books",
-                    "hide-finished" to "Hide Finished",
-                    "in-progress" to "In Progress",
-                    "not-started" to "Not Started",
-                    "finished" to "Finished"
-                ),
-                onSelect = { progressFilter = it },
+            FilterOptionDropdown(
+                currentOption = filterOption,
+                onOptionSelect = { viewModel.userPreferences.setLibraryFilterOption(it) },
                 modifier = Modifier.weight(1f)
             )
 
             // Sort Filter
-            FilterDropdown(
-                label = "Sort",
-                value = when (sortBy) {
-                    "title" -> "Title"
-                    "author" -> "Author"
-                    "series" -> "Series"
-                    "genre" -> "Genre"
-                    "recent" -> "Recent"
-                    else -> "Title"
-                },
-                options = listOf(
-                    "title" to "Title",
-                    "author" to "Author",
-                    "series" to "Series",
-                    "genre" to "Genre",
-                    "recent" to "Recent"
-                ),
-                onSelect = { sortBy = it },
+            SortOptionDropdown(
+                currentOption = sortOption,
+                onOptionSelect = { viewModel.userPreferences.setLibrarySortOption(it) },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -2948,8 +2929,128 @@ fun AllBooksView(
                 BookGridItem(
                     book = book,
                     serverUrl = serverUrl,
-                    showSeriesPosition = sortBy == "series",
+                    showSeriesPosition = sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.SERIES_POSITION,
                     onClick = { onAudiobookClick(book.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FilterOptionDropdown(
+    currentOption: com.sappho.audiobooks.data.repository.LibraryFilterOption,
+    onOptionSelect: (com.sappho.audiobooks.data.repository.LibraryFilterOption) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier) {
+        Text(
+            text = "Show",
+            fontSize = 12.sp,
+            color = Color(0xFF9ca3af),
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF1f2937))
+                .clickable { expanded = true }
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = currentOption.displayName,
+                    fontSize = 14.sp,
+                    color = Color.White
+                )
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Color(0xFF9ca3af),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1f2937))
+        ) {
+            com.sappho.audiobooks.data.repository.LibraryFilterOption.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.displayName, color = Color.White) },
+                    onClick = {
+                        onOptionSelect(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SortOptionDropdown(
+    currentOption: com.sappho.audiobooks.data.repository.LibrarySortOption,
+    onOptionSelect: (com.sappho.audiobooks.data.repository.LibrarySortOption) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier) {
+        Text(
+            text = "Sort",
+            fontSize = 12.sp,
+            color = Color(0xFF9ca3af),
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF1f2937))
+                .clickable { expanded = true }
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = currentOption.displayName,
+                    fontSize = 14.sp,
+                    color = Color.White
+                )
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Color(0xFF9ca3af),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1f2937))
+        ) {
+            com.sappho.audiobooks.data.repository.LibrarySortOption.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.displayName, color = Color.White) },
+                    onClick = {
+                        onOptionSelect(option)
+                        expanded = false
+                    }
                 )
             }
         }

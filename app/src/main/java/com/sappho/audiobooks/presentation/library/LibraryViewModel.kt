@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.SapphoApi
+import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.AuthorInfo
 import com.sappho.audiobooks.domain.model.GenreCategoryData
 import com.sappho.audiobooks.domain.model.GenreInfo
@@ -19,7 +20,8 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val api: SapphoApi,
-    private val authRepository: com.sappho.audiobooks.data.repository.AuthRepository
+    private val authRepository: com.sappho.audiobooks.data.repository.AuthRepository,
+    val userPreferences: UserPreferencesRepository
 ) : ViewModel() {
 
     companion object {
