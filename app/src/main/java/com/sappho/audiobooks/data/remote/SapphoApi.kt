@@ -364,6 +364,19 @@ interface SapphoApi {
 
     @POST("api/audiobooks/batch/add-to-collection")
     suspend fun batchAddToCollection(@Body request: BatchAddToCollectionRequest): Response<BatchActionResponse>
+
+    // API Keys
+    @GET("api/api-keys")
+    suspend fun getApiKeys(): Response<List<ApiKey>>
+
+    @POST("api/api-keys")
+    suspend fun createApiKey(@Body request: CreateApiKeyRequest): Response<CreateApiKeyResponse>
+
+    @PUT("api/api-keys/{id}")
+    suspend fun updateApiKey(@Path("id") id: Int, @Body request: UpdateApiKeyRequest): Response<MessageResponse>
+
+    @DELETE("api/api-keys/{id}")
+    suspend fun deleteApiKey(@Path("id") id: Int): Response<MessageResponse>
 }
 
 data class ProfileUpdateRequest(
@@ -902,4 +915,54 @@ data class BatchAddToCollectionRequest(
 data class BatchActionResponse(
     val success: Boolean,
     val count: Int?
+)
+
+// API Key Data Classes
+data class ApiKey(
+    val id: Int,
+    val name: String,
+    @com.google.gson.annotations.SerializedName("key_prefix")
+    val keyPrefix: String,
+    val permissions: String,
+    @com.google.gson.annotations.SerializedName("last_used_at")
+    val lastUsedAt: String?,
+    @com.google.gson.annotations.SerializedName("expires_at")
+    val expiresAt: String?,
+    @com.google.gson.annotations.SerializedName("is_active")
+    val isActive: Int,
+    @com.google.gson.annotations.SerializedName("created_at")
+    val createdAt: String
+)
+
+data class CreateApiKeyRequest(
+    val name: String,
+    val permissions: String = "read",
+    @com.google.gson.annotations.SerializedName("expires_in_days")
+    val expiresInDays: Int? = null
+)
+
+data class CreateApiKeyResponse(
+    val id: Int,
+    val name: String,
+    val key: String,  // Full key - only shown once!
+    @com.google.gson.annotations.SerializedName("key_prefix")
+    val keyPrefix: String,
+    val permissions: String,
+    @com.google.gson.annotations.SerializedName("expires_at")
+    val expiresAt: String,
+    @com.google.gson.annotations.SerializedName("created_at")
+    val createdAt: String,
+    val message: String?
+)
+
+data class UpdateApiKeyRequest(
+    val name: String? = null,
+    val permissions: String? = null,
+    @com.google.gson.annotations.SerializedName("is_active")
+    val isActive: Int? = null
+)
+
+data class MessageResponse(
+    val message: String?,
+    val error: String?
 )
