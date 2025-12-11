@@ -497,7 +497,7 @@ private fun CollectionBookItem(
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                     Text(
-                        text = String.format("%.1f", displayRating),
+                        text = String.format(java.util.Locale.US, "%.1f", displayRating),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFFfbbf24)

@@ -426,7 +426,7 @@ fun AudiobookDetailScreen(
                                         )
                                         Spacer(modifier = Modifier.width(2.dp))
                                         Text(
-                                            text = String.format("%.1f", avg.average ?: 0f),
+                                            text = String.format(java.util.Locale.US, "%.1f", avg.average ?: 0f),
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Medium,
                                             color = Color(0xFFe5e7eb)
@@ -1302,9 +1302,9 @@ private fun FileItem(file: com.sappho.audiobooks.domain.model.AudiobookFile) {
 
         // Format file size
         val sizeText = when {
-            file.size >= 1_073_741_824 -> String.format("%.2f GB", file.size / 1_073_741_824.0)
-            file.size >= 1_048_576 -> String.format("%.2f MB", file.size / 1_048_576.0)
-            file.size >= 1_024 -> String.format("%.2f KB", file.size / 1_024.0)
+            file.size >= 1_073_741_824 -> String.format(java.util.Locale.US, "%.2f GB", file.size / 1_073_741_824.0)
+            file.size >= 1_048_576 -> String.format(java.util.Locale.US, "%.2f MB", file.size / 1_048_576.0)
+            file.size >= 1_024 -> String.format(java.util.Locale.US, "%.2f KB", file.size / 1_024.0)
             else -> "$file.size B"
         }
 
@@ -1318,9 +1318,9 @@ private fun FileItem(file: com.sappho.audiobooks.domain.model.AudiobookFile) {
 
 private fun formatFileSize(size: Long): String {
     return when {
-        size >= 1_073_741_824 -> String.format("%.2f GB", size / 1_073_741_824.0)
-        size >= 1_048_576 -> String.format("%.2f MB", size / 1_048_576.0)
-        size >= 1_024 -> String.format("%.2f KB", size / 1_024.0)
+        size >= 1_073_741_824 -> String.format(java.util.Locale.US, "%.2f GB", size / 1_073_741_824.0)
+        size >= 1_048_576 -> String.format(java.util.Locale.US, "%.2f MB", size / 1_048_576.0)
+        size >= 1_024 -> String.format(java.util.Locale.US, "%.2f KB", size / 1_024.0)
         else -> "$size B"
     }
 }
@@ -1330,9 +1330,9 @@ private fun formatTime(seconds: Long): String {
     val mins = (seconds % 3600) / 60
     val secs = seconds % 60
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, mins, secs)
+        String.format(java.util.Locale.US, "%d:%02d:%02d", hours, mins, secs)
     } else {
-        String.format("%d:%02d", mins, secs)
+        String.format(java.util.Locale.US, "%d:%02d", mins, secs)
     }
 }
 
@@ -1350,8 +1350,8 @@ private fun formatSeriesPosition(position: Float?): String {
 private fun StarRatingBar(
     rating: Int?,
     onRatingChanged: (Int?) -> Unit,
-    isLoading: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false
 ) {
     Row(
         modifier = modifier,
@@ -1399,8 +1399,8 @@ private fun StarRatingBar(
 private fun CompactStarRating(
     rating: Int?,
     onRatingChanged: (Int?) -> Unit,
-    isLoading: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false
 ) {
     Row(
         modifier = modifier,
@@ -1471,7 +1471,7 @@ private fun AverageRatingDisplay(
 
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = String.format("%.1f", average),
+            text = String.format(java.util.Locale.US, "%.1f", average),
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFfbbf24)

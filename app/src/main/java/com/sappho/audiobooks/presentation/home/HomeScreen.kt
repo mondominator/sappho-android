@@ -282,9 +282,9 @@ fun AudiobookSection(
     books: List<Audiobook>,
     serverUrl: String?,
     onAudiobookClick: (Int) -> Unit,
+    modifier: Modifier = Modifier,
     onToggleFavorite: (Int) -> Unit = {},
     onAddToCollection: (Int) -> Unit = {},
-    modifier: Modifier = Modifier,
     cardSize: androidx.compose.ui.unit.Dp = 140.dp,
     titleSize: androidx.compose.ui.unit.TextUnit = 16.sp
 ) {
@@ -320,10 +320,10 @@ fun AudiobookSection(
 fun AudiobookCard(
     book: Audiobook,
     serverUrl: String?,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
     onToggleFavorite: () -> Unit = {},
     onAddToCollection: () -> Unit = {},
-    modifier: Modifier = Modifier,
     cardSize: androidx.compose.ui.unit.Dp = 140.dp
 ) {
     android.util.Log.d("AudiobookCard", "Book: ${book.title}, coverImage: ${book.coverImage}, serverUrl: $serverUrl")
