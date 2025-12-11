@@ -106,6 +106,10 @@ interface SapphoApi {
     @DELETE("api/audiobooks/{id}")
     suspend fun deleteAudiobook(@Path("id") audiobookId: Int): Response<Unit>
 
+    // Refresh Metadata
+    @POST("api/audiobooks/{id}/refresh-metadata")
+    suspend fun refreshMetadata(@Path("id") audiobookId: Int): Response<RefreshMetadataResponse>
+
     // User Profile
     @GET("api/profile")
     suspend fun getProfile(): Response<User>
@@ -777,6 +781,14 @@ data class Collection(
     val bookCount: Int?,
     @com.google.gson.annotations.SerializedName("first_cover")
     val firstCover: String?,
+    @com.google.gson.annotations.SerializedName("book_ids")
+    val bookIds: List<Int>?,
+    @com.google.gson.annotations.SerializedName("is_public")
+    val isPublic: Int?,
+    @com.google.gson.annotations.SerializedName("is_owner")
+    val isOwner: Int?,
+    @com.google.gson.annotations.SerializedName("creator_username")
+    val creatorUsername: String?,
     @com.google.gson.annotations.SerializedName("created_at")
     val createdAt: String?,
     @com.google.gson.annotations.SerializedName("updated_at")
@@ -790,6 +802,12 @@ data class CollectionDetail(
     @com.google.gson.annotations.SerializedName("user_id")
     val userId: Int,
     val books: List<com.sappho.audiobooks.domain.model.Audiobook>,
+    @com.google.gson.annotations.SerializedName("is_public")
+    val isPublic: Int?,
+    @com.google.gson.annotations.SerializedName("is_owner")
+    val isOwner: Int?,
+    @com.google.gson.annotations.SerializedName("creator_username")
+    val creatorUsername: String?,
     @com.google.gson.annotations.SerializedName("created_at")
     val createdAt: String?,
     @com.google.gson.annotations.SerializedName("updated_at")
@@ -803,7 +821,9 @@ data class CreateCollectionRequest(
 
 data class UpdateCollectionRequest(
     val name: String,
-    val description: String? = null
+    val description: String? = null,
+    @com.google.gson.annotations.SerializedName("is_public")
+    val isPublic: Boolean? = null
 )
 
 data class AddToCollectionRequest(
@@ -848,6 +868,11 @@ data class MetadataSearchResponse(
 
 data class EmbedMetadataResponse(
     val message: String?
+)
+
+data class RefreshMetadataResponse(
+    val message: String?,
+    val audiobook: com.sappho.audiobooks.domain.model.Audiobook?
 )
 
 data class MetadataSearchResult(
