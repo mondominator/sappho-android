@@ -510,7 +510,7 @@ private fun RotatingCover(
     }
 
     // Rotate through covers every 4 seconds
-    var currentIndex by remember { mutableStateOf(0) }
+    var currentIndex by remember { mutableIntStateOf(0) }
 
     // Only start rotation if there's more than 1 book
     if (bookIds.size > 1) {

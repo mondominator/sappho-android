@@ -55,7 +55,7 @@ fun MinimizedPlayerBar(
     val isPlaying = if (isCastConnected) castIsPlaying else localIsPlaying
 
     // Poll Cast position when connected for smooth time updates
-    var castPosition by remember { mutableStateOf(0L) }
+    var castPosition by remember { mutableLongStateOf(0L) }
     LaunchedEffect(isCastConnected) {
         if (isCastConnected) {
             while (true) {
@@ -265,9 +265,9 @@ private fun formatTime(seconds: Long): String {
     val minutes = (seconds % 3600) / 60
     val secs = seconds % 60
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, secs)
+        String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, secs)
     } else {
-        String.format("%d:%02d", minutes, secs)
+        String.format(java.util.Locale.US, "%d:%02d", minutes, secs)
     }
 }
 
