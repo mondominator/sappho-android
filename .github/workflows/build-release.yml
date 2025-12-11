@@ -32,11 +32,39 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Run Lint
+      run: ./gradlew lint
+
+    - name: Upload Lint Report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lint-report
+        path: app/build/reports/lint-results-debug.html
+        retention-days: 14
+
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 
-    - name: Build Release APK
+    - name: Decode Keystore
+      run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/release.keystore
+
+    - name: Build Signed Release APK
+      env:
+        KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: ./gradlew assembleRelease
+
+    - name: Build Signed Release AAB
+      env:
+        KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: ./gradlew bundleRelease
 
     - name: Upload Debug APK artifact
       uses: actions/upload-artifact@v4
@@ -50,6 +78,13 @@ jobs:
       with:
         name: sappho-release-apk
         path: app/build/outputs/apk/release/*.apk
+        retention-days: 30
+
+    - name: Upload Release AAB artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sappho-release-aab
+        path: app/build/outputs/bundle/release/*.aab
         retention-days: 30
 
   release:
@@ -72,6 +107,12 @@ jobs:
         name: sappho-release-apk
         path: ./apk/release
 
+    - name: Download Release AAB
+      uses: actions/download-artifact@v4
+      with:
+        name: sappho-release-aab
+        path: ./aab/release
+
     - name: Get release name
       id: release_name
       run: |
@@ -87,10 +128,11 @@ jobs:
           echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         fi
 
-    - name: Rename APKs
+    - name: Rename artifacts
       run: |
         mv ./apk/debug/*.apk ./apk/sappho-debug-${{ steps.release_name.outputs.tag }}.apk
         mv ./apk/release/*.apk ./apk/sappho-release-${{ steps.release_name.outputs.tag }}.apk
+        mv ./aab/release/*.aab ./aab/sappho-release-${{ steps.release_name.outputs.tag }}.aab
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
@@ -101,6 +143,7 @@ jobs:
         files: |
           ./apk/sappho-debug-*.apk
           ./apk/sappho-release-*.apk
+          ./aab/sappho-release-*.aab
         draft: false
         prerelease: ${{ github.event_name == 'workflow_dispatch' }}
       env:
