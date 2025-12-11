@@ -20,6 +20,8 @@ data class Audiobook(
     val asin: String?,
     val language: String? = null,
     val rating: Float? = null,
+    @SerializedName("user_rating") val userRating: Float? = null,
+    @SerializedName("average_rating") val averageRating: Float? = null,
     val abridged: Int? = null,  // 0 = unabridged, 1 = abridged
     val description: String?,
     @SerializedName("cover_image") val coverImage: String?,

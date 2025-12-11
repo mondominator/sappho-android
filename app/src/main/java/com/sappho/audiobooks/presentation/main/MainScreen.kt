@@ -99,6 +99,10 @@ sealed class Screen(val route: String, val title: String) {
     data object AudiobookDetail : Screen("audiobook/{id}", "Audiobook Detail") {
         fun createRoute(id: Int) = "audiobook/$id"
     }
+    data object Collections : Screen("collections", "Collections")
+    data object CollectionDetail : Screen("collection/{id}", "Collection Detail") {
+        fun createRoute(id: Int) = "collection/$id"
+    }
 }
 
 @Composable
@@ -151,6 +155,12 @@ fun MainScreen(
                 onReadingListClick = {
                     showUserMenu = false
                     navController.navigate(Screen.ReadingList.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onCollectionsClick = {
+                    showUserMenu = false
+                    navController.navigate(Screen.Collections.route) {
                         launchSingleTop = true
                     }
                 },
@@ -289,6 +299,27 @@ fun MainScreen(
             composable(Screen.Admin.route) {
                 com.sappho.audiobooks.presentation.admin.AdminScreen(
                     onBack = { navController.navigateUp() }
+                )
+            }
+            composable(Screen.Collections.route) {
+                com.sappho.audiobooks.presentation.collections.CollectionsScreen(
+                    onCollectionClick = { collectionId ->
+                        navController.navigate(Screen.CollectionDetail.createRoute(collectionId))
+                    },
+                    onBackClick = { navController.navigateUp() }
+                )
+            }
+            composable(
+                route = Screen.CollectionDetail.route,
+                arguments = listOf(navArgument("id") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val collectionId = backStackEntry.arguments?.getInt("id") ?: 0
+                com.sappho.audiobooks.presentation.collections.CollectionDetailScreen(
+                    collectionId = collectionId,
+                    onBookClick = { audiobookId ->
+                        navController.navigate(Screen.AudiobookDetail.createRoute(audiobookId))
+                    },
+                    onBackClick = { navController.navigateUp() }
                 )
             }
             composable(
@@ -779,6 +810,7 @@ fun TopBar(
     onUserMenuToggle: () -> Unit,
     onProfileClick: () -> Unit,
     onReadingListClick: () -> Unit,
+    onCollectionsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAdminClick: () -> Unit,
     onLogout: () -> Unit,
@@ -911,6 +943,11 @@ fun TopBar(
                         icon = Icons.Default.BookmarkAdded,
                         text = "Reading List",
                         onClick = onReadingListClick
+                    )
+                    UserMenuItem(
+                        icon = Icons.Default.LibraryBooks,
+                        text = "Collections",
+                        onClick = onCollectionsClick
                     )
                     UserMenuItem(
                         icon = Icons.Default.Download,
