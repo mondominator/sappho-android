@@ -3,6 +3,9 @@ package com.sappho.audiobooks.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.SapphoApi
+import com.sappho.audiobooks.data.remote.Collection
+import com.sappho.audiobooks.data.remote.AddToCollectionRequest
+import com.sappho.audiobooks.data.remote.CreateCollectionRequest
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.download.DownloadManager
@@ -43,6 +46,16 @@ class HomeViewModel @Inject constructor(
 
     private val _isOffline = MutableStateFlow(!networkMonitor.isOnline.value)
     val isOffline: StateFlow<Boolean> = _isOffline
+
+    // Collections state
+    private val _collections = MutableStateFlow<List<Collection>>(emptyList())
+    val collections: StateFlow<List<Collection>> = _collections
+
+    private val _bookCollections = MutableStateFlow<Set<Int>>(emptySet())
+    val bookCollections: StateFlow<Set<Int>> = _bookCollections
+
+    private val _isLoadingCollections = MutableStateFlow(false)
+    val isLoadingCollections: StateFlow<Boolean> = _isLoadingCollections
 
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
@@ -220,5 +233,71 @@ class HomeViewModel @Inject constructor(
         reordered.addAll(upNextBooks.filter { it.id != nextInSeries.id })
 
         return reordered
+    }
+
+    // Collection functions
+    fun loadCollectionsForBook(bookId: Int) {
+        viewModelScope.launch {
+            _isLoadingCollections.value = true
+            try {
+                val collectionsResponse = api.getCollections()
+                val bookCollectionsResponse = api.getCollectionsForBook(bookId)
+
+                if (collectionsResponse.isSuccessful) {
+                    _collections.value = collectionsResponse.body() ?: emptyList()
+                }
+                if (bookCollectionsResponse.isSuccessful) {
+                    _bookCollections.value = (bookCollectionsResponse.body() ?: emptyList())
+                        .filter { it.containsBook == 1 }
+                        .map { it.id }
+                        .toSet()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isLoadingCollections.value = false
+            }
+        }
+    }
+
+    fun toggleBookInCollection(collectionId: Int, bookId: Int) {
+        viewModelScope.launch {
+            val isInCollection = _bookCollections.value.contains(collectionId)
+            try {
+                if (isInCollection) {
+                    val response = api.removeFromCollection(collectionId, bookId)
+                    if (response.isSuccessful) {
+                        _bookCollections.value = _bookCollections.value - collectionId
+                    }
+                } else {
+                    val response = api.addToCollection(collectionId, AddToCollectionRequest(bookId))
+                    if (response.isSuccessful) {
+                        _bookCollections.value = _bookCollections.value + collectionId
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun createCollectionAndAddBook(name: String, bookId: Int) {
+        viewModelScope.launch {
+            try {
+                val createResponse = api.createCollection(CreateCollectionRequest(name, null))
+                if (createResponse.isSuccessful) {
+                    val newCollection = createResponse.body()
+                    if (newCollection != null) {
+                        val addResponse = api.addToCollection(newCollection.id, AddToCollectionRequest(bookId))
+                        if (addResponse.isSuccessful) {
+                            _collections.value = listOf(newCollection) + _collections.value
+                            _bookCollections.value = _bookCollections.value + newCollection.id
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }

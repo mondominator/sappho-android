@@ -2,6 +2,7 @@ package com.sappho.audiobooks.presentation.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,11 +11,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material.icons.filled.BookmarkRemove
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +53,15 @@ fun HomeScreen(
     val serverUrl by viewModel.serverUrl.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
     val downloadedBooks by viewModel.downloadManager.downloadedBooks.collectAsState()
+
+    // Collections state
+    val collections by viewModel.collections.collectAsState()
+    val bookCollections by viewModel.bookCollections.collectAsState()
+    val isLoadingCollections by viewModel.isLoadingCollections.collectAsState()
+
+    // Dialog state
+    var showCollectionDialog by remember { mutableStateOf(false) }
+    var selectedBookId by remember { mutableIntStateOf(0) }
 
     // Refresh data every time the screen becomes visible (including navigation back)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -135,6 +150,11 @@ fun HomeScreen(
                             serverUrl = serverUrl,
                             onAudiobookClick = onAudiobookClick,
                             onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
+                            onAddToCollection = { id ->
+                                selectedBookId = id
+                                viewModel.loadCollectionsForBook(id)
+                                showCollectionDialog = true
+                            },
                             cardSize = 180.dp,
                             titleSize = 18.sp
                         )
@@ -149,7 +169,12 @@ fun HomeScreen(
                             books = upNext,
                             serverUrl = serverUrl,
                             onAudiobookClick = onAudiobookClick,
-                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) }
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
+                            onAddToCollection = { id ->
+                                selectedBookId = id
+                                viewModel.loadCollectionsForBook(id)
+                                showCollectionDialog = true
+                            }
                         )
                     }
                 }
@@ -162,7 +187,12 @@ fun HomeScreen(
                             books = recentlyAdded,
                             serverUrl = serverUrl,
                             onAudiobookClick = onAudiobookClick,
-                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) }
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
+                            onAddToCollection = { id ->
+                                selectedBookId = id
+                                viewModel.loadCollectionsForBook(id)
+                                showCollectionDialog = true
+                            }
                         )
                     }
                 }
@@ -175,7 +205,12 @@ fun HomeScreen(
                             books = finished,
                             serverUrl = serverUrl,
                             onAudiobookClick = onAudiobookClick,
-                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) }
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
+                            onAddToCollection = { id ->
+                                selectedBookId = id
+                                viewModel.loadCollectionsForBook(id)
+                                showCollectionDialog = true
+                            }
                         )
                     }
                 }
@@ -188,7 +223,12 @@ fun HomeScreen(
                             books = downloadedBooks.map { it.audiobook },
                             serverUrl = serverUrl,
                             onAudiobookClick = onAudiobookClick,
-                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) }
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
+                            onAddToCollection = { id ->
+                                selectedBookId = id
+                                viewModel.loadCollectionsForBook(id)
+                                showCollectionDialog = true
+                            }
                         )
                     }
                 }
@@ -218,6 +258,22 @@ fun HomeScreen(
             }
         }
     }
+
+    // Collection Dialog
+    if (showCollectionDialog) {
+        AddToCollectionDialog(
+            collections = collections,
+            bookCollections = bookCollections,
+            isLoading = isLoadingCollections,
+            onDismiss = { showCollectionDialog = false },
+            onToggleCollection = { collectionId ->
+                viewModel.toggleBookInCollection(collectionId, selectedBookId)
+            },
+            onCreateCollection = { name ->
+                viewModel.createCollectionAndAddBook(name, selectedBookId)
+            }
+        )
+    }
 }
 
 @Composable
@@ -227,6 +283,7 @@ fun AudiobookSection(
     serverUrl: String?,
     onAudiobookClick: (Int) -> Unit,
     onToggleFavorite: (Int) -> Unit = {},
+    onAddToCollection: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
     cardSize: androidx.compose.ui.unit.Dp = 140.dp,
     titleSize: androidx.compose.ui.unit.TextUnit = 16.sp
@@ -250,6 +307,7 @@ fun AudiobookSection(
                     serverUrl = serverUrl,
                     onClick = { onAudiobookClick(book.id) },
                     onToggleFavorite = { onToggleFavorite(book.id) },
+                    onAddToCollection = { onAddToCollection(book.id) },
                     cardSize = cardSize
                 )
             }
@@ -264,6 +322,7 @@ fun AudiobookCard(
     serverUrl: String?,
     onClick: () -> Unit = {},
     onToggleFavorite: () -> Unit = {},
+    onAddToCollection: () -> Unit = {},
     modifier: Modifier = Modifier,
     cardSize: androidx.compose.ui.unit.Dp = 140.dp
 ) {
@@ -390,6 +449,25 @@ fun AudiobookCard(
                     onToggleFavorite()
                 }
             )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = "Add to Collection",
+                        color = Color(0xFFE0E7F1)
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.FolderSpecial,
+                        contentDescription = null,
+                        tint = Color(0xFF3b82f6)
+                    )
+                },
+                onClick = {
+                    showMenu = false
+                    onAddToCollection()
+                }
+            )
         }
     }
 }
@@ -426,5 +504,187 @@ private fun ReadingListRibbon(
             close()
         }
         drawPath(foldPath, shadowColor.copy(alpha = 0.4f), style = Fill)
+    }
+}
+
+@Composable
+private fun AddToCollectionDialog(
+    collections: List<com.sappho.audiobooks.data.remote.Collection>,
+    bookCollections: Set<Int>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onToggleCollection: (Int) -> Unit,
+    onCreateCollection: (String) -> Unit
+) {
+    var showCreateForm by remember { mutableStateOf(false) }
+    var newCollectionName by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF1a1a1a)
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Add to Collection",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF9ca3af)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF3b82f6))
+                    }
+                } else {
+                    // Create new collection form or button
+                    if (showCreateForm) {
+                        Column {
+                            OutlinedTextField(
+                                value = newCollectionName,
+                                onValueChange = { newCollectionName = it },
+                                placeholder = { Text("Collection name", color = Color(0xFF6b7280)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = Color(0xFF3b82f6),
+                                    unfocusedBorderColor = Color(0xFF374151),
+                                    cursorColor = Color(0xFF3b82f6)
+                                ),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(onClick = {
+                                    showCreateForm = false
+                                    newCollectionName = ""
+                                }) {
+                                    Text("Cancel", color = Color(0xFF9ca3af))
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = {
+                                        if (newCollectionName.isNotBlank()) {
+                                            onCreateCollection(newCollectionName.trim())
+                                            newCollectionName = ""
+                                            showCreateForm = false
+                                        }
+                                    },
+                                    enabled = newCollectionName.isNotBlank(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF3b82f6)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Create & Add")
+                                }
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = { showCreateForm = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF374151)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("New Collection")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Collections list
+                    if (collections.isEmpty()) {
+                        Text(
+                            text = "No collections yet",
+                            color = Color(0xFF9ca3af),
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 300.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            collections.forEach { collection ->
+                                val isInCollection = bookCollections.contains(collection.id)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (isInCollection) Color(0xFF3b82f6).copy(alpha = 0.2f)
+                                            else Color(0xFF374151)
+                                        )
+                                        .clickable { onToggleCollection(collection.id) }
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = collection.name,
+                                        color = Color.White,
+                                        fontWeight = if (isInCollection) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (isInCollection) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "In collection",
+                                            tint = Color(0xFF3b82f6)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

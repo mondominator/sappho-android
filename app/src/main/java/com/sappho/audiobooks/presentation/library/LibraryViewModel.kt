@@ -275,13 +275,21 @@ class LibraryViewModel @Inject constructor(
     fun addBookToCollection(collectionId: Int, bookId: Int, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {
+                Log.d("LibraryViewModel", "Adding book $bookId to collection $collectionId")
                 val response = api.addToCollection(collectionId, AddToCollectionRequest(bookId))
                 if (response.isSuccessful) {
                     loadCollections()
                     _selectedCollection.value?.let { if (it.id == collectionId) loadCollectionDetail(collectionId) }
                     onResult(true, "Added to collection")
                 } else {
-                    onResult(false, "Failed to add to collection")
+                    val errorBody = response.errorBody()?.string()
+                    Log.e("LibraryViewModel", "Failed to add to collection: ${response.code()} - $errorBody")
+                    val errorMessage = when (response.code()) {
+                        409 -> "Book already in collection"
+                        404 -> "Collection not found"
+                        else -> "Failed to add to collection (${response.code()})"
+                    }
+                    onResult(false, errorMessage)
                 }
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error adding to collection", e)
@@ -420,14 +428,36 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val ids = _selectedBookIds.value.toList()
-                val response = api.batchAddToCollection(BatchAddToCollectionRequest(ids, collectionId))
-                if (response.isSuccessful) {
-                    val count = response.body()?.count ?: ids.size
-                    loadCollections()
-                    exitSelectionMode()
-                    onResult(true, "Added $count books to collection")
+                // Use single endpoint for single book selection (more reliable)
+                if (ids.size == 1) {
+                    val response = api.addToCollection(collectionId, AddToCollectionRequest(ids.first()))
+                    if (response.isSuccessful) {
+                        loadCollections()
+                        exitSelectionMode()
+                        onResult(true, "Added to collection")
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        Log.e("LibraryViewModel", "Failed to add to collection: ${response.code()} - $errorBody")
+                        val errorMessage = when (response.code()) {
+                            409 -> "Book already in collection"
+                            404 -> "Collection not found"
+                            else -> "Failed to add to collection (${response.code()})"
+                        }
+                        onResult(false, errorMessage)
+                    }
                 } else {
-                    onResult(false, "Failed to add to collection")
+                    // Use batch endpoint for multiple books
+                    val response = api.batchAddToCollection(BatchAddToCollectionRequest(ids, collectionId))
+                    if (response.isSuccessful) {
+                        val count = response.body()?.count ?: ids.size
+                        loadCollections()
+                        exitSelectionMode()
+                        onResult(true, "Added $count books to collection")
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        Log.e("LibraryViewModel", "Failed to batch add to collection: ${response.code()} - $errorBody")
+                        onResult(false, "Failed to add to collection")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch add to collection", e)

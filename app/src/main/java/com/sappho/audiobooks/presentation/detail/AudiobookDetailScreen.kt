@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -28,9 +30,14 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.LibraryBooks
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.StarHalf
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
@@ -89,6 +96,14 @@ fun AudiobookDetailScreen(
     var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
     var showEditMetadataDialog by remember { mutableStateOf(false) }
+    var showCollectionsDialog by remember { mutableStateOf(false) }
+    var showDeleteBookDialog by remember { mutableStateOf(false) }
+    val isRefreshingMetadata by viewModel.isRefreshingMetadata.collectAsState()
+    val refreshMetadataResult by viewModel.refreshMetadataResult.collectAsState()
+
+    val collections by viewModel.collections.collectAsState()
+    val bookCollections by viewModel.bookCollections.collectAsState()
+    val isLoadingCollections by viewModel.isLoadingCollections.collectAsState()
 
     // Check if this audiobook is currently playing or loaded
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
@@ -552,136 +567,133 @@ fun AudiobookDetailScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
-                    // Files Dropdown (only show if has files)
-                    if (files.isNotEmpty()) {
-                        var filesExpanded by remember { mutableStateOf(false) }
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                        ) {
-                            // Files toggle button
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { filesExpanded = !filesExpanded },
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFF1e293b).copy(alpha = 0.5f),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Description,
-                                            contentDescription = null,
-                                            tint = Color(0xFFE0E7F1),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Text(
-                                            text = "${files.size} File${if (files.size != 1) "s" else ""}",
-                                            color = Color(0xFFE0E7F1),
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                    Icon(
-                                        imageVector = if (filesExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                        contentDescription = null,
-                                        tint = Color(0xFFE0E7F1),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-
-                            // Files list (expanded)
-                            if (filesExpanded) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    files.forEach { file ->
-                                        Surface(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = Color(0xFF1e293b).copy(alpha = 0.3f)
-                                        ) {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(12.dp)
-                                            ) {
-                                                Text(
-                                                    text = file.name,
-                                                    color = Color(0xFFE0E7F1),
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                Text(
-                                                    text = formatFileSize(file.size),
-                                                    color = Color(0xFF9ca3af),
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    // Action Buttons - First Row (only show when online)
+                    // Action Buttons (only show when online)
                     if (!isOffline) {
-                        Row(
+                        val progressCheck = progress
+                        val hasProgress = progressCheck != null && (progressCheck.position > 0 || progressCheck.completed == 1)
+
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Mark Finished Button
+                            // Collection Button
                             OutlinedButton(
-                                onClick = { viewModel.markFinished() },
-                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    showCollectionsDialog = true
+                                    viewModel.loadCollectionsForBook(book.id)
+                                },
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = Color(0xFF3b82f6)
                                 ),
                                 border = BorderStroke(1.dp, Color(0xFF3b82f6).copy(alpha = 0.3f)),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.LibraryBooks,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Collection",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+
+                            // Mark Finished Button
+                            OutlinedButton(
+                                onClick = { viewModel.markFinished() },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF22c55e)
+                                ),
+                                border = BorderStroke(1.dp, Color(0xFF22c55e).copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {
                                 Text(
                                     text = "Mark Finished",
-                                    fontSize = 14.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
 
                             // Clear Progress Button (only show if has progress)
-                            val progressCheck = progress
-                            if (progressCheck != null && (progressCheck.position > 0 || progressCheck.completed == 1)) {
+                            if (hasProgress) {
                                 OutlinedButton(
                                     onClick = { viewModel.clearProgress() },
-                                    modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = Color(0xFFfb923c)
                                     ),
                                     border = BorderStroke(1.dp, Color(0xFFfb923c).copy(alpha = 0.3f)),
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                                 ) {
                                     Text(
                                         text = "Clear Progress",
-                                        fontSize = 14.sp,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+
+                            // Refresh Metadata Button
+                            OutlinedButton(
+                                onClick = { viewModel.refreshMetadata() },
+                                enabled = !isRefreshingMetadata,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF9ca3af)
+                                ),
+                                border = BorderStroke(1.dp, Color(0xFF374151)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                if (isRefreshingMetadata) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        color = Color(0xFF9ca3af),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isRefreshingMetadata) "Refreshing..." else "Refresh",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+
+                            // Delete Button (admin only)
+                            if (isAdmin) {
+                                OutlinedButton(
+                                    onClick = { showDeleteBookDialog = true },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color(0xFFef4444)
+                                    ),
+                                    border = BorderStroke(1.dp, Color(0xFFef4444).copy(alpha = 0.3f)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Delete,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Delete",
+                                        fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
@@ -914,6 +926,96 @@ fun AudiobookDetailScreen(
                         }
                     }
 
+                    // Files Dropdown (only show if has files)
+                    if (files.isNotEmpty()) {
+                        var filesExpanded by remember { mutableStateOf(false) }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp)
+                        ) {
+                            // Files toggle button
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { filesExpanded = !filesExpanded },
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF1e293b).copy(alpha = 0.5f),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Description,
+                                            contentDescription = null,
+                                            tint = Color(0xFFE0E7F1),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = "${files.size} File${if (files.size != 1) "s" else ""}",
+                                            color = Color(0xFFE0E7F1),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = if (filesExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        tint = Color(0xFFE0E7F1),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            // Files list (expanded)
+                            if (filesExpanded) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    files.forEach { file ->
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color(0xFF1e293b).copy(alpha = 0.3f)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = file.name,
+                                                    color = Color(0xFFE0E7F1),
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Text(
+                                                    text = formatFileSize(file.size),
+                                                    color = Color(0xFF9ca3af),
+                                                    fontSize = 12.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                 }
             }
         }
@@ -974,6 +1076,56 @@ fun AudiobookDetailScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteDownloadDialog = false }) {
+                        Text("Cancel", color = Color(0xFF3b82f6))
+                    }
+                },
+                containerColor = Color(0xFF1e293b)
+            )
+        }
+
+        // Add to Collection Dialog
+        if (showCollectionsDialog) {
+            audiobook?.let { book ->
+                AddToCollectionDialog(
+                    collections = collections,
+                    bookCollections = bookCollections,
+                    isLoading = isLoadingCollections,
+                    onDismiss = { showCollectionsDialog = false },
+                    onToggleCollection = { collectionId ->
+                        viewModel.toggleBookInCollection(collectionId, book.id)
+                    },
+                    onCreateCollection = { name ->
+                        viewModel.createCollectionAndAddBook(name, book.id)
+                    }
+                )
+            }
+        }
+
+        // Delete Book Confirmation Dialog
+        if (showDeleteBookDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteBookDialog = false },
+                title = { Text("Delete Audiobook", color = Color.White) },
+                text = {
+                    Text(
+                        "Delete \"${audiobook?.title}\"? This action cannot be undone.",
+                        color = Color(0xFFd1d5db)
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteBookDialog = false
+                            viewModel.deleteAudiobook {
+                                onBackClick()
+                            }
+                        }
+                    ) {
+                        Text("Delete", color = Color(0xFFef4444))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteBookDialog = false }) {
                         Text("Cancel", color = Color(0xFF3b82f6))
                     }
                 },
@@ -2942,4 +3094,209 @@ private fun ChaptersDialog(
         },
         containerColor = Color(0xFF1e293b)
     )
+}
+
+@Composable
+private fun AddToCollectionDialog(
+    collections: List<com.sappho.audiobooks.data.remote.Collection>,
+    bookCollections: Set<Int>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onToggleCollection: (Int) -> Unit,
+    onCreateCollection: (String) -> Unit
+) {
+    var showCreateForm by remember { mutableStateOf(false) }
+    var newCollectionName by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF1a1a1a)
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Add to Collection",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF9ca3af)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF3b82f6))
+                    }
+                } else {
+                    // Create new collection form or button
+                    if (showCreateForm) {
+                        Column {
+                            OutlinedTextField(
+                                value = newCollectionName,
+                                onValueChange = { newCollectionName = it },
+                                placeholder = { Text("Collection name", color = Color(0xFF6b7280)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = Color(0xFF3b82f6),
+                                    unfocusedBorderColor = Color(0xFF374151),
+                                    cursorColor = Color(0xFF3b82f6)
+                                ),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(onClick = {
+                                    showCreateForm = false
+                                    newCollectionName = ""
+                                }) {
+                                    Text("Cancel", color = Color(0xFF9ca3af))
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = {
+                                        if (newCollectionName.isNotBlank()) {
+                                            onCreateCollection(newCollectionName.trim())
+                                            newCollectionName = ""
+                                            showCreateForm = false
+                                        }
+                                    },
+                                    enabled = newCollectionName.isNotBlank(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF3b82f6)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Create & Add")
+                                }
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = { showCreateForm = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF374151)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("New Collection")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Collections list
+                    if (collections.isEmpty()) {
+                        Text(
+                            text = "No collections yet. Create one above!",
+                            color = Color(0xFF9ca3af),
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            collections.forEach { collection ->
+                                val isInCollection = bookCollections.contains(collection.id)
+                                Surface(
+                                    onClick = { onToggleCollection(collection.id) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isInCollection) Color(0xFF3b82f6).copy(alpha = 0.15f) else Color(0xFF374151)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = collection.name,
+                                                color = Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = "${collection.bookCount ?: 0} books",
+                                                color = Color(0xFF9ca3af),
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                        if (isInCollection) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "In collection",
+                                                tint = Color(0xFF3b82f6),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Done button
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF3b82f6)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Done")
+                }
+            }
+        }
+    }
 }
