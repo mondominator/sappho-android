@@ -2810,8 +2810,8 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
 @Composable
 private fun AdminSectionCard(
     title: String,
-    icon: ImageVector? = null,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     action: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -2984,9 +2984,9 @@ private fun adminTextFieldColors() = OutlinedTextFieldDefaults.colors(
 // ============ Utility Functions ============
 private fun formatFileSize(bytes: Long): String {
     return when {
-        bytes >= 1_073_741_824 -> String.format("%.1f GB", bytes / 1_073_741_824.0)
-        bytes >= 1_048_576 -> String.format("%.1f MB", bytes / 1_048_576.0)
-        bytes >= 1_024 -> String.format("%.1f KB", bytes / 1_024.0)
+        bytes >= 1_073_741_824 -> String.format(java.util.Locale.US, "%.1f GB", bytes / 1_073_741_824.0)
+        bytes >= 1_048_576 -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1_048_576.0)
+        bytes >= 1_024 -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1_024.0)
         else -> "$bytes B"
     }
 }

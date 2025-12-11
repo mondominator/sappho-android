@@ -51,6 +51,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @AndroidEntryPoint
 class AudioPlaybackService : MediaLibraryService() {
 
@@ -192,11 +193,12 @@ class AudioPlaybackService : MediaLibraryService() {
             addAction(ACTION_SKIP_BACKWARD)
             addAction(ACTION_PLAY_PAUSE)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(notificationActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(notificationActionReceiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            this,
+            notificationActionReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     private fun unregisterNotificationActionReceiver() {
@@ -211,18 +213,16 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Audiobook Playback",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Controls for audiobook playback"
-                setShowBadge(false)
-            }
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Audiobook Playback",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Controls for audiobook playback"
+            setShowBadge(false)
         }
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun registerNoisyReceiver() {
@@ -249,64 +249,43 @@ class AudioPlaybackService : MediaLibraryService() {
     private fun requestAudioFocus(): Boolean {
         val audioManager = audioManager ?: return false
 
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build()
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
 
-            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                .setAudioAttributes(audioAttributes)
-                .setAcceptsDelayedFocusGain(true)
-                .setOnAudioFocusChangeListener { focusChange ->
-                    when (focusChange) {
-                        AudioManager.AUDIOFOCUS_LOSS -> {
-                            // Lost focus permanently - pause playback
-                            player?.pause()
-                        }
-                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                            // Lost focus temporarily - pause playback
-                            player?.pause()
-                        }
-                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                            // Lost focus temporarily but can duck - lower volume
-                            player?.volume = 0.3f
-                        }
-                        AudioManager.AUDIOFOCUS_GAIN -> {
-                            // Regained focus - restore volume and resume if needed
-                            player?.volume = 1.0f
-                        }
+        val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(audioAttributes)
+            .setAcceptsDelayedFocusGain(true)
+            .setOnAudioFocusChangeListener { focusChange ->
+                when (focusChange) {
+                    AudioManager.AUDIOFOCUS_LOSS -> {
+                        // Lost focus permanently - pause playback
+                        player?.pause()
+                    }
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                        // Lost focus temporarily - pause playback
+                        player?.pause()
+                    }
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                        // Lost focus temporarily but can duck - lower volume
+                        player?.volume = 0.3f
+                    }
+                    AudioManager.AUDIOFOCUS_GAIN -> {
+                        // Regained focus - restore volume and resume if needed
+                        player?.volume = 1.0f
                     }
                 }
-                .build()
+            }
+            .build()
 
-            audioFocusRequest = focusRequest
-            audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
-                { focusChange ->
-                    when (focusChange) {
-                        AudioManager.AUDIOFOCUS_LOSS -> player?.pause()
-                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> player?.pause()
-                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> player?.volume = 0.3f
-                        AudioManager.AUDIOFOCUS_GAIN -> player?.volume = 1.0f
-                    }
-                },
-                AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN
-            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        }
+        audioFocusRequest = focusRequest
+        return audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
     private fun abandonAudioFocus() {
         audioManager?.let { am ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
-            } else {
-                @Suppress("DEPRECATION")
-                am.abandonAudioFocus(null)
-            }
+            audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
         }
     }
 

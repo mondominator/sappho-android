@@ -23,6 +23,18 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+            if (keystorePath != null) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -30,6 +42,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = if (System.getenv("KEYSTORE_PATH") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
         debug {
             isMinifyEnabled = false
@@ -58,6 +75,16 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+
+    lint {
+        abortOnError = true
+        warningsAsErrors = false
+        // Issues tracked in GitHub for future resolution:
+        // - #52: GradleDependency (outdated dependencies)
+        // - #53: Icon issues (launcher icon improvements)
+        // - #54: RestrictedApi (CastHelper)
+        disable += setOf("GradleDependency", "IconDuplicatesConfig", "IconDuplicates", "IconLocation", "IconDensities", "IconMissingDensityFolder", "OldTargetApi", "MissingIntentFilterForMediaSearch", "RestrictedApi")
     }
 }
 

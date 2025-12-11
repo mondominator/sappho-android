@@ -145,7 +145,7 @@ fun PlayerScreen(
     val sleepTimerRemaining = playerState?.sleepTimerRemaining?.collectAsState()?.value
 
     // When casting, poll the Cast position periodically
-    var castPosition by remember { mutableStateOf(0L) }
+    var castPosition by remember { mutableLongStateOf(0L) }
     LaunchedEffect(isCastConnected) {
         if (isCastConnected) {
             while (true) {
@@ -165,7 +165,7 @@ fun PlayerScreen(
         }
     }
 
-    var dragOffset by remember { mutableStateOf(0f) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
     var isMinimizing by remember { mutableStateOf(false) }
 
     // Animate the offset for smooth slide-down
@@ -603,7 +603,7 @@ fun PlayerScreen(
                     // Progress slider - MOVED BELOW BUTTONS
                     // Use local state for smooth dragging, only seek on release
                     var isDragging by remember { mutableStateOf(false) }
-                    var dragPosition by remember { mutableStateOf(0f) }
+                    var dragPosition by remember { mutableFloatStateOf(0f) }
                     var wasPlayingBeforeDrag by remember { mutableStateOf(false) }
 
                     // The displayed position: use drag position while dragging, actual position otherwise
@@ -1110,9 +1110,9 @@ private fun formatTime(seconds: Long): String {
     val minutes = (seconds % 3600) / 60
     val secs = seconds % 60
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, secs)
+        String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, secs)
     } else {
-        String.format("%d:%02d", minutes, secs)
+        String.format(java.util.Locale.US, "%d:%02d", minutes, secs)
     }
 }
 

@@ -793,9 +793,9 @@ private fun UploadDialog(
 
 private fun formatFileSize(size: Long): String {
     return when {
-        size >= 1_073_741_824 -> String.format("%.1f GB", size / 1_073_741_824.0)
-        size >= 1_048_576 -> String.format("%.1f MB", size / 1_048_576.0)
-        size >= 1_024 -> String.format("%.1f KB", size / 1_024.0)
+        size >= 1_073_741_824 -> String.format(java.util.Locale.US, "%.1f GB", size / 1_073_741_824.0)
+        size >= 1_048_576 -> String.format(java.util.Locale.US, "%.1f MB", size / 1_048_576.0)
+        size >= 1_024 -> String.format(java.util.Locale.US, "%.1f KB", size / 1_024.0)
         else -> "$size B"
     }
 }

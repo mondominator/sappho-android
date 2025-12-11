@@ -56,11 +56,12 @@
             android:theme="@style/Theme.Sappho"
             android:configChanges="orientation|screenSize" />
 
-        <!-- Media Playback Service -->
+        <!-- Media Playback Service - exported for Android Auto and system media controls -->
         <service
             android:name=".service.AudioPlaybackService"
             android:exported="true"
-            android:foregroundServiceType="mediaPlayback">
+            android:foregroundServiceType="mediaPlayback"
+            tools:ignore="ExportedService">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
                 <action android:name="androidx.media3.session.MediaLibraryService" />

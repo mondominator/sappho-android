@@ -72,11 +72,7 @@ class DownloadService : Service() {
                 putExtra(EXTRA_AUDIOBOOK_TITLE, audiobook.title)
                 putExtra(EXTRA_AUDIOBOOK_AUTHOR, audiobook.author ?: "")
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun cancelDownload(context: Context) {
@@ -114,18 +110,16 @@ class DownloadService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Audiobook Downloads",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows download progress for audiobooks"
-                setShowBadge(false)
-            }
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Audiobook Downloads",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows download progress for audiobooks"
+            setShowBadge(false)
         }
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun createNotification(title: String, author: String, progress: Int): Notification {
