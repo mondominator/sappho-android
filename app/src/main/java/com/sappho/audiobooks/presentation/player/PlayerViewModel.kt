@@ -98,11 +98,20 @@ class PlayerViewModel @Inject constructor(
                     val serviceIntent = Intent(context, AudioPlaybackService::class.java)
                     context.startForegroundService(serviceIntent)
 
-                    // Wait a moment for service to be created
-                    kotlinx.coroutines.delay(500)
+                    // Wait for service to be ready with retry logic
+                    var retries = 0
+                    val maxRetries = 20 // 2 seconds max wait
+                    while (AudioPlaybackService.instance == null && retries < maxRetries) {
+                        kotlinx.coroutines.delay(100)
+                        retries++
+                    }
 
-                    // Load and play through the service
-                    AudioPlaybackService.instance?.loadAndPlay(it, actualStartPosition)
+                    val service = AudioPlaybackService.instance
+                    if (service != null) {
+                        service.loadAndPlay(it, actualStartPosition)
+                    } else {
+                        android.util.Log.e("PlayerViewModel", "Failed to get AudioPlaybackService instance after ${retries * 100}ms")
+                    }
                 }
             }
         }
