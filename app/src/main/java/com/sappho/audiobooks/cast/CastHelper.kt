@@ -271,6 +271,7 @@ class CastHelper @Inject constructor(
         }
     }
 
+    @Suppress("RestrictedApi") // No public API alternative for isDefaultOrBluetooth
     private fun updateAvailableRoutes(context: Context) {
         val router = mediaRouter ?: MediaRouter.getInstance(context)
         val routes = mutableListOf<MediaRouter.RouteInfo>()
