@@ -671,11 +671,35 @@ fun PlayerScreen(
                                 isDragging = false
                             },
                             valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color(0xFF3b82f6),
-                                activeTrackColor = Color(0xFF3b82f6),
-                                inactiveTrackColor = Color(0xFF374151)
-                            )
+                            thumb = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF3b82f6))
+                                )
+                            },
+                            track = { sliderState ->
+                                val fraction = if (sliderState.valueRange.endInclusive > sliderState.valueRange.start) {
+                                    (sliderState.value - sliderState.valueRange.start) /
+                                    (sliderState.valueRange.endInclusive - sliderState.valueRange.start)
+                                } else 0f
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(Color(0xFF374151))
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(fraction)
+                                            .height(4.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(Color(0xFF3b82f6))
+                                    )
+                                }
+                            }
                         )
                     }
 

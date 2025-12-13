@@ -219,6 +219,11 @@ For security vulnerabilities, use **GitHub Security Advisories** instead of regu
 - Wait for user testing before shipping/merging
 - Never bypass merge rules
 
+## Screenshots
+
+- **Do NOT take screenshots** of the app using adb screencap or similar tools
+- Let the user test the app manually on their device
+
 ## Release Checklist
 
 Before creating a new release, update the version number in `app/build.gradle.kts`:
