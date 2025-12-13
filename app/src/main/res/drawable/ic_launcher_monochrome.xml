@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple "S" shape for Sappho monochrome icon -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M54,24 C36,24 24,36 24,48 C24,60 36,66 54,66 C72,66 84,72 84,84 C84,96 72,108 54,108 C36,108 24,96 24,84
+                          M54,0 C72,0 84,12 84,24 C84,36 72,42 54,42 C36,42 24,36 24,24 C24,12 36,0 54,0" />
+</vector>

@@ -829,6 +829,7 @@ fun TopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF1a1a1a))
+                .statusBarsPadding()
                 .border(width = 1.dp, color = Color(0xFF2a2a2a))
         ) {
         Row(

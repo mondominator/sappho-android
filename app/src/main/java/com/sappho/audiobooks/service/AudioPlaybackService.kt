@@ -29,6 +29,7 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
@@ -426,7 +427,7 @@ class AudioPlaybackService : MediaLibraryService() {
                     Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
                 else -> {
-                    Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
+                    Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
                 }
             }
         }
@@ -523,12 +524,12 @@ class AudioPlaybackService : MediaLibraryService() {
             if (mediaId == ROOT_ID || mediaId == CONTINUE_LISTENING_ID ||
                 mediaId == RECENT_ID || mediaId == ALL_BOOKS_ID ||
                 mediaId.startsWith(CHAPTERS_PREFIX)) {
-                return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_NOT_SUPPORTED))
+                return Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
             }
 
             // For individual audiobooks
             val audiobookId = mediaId.toIntOrNull() ?: return Futures.immediateFuture(
-                LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
+                LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
             )
 
             return loadAudiobookMediaItem(audiobookId)
@@ -825,13 +826,13 @@ class AudioPlaybackService : MediaLibraryService() {
                         val mediaItem = createPlayableMediaItem(audiobook)
                         future.set(LibraryResult.ofItem(mediaItem, null))
                     } else {
-                        future.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_NOT_SUPPORTED))
+                        future.set(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
                     }
                 } else {
-                    future.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_NOT_SUPPORTED))
+                    future.set(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
                 }
             } catch (e: Exception) {
-                future.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_NOT_SUPPORTED))
+                future.set(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
             }
         }
 
