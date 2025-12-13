@@ -891,6 +891,13 @@ class AudioPlaybackService : MediaLibraryService() {
 
     fun loadAndPlay(audiobook: Audiobook, startPosition: Int) {
         android.util.Log.d("AudioPlaybackService", "loadAndPlay called with startPosition: $startPosition seconds for book: ${audiobook.title}")
+
+        // Ensure player is initialized - reinitialize if it was released
+        if (player == null || mediaLibrarySession == null) {
+            android.util.Log.d("AudioPlaybackService", "Player or session was null, reinitializing...")
+            initializePlayer()
+        }
+
         player?.let { exoPlayer ->
             // Request audio focus before playing
             if (!requestAudioFocus()) {
