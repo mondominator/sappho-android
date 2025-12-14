@@ -2,11 +2,9 @@ package com.sappho.audiobooks.presentation.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -16,56 +14,45 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.sappho.audiobooks.data.remote.AiSettings
-import com.sappho.audiobooks.data.remote.AiSettingsUpdate
-import com.sappho.audiobooks.data.remote.UserInfo
+import com.sappho.audiobooks.BuildConfig
+import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel()
+    onLogout: () -> Unit,
+    viewModel: UserSettingsViewModel = hiltViewModel()
 ) {
-    val librarySettings by viewModel.librarySettings.collectAsState()
+    val user by viewModel.user.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
-    val isScanning by viewModel.isScanning.collectAsState()
     val message by viewModel.message.collectAsState()
-    val aiSettings by viewModel.aiSettings.collectAsState()
-    val users by viewModel.users.collectAsState()
-    val scanResult by viewModel.scanResult.collectAsState()
+    val serverVersion by viewModel.serverVersion.collectAsState()
+    val skipForward by viewModel.userPreferences.skipForwardSeconds.collectAsState()
+    val skipBackward by viewModel.userPreferences.skipBackwardSeconds.collectAsState()
 
-    // Library settings fields
-    var libraryPath by remember(librarySettings) { mutableStateOf(librarySettings?.libraryPath ?: "") }
-    var uploadPath by remember(librarySettings) { mutableStateOf(librarySettings?.uploadPath ?: "") }
+    // Edit mode state
+    var isEditMode by remember { mutableStateOf(false) }
+    var displayName by remember(user) { mutableStateOf(user?.displayName ?: "") }
+    var email by remember(user) { mutableStateOf(user?.email ?: "") }
 
-    // Dialogs
-    var showForceRescanDialog by remember { mutableStateOf(false) }
-    var showAiDialog by remember { mutableStateOf(false) }
-    var showUserDialog by remember { mutableStateOf(false) }
-    var showDeleteUserDialog by remember { mutableStateOf<UserInfo?>(null) }
-
-    // New user fields
-    var newUsername by remember { mutableStateOf("") }
+    // Password dialog
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
-    var newEmail by remember { mutableStateOf("") }
-    var newIsAdmin by remember { mutableStateOf(false) }
-
-    // AI settings state
-    var aiProvider by remember(aiSettings) { mutableStateOf(aiSettings?.aiProvider ?: "openai") }
-    var openaiKey by remember { mutableStateOf("") }
-    var geminiKey by remember { mutableStateOf("") }
-    var offensiveMode by remember(aiSettings) { mutableStateOf(aiSettings?.recapOffensiveMode ?: false) }
-    var customPrompt by remember(aiSettings) { mutableStateOf(aiSettings?.recapCustomPrompt ?: "") }
-    var showPromptEditor by remember { mutableStateOf(false) }
+    var confirmPassword by remember { mutableStateOf("") }
+    var showCurrentPassword by remember { mutableStateOf(false) }
+    var showNewPassword by remember { mutableStateOf(false) }
 
     // Snackbar
     val snackbarHostState = remember { SnackbarHostState() }
@@ -87,7 +74,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Administration",
+                        "Settings",
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
@@ -124,295 +111,135 @@ fun SettingsScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
-                // Library Management Section
+                // Playback Section
                 SectionCard(
-                    title = "Library",
-                    icon = Icons.Outlined.LibraryBooks
+                    title = "Playback",
+                    icon = Icons.Outlined.PlayCircle
                 ) {
-                    SettingsRow(
-                        icon = Icons.Outlined.Refresh,
-                        title = "Scan Library",
-                        subtitle = "Scan for new audiobooks",
-                        onClick = { viewModel.scanLibrary(refresh = true) }
+                    // Skip Forward Setting
+                    SkipIntervalSelector(
+                        label = "Skip Forward",
+                        currentValue = skipForward,
+                        options = UserPreferencesRepository.SKIP_FORWARD_OPTIONS,
+                        onValueChange = { viewModel.userPreferences.setSkipForwardSeconds(it) }
                     )
 
-                    if (isScanning) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color(0xFF3b82f6),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("Scanning library...", color = Color(0xFF9ca3af), fontSize = 14.sp)
-                        }
-                    }
+                    HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
 
-                    scanResult?.let { result ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF10b981).copy(alpha = 0.1f))
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = "Scan Complete",
-                                color = Color(0xFF10b981),
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Imported: ${result.stats.imported} • Skipped: ${result.stats.skipped} • Errors: ${result.stats.errors}",
-                                color = Color(0xFF9ca3af),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
+                    // Skip Backward Setting
+                    SkipIntervalSelector(
+                        label = "Skip Back",
+                        currentValue = skipBackward,
+                        options = UserPreferencesRepository.SKIP_BACKWARD_OPTIONS,
+                        onValueChange = { viewModel.userPreferences.setSkipBackwardSeconds(it) }
+                    )
 
-                    Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
-
-                    SettingsRow(
-                        icon = Icons.Outlined.Warning,
-                        title = "Force Rescan",
-                        subtitle = "Clear database and re-import all audiobooks",
-                        iconTint = Color(0xFFf59e0b),
-                        onClick = { showForceRescanDialog = true }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Changes take effect on next playback start",
+                        color = Color(0xFF6b7280),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Library Settings Section
+                // Account Section
                 SectionCard(
-                    title = "Library Paths",
-                    icon = Icons.Outlined.Folder
+                    title = "Account",
+                    icon = Icons.Outlined.Person
                 ) {
-                    OutlinedTextField(
-                        value = libraryPath,
-                        onValueChange = { libraryPath = it },
-                        label = { Text("Library Directory") },
-                        placeholder = { Text("/app/data/audiobooks") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6)
-                        )
-                    )
-                    Text(
-                        text = "Main directory where audiobooks are stored",
-                        fontSize = 12.sp,
-                        color = Color(0xFF6b7280),
-                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    SettingsRow(
+                        icon = Icons.Outlined.Edit,
+                        title = "Edit Profile",
+                        subtitle = "Update your display name and email",
+                        onClick = { isEditMode = true }
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
 
-                    OutlinedTextField(
-                        value = uploadPath,
-                        onValueChange = { uploadPath = it },
-                        label = { Text("Upload Directory") },
-                        placeholder = { Text("/app/data/uploads") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6)
-                        )
+                    SettingsRow(
+                        icon = Icons.Outlined.Lock,
+                        title = "Change Password",
+                        subtitle = "Update your account password",
+                        onClick = { showPasswordDialog = true }
                     )
-                    Text(
-                        text = "Temporary directory for web uploads",
-                        fontSize = 12.sp,
-                        color = Color(0xFF6b7280),
-                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = { viewModel.updateLibrarySettings(libraryPath, uploadPath) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isSaving && libraryPath.isNotBlank() && uploadPath.isNotBlank(),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3b82f6),
-                            contentColor = Color.White
-                        )
-                    ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        Text(if (isSaving) "Saving..." else "Save Paths")
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // AI Configuration Section
+                // About Section
                 SectionCard(
-                    title = "AI Configuration",
-                    icon = Icons.Outlined.AutoAwesome
+                    title = "About",
+                    icon = Icons.Outlined.Info
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "Provider",
-                                color = Color.White,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = when (aiSettings?.aiProvider) {
-                                    "gemini" -> "Google Gemini"
-                                    "openai" -> "OpenAI"
-                                    else -> "Not configured"
-                                },
-                                color = Color(0xFF9ca3af),
-                                fontSize = 13.sp
-                            )
-                        }
-                        val hasKey = when (aiSettings?.aiProvider) {
-                            "gemini" -> aiSettings?.geminiApiKey?.isNotEmpty() == true
-                            "openai" -> aiSettings?.openaiApiKey?.isNotEmpty() == true
-                            else -> false
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (hasKey) Color(0xFF10b981).copy(alpha = 0.15f)
-                            else Color(0xFFf59e0b).copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                text = if (hasKey) "Configured" else "Not Set",
-                                fontSize = 12.sp,
-                                color = if (hasKey) Color(0xFF10b981) else Color(0xFFf59e0b),
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
+                        Text(
+                            text = "App Version",
+                            color = Color.White,
+                            fontSize = 15.sp
+                        )
+                        Text(
+                            text = BuildConfig.VERSION_NAME,
+                            color = Color(0xFF9ca3af),
+                            fontSize = 14.sp
+                        )
                     }
 
-                    Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
 
-                    SettingsRow(
-                        icon = Icons.Outlined.Key,
-                        title = "Configure AI",
-                        subtitle = "Set up OpenAI or Gemini API key for Catch Me Up",
-                        onClick = { showAiDialog = true }
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Server Version",
+                            color = Color.White,
+                            fontSize = 15.sp
+                        )
+                        Text(
+                            text = serverVersion ?: "Unknown",
+                            color = Color(0xFF9ca3af),
+                            fontSize = 14.sp
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // User Management Section
-                SectionCard(
-                    title = "Users",
-                    icon = Icons.Outlined.People
+                // Logout Button
+                Button(
+                    onClick = onLogout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF374151),
+                        contentColor = Color.White
+                    )
                 ) {
-                    users.forEach { user ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF3b82f6)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = user.username.first().uppercaseChar().toString(),
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = user.username,
-                                        color = Color.White,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Text(
-                                        text = user.email ?: "No email",
-                                        color = Color(0xFF6b7280),
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (user.isAdmin == 1) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFF10b981).copy(alpha = 0.15f)
-                                    ) {
-                                        Text(
-                                            text = "Admin",
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF10b981),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                                IconButton(
-                                    onClick = { showDeleteUserDialog = user }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Delete,
-                                        contentDescription = "Delete",
-                                        tint = Color(0xFFef4444),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
-
-                    Button(
-                        onClick = { showUserDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3b82f6)
-                        )
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Add User")
-                    }
+                    Icon(
+                        imageVector = Icons.Default.ExitToApp,
+                        contentDescription = "Logout",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Logout",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -420,228 +247,64 @@ fun SettingsScreen(
         }
     }
 
-    // Force Rescan Confirmation Dialog
-    if (showForceRescanDialog) {
+    // Edit Profile Dialog
+    if (isEditMode) {
         AlertDialog(
-            onDismissRequest = { showForceRescanDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = Color(0xFFdc2626),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Force Rescan", color = Color.White)
-                }
-            },
+            onDismissRequest = { isEditMode = false },
+            title = { Text("Edit Profile", color = Color.White) },
             text = {
-                Text(
-                    "This will CLEAR the entire library database and reimport all audiobooks. All playback progress will be lost.\n\nThis action cannot be undone. Are you sure?",
-                    color = Color(0xFFd1d5db)
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showForceRescanDialog = false
-                        viewModel.forceRescanLibrary()
-                    }
-                ) {
-                    Text("Force Rescan", color = Color(0xFFdc2626))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showForceRescanDialog = false }) {
-                    Text("Cancel", color = Color(0xFF3b82f6))
-                }
-            },
-            containerColor = Color(0xFF1e293b)
-        )
-    }
-
-    // AI Configuration Dialog
-    if (showAiDialog) {
-        AlertDialog(
-            onDismissRequest = { showAiDialog = false },
-            title = { Text("AI Configuration", color = Color.White) },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        text = "Provider",
-                        color = Color(0xFF9ca3af),
-                        fontSize = 12.sp
-                    )
-                    Row(
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OutlinedTextField(
+                        value = displayName,
+                        onValueChange = { displayName = it },
+                        label = { Text("Display Name") },
+                        placeholder = { Text("Your display name") },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = aiProvider == "openai",
-                            onClick = { aiProvider = "openai" },
-                            label = { Text("OpenAI") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF3b82f6),
-                                selectedLabelColor = Color.White,
-                                containerColor = Color(0xFF374151),
-                                labelColor = Color(0xFF9ca3af)
-                            )
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af),
+                            cursorColor = Color(0xFF3b82f6)
                         )
-                        FilterChip(
-                            selected = aiProvider == "gemini",
-                            onClick = { aiProvider = "gemini" },
-                            label = { Text("Gemini (Free)") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF3b82f6),
-                                selectedLabelColor = Color.White,
-                                containerColor = Color(0xFF374151),
-                                labelColor = Color(0xFF9ca3af)
-                            )
-                        )
-                    }
-
-                    if (aiProvider == "openai") {
-                        OutlinedTextField(
-                            value = openaiKey,
-                            onValueChange = { openaiKey = it },
-                            label = { Text("OpenAI API Key") },
-                            placeholder = { Text("sk-...") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFF3b82f6),
-                                unfocusedBorderColor = Color(0xFF374151),
-                                focusedLabelColor = Color(0xFF3b82f6),
-                                unfocusedLabelColor = Color(0xFF9ca3af),
-                                cursorColor = Color(0xFF3b82f6)
-                            )
-                        )
-                        Text(
-                            text = "Get your key at platform.openai.com/api-keys",
-                            color = Color(0xFF6b7280),
-                            fontSize = 11.sp
-                        )
-                    } else {
-                        OutlinedTextField(
-                            value = geminiKey,
-                            onValueChange = { geminiKey = it },
-                            label = { Text("Gemini API Key") },
-                            placeholder = { Text("AIza...") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFF3b82f6),
-                                unfocusedBorderColor = Color(0xFF374151),
-                                focusedLabelColor = Color(0xFF3b82f6),
-                                unfocusedLabelColor = Color(0xFF9ca3af),
-                                cursorColor = Color(0xFF3b82f6)
-                            )
-                        )
-                        Text(
-                            text = "Get your free key at aistudio.google.com/app/apikey",
-                            color = Color(0xFF6b7280),
-                            fontSize = 11.sp
-                        )
-                    }
-
-                    Divider(color = Color(0xFF374151))
-
-                    Text(
-                        text = "Recap Style",
-                        color = Color(0xFF9ca3af),
-                        fontSize = 12.sp
                     )
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { offensiveMode = !offensiveMode }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Offensive Mode",
-                                color = Color.White,
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = "Crude, irreverent recaps with profanity",
-                                color = Color(0xFF6b7280),
-                                fontSize = 11.sp
-                            )
-                        }
-                        Switch(
-                            checked = offensiveMode,
-                            onCheckedChange = { offensiveMode = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = Color(0xFFef4444),
-                                uncheckedThumbColor = Color(0xFF9ca3af),
-                                uncheckedTrackColor = Color(0xFF374151)
-                            )
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        placeholder = { Text("your.email@example.com") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF3b82f6),
+                            unfocusedBorderColor = Color(0xFF374151),
+                            focusedLabelColor = Color(0xFF3b82f6),
+                            unfocusedLabelColor = Color(0xFF9ca3af),
+                            cursorColor = Color(0xFF3b82f6)
                         )
-                    }
-
-                    Divider(color = Color(0xFF374151))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showPromptEditor = true }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Custom Prompt",
-                                color = Color.White,
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = if (customPrompt.isNotBlank()) "Custom prompt set" else "Using default prompt",
-                                color = Color(0xFF6b7280),
-                                fontSize = 11.sp
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = Color(0xFF6b7280)
-                        )
-                    }
+                    )
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val settings = AiSettingsUpdate(
-                            aiProvider = aiProvider,
-                            openaiApiKey = openaiKey.ifBlank { null },
-                            geminiApiKey = geminiKey.ifBlank { null },
-                            recapOffensiveMode = offensiveMode,
-                            recapCustomPrompt = customPrompt.ifBlank { null }
+                        viewModel.updateProfile(
+                            displayName.ifBlank { null },
+                            email.ifBlank { null }
                         )
-                        viewModel.updateAiSettings(settings) { success, _ ->
-                            if (success) {
-                                showAiDialog = false
-                            }
-                        }
-                    }
+                        isEditMode = false
+                    },
+                    enabled = !isSaving
                 ) {
                     Text("Save", color = Color(0xFF3b82f6))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAiDialog = false }) {
+                TextButton(onClick = { isEditMode = false }) {
                     Text("Cancel", color = Color(0xFF9ca3af))
                 }
             },
@@ -649,69 +312,32 @@ fun SettingsScreen(
         )
     }
 
-    // Custom Prompt Editor Dialog
-    if (showPromptEditor) {
-        // Show custom prompt if set, otherwise show default
-        val displayPrompt = if (customPrompt.isNotBlank()) customPrompt else (aiSettings?.recapDefaultPrompt ?: "")
-
+    // Change Password Dialog
+    if (showPasswordDialog) {
         AlertDialog(
-            onDismissRequest = { showPromptEditor = false },
-            title = { Text("Custom Recap Prompt", color = Color.White) },
+            onDismissRequest = {
+                showPasswordDialog = false
+                currentPassword = ""
+                newPassword = ""
+                confirmPassword = ""
+            },
+            title = { Text("Change Password", color = Color.White) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "Edit the prompt below to change how recaps are generated.",
-                        color = Color(0xFF9ca3af),
-                        fontSize = 12.sp
-                    )
-
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
-                        value = displayPrompt,
-                        onValueChange = { customPrompt = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6)
-                        )
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showPromptEditor = false }) {
-                    Text("Done", color = Color(0xFF3b82f6))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        customPrompt = ""
-                    }
-                ) {
-                    Text("Reset to Default", color = Color(0xFFef4444))
-                }
-            },
-            containerColor = Color(0xFF1e293b)
-        )
-    }
-
-    // Create User Dialog
-    if (showUserDialog) {
-        AlertDialog(
-            onDismissRequest = { showUserDialog = false },
-            title = { Text("Create User", color = Color.White) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = newUsername,
-                        onValueChange = { newUsername = it },
-                        label = { Text("Username") },
+                        value = currentPassword,
+                        onValueChange = { currentPassword = it },
+                        label = { Text("Current Password") },
+                        visualTransformation = if (showCurrentPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showCurrentPassword = !showCurrentPassword }) {
+                                Icon(
+                                    imageVector = if (showCurrentPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = "Toggle password visibility",
+                                    tint = Color(0xFF9ca3af)
+                                )
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
@@ -723,11 +349,21 @@ fun SettingsScreen(
                             cursorColor = Color(0xFF3b82f6)
                         )
                     )
+
                     OutlinedTextField(
                         value = newPassword,
                         onValueChange = { newPassword = it },
-                        label = { Text("Password") },
-                        visualTransformation = PasswordVisualTransformation(),
+                        label = { Text("New Password") },
+                        visualTransformation = if (showNewPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showNewPassword = !showNewPassword }) {
+                                Icon(
+                                    imageVector = if (showNewPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = "Toggle password visibility",
+                                    tint = Color(0xFF9ca3af)
+                                )
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
@@ -739,10 +375,16 @@ fun SettingsScreen(
                             cursorColor = Color(0xFF3b82f6)
                         )
                     )
+
                     OutlinedTextField(
-                        value = newEmail,
-                        onValueChange = { newEmail = it },
-                        label = { Text("Email (optional)") },
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text("Confirm New Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = confirmPassword.isNotEmpty() && confirmPassword != newPassword,
+                        supportingText = if (confirmPassword.isNotEmpty() && confirmPassword != newPassword) {
+                            { Text("Passwords do not match", color = Color(0xFFef4444)) }
+                        } else null,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
@@ -751,81 +393,39 @@ fun SettingsScreen(
                             unfocusedBorderColor = Color(0xFF374151),
                             focusedLabelColor = Color(0xFF3b82f6),
                             unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6)
+                            cursorColor = Color(0xFF3b82f6),
+                            errorBorderColor = Color(0xFFef4444),
+                            errorLabelColor = Color(0xFFef4444)
                         )
                     )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { newIsAdmin = !newIsAdmin }
-                    ) {
-                        Checkbox(
-                            checked = newIsAdmin,
-                            onCheckedChange = { newIsAdmin = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = Color(0xFF3b82f6),
-                                uncheckedColor = Color(0xFF6b7280)
-                            )
-                        )
-                        Text("Administrator", color = Color.White)
-                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.createUser(
-                            newUsername,
-                            newPassword,
-                            newEmail.ifBlank { null },
-                            newIsAdmin
-                        ) { success, _ ->
-                            if (success) {
-                                showUserDialog = false
-                                newUsername = ""
-                                newPassword = ""
-                                newEmail = ""
-                                newIsAdmin = false
-                            }
+                        if (newPassword == confirmPassword && currentPassword.isNotBlank() && newPassword.isNotBlank()) {
+                            viewModel.updatePassword(currentPassword, newPassword)
+                            showPasswordDialog = false
+                            currentPassword = ""
+                            newPassword = ""
+                            confirmPassword = ""
                         }
                     },
-                    enabled = newUsername.isNotBlank() && newPassword.isNotBlank()
+                    enabled = currentPassword.isNotBlank() && newPassword.isNotBlank() && newPassword == confirmPassword && !isSaving
                 ) {
-                    Text("Create", color = Color(0xFF3b82f6))
+                    Text("Update Password", color = Color(0xFF3b82f6))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showUserDialog = false }) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
-                }
-            },
-            containerColor = Color(0xFF1e293b)
-        )
-    }
-
-    // Delete User Confirmation Dialog
-    showDeleteUserDialog?.let { user ->
-        AlertDialog(
-            onDismissRequest = { showDeleteUserDialog = null },
-            title = { Text("Delete User", color = Color.White) },
-            text = {
-                Text(
-                    "Are you sure you want to delete user \"${user.username}\"? This action cannot be undone.",
-                    color = Color(0xFFd1d5db)
-                )
-            },
-            confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteUser(user.id) { _, _ -> }
-                        showDeleteUserDialog = null
+                        showPasswordDialog = false
+                        currentPassword = ""
+                        newPassword = ""
+                        confirmPassword = ""
                     }
                 ) {
-                    Text("Delete", color = Color(0xFFdc2626))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteUserDialog = null }) {
-                    Text("Cancel", color = Color(0xFF3b82f6))
+                    Text("Cancel", color = Color(0xFF9ca3af))
                 }
             },
             containerColor = Color(0xFF1e293b)
@@ -914,5 +514,63 @@ private fun SettingsRow(
             tint = Color(0xFF6b7280),
             modifier = Modifier.size(20.dp)
         )
+    }
+}
+
+@Composable
+private fun SkipIntervalSelector(
+    label: String,
+    currentValue: Int,
+    options: List<Int>,
+    onValueChange: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "${currentValue}s",
+                color = Color(0xFF3b82f6),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            options.forEach { seconds ->
+                val isSelected = seconds == currentValue
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onValueChange(seconds) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF3b82f6) else Color(0xFF374151)
+                ) {
+                    Text(
+                        text = "${seconds}s",
+                        color = if (isSelected) Color.White else Color(0xFF9ca3af),
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp)
+                    )
+                }
+            }
+        }
     }
 }
