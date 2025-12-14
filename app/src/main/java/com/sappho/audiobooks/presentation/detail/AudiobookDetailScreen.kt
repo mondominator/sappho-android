@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.StarHalf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
@@ -105,6 +106,14 @@ fun AudiobookDetailScreen(
     val bookCollections by viewModel.bookCollections.collectAsState()
     val isLoadingCollections by viewModel.isLoadingCollections.collectAsState()
 
+    // AI Recap (Catch Up)
+    val isAiConfigured by viewModel.isAiConfigured.collectAsState()
+    val recap by viewModel.recap.collectAsState()
+    val isLoadingRecap by viewModel.isLoadingRecap.collectAsState()
+    val recapError by viewModel.recapError.collectAsState()
+    val previousBookCompleted by viewModel.previousBookCompleted.collectAsState()
+    var showRecapDialog by remember { mutableStateOf(false) }
+
     // Check if this audiobook is currently playing or loaded
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
     val isPlaying by viewModel.playerState.isPlaying.collectAsState()
@@ -120,6 +129,8 @@ fun AudiobookDetailScreen(
 
     LaunchedEffect(audiobookId) {
         viewModel.loadAudiobook(audiobookId)
+        viewModel.checkAiStatus()
+        viewModel.checkPreviousBookStatus(audiobookId)
     }
 
     // Handle system back button
@@ -851,13 +862,50 @@ fun AudiobookDetailScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp)
                         ) {
-                            Text(
-                                text = "About",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.padding(bottom = 12.dp)
-                            )
+                            // Header row with About title and Catch Up button
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "About",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+
+                                // Show Catch Up button when AI is configured and either:
+                                // - user has actual progress on this book (position > 0), OR
+                                // - book has no progress but the immediately previous book in series is finished
+                                val hasActualProgress = progress != null && progress!!.position > 0
+                                val noProgressButPreviousFinished = !hasActualProgress && previousBookCompleted
+                                if (isAiConfigured && (hasActualProgress || noProgressButPreviousFinished)) {
+                                    TextButton(
+                                        onClick = {
+                                            showRecapDialog = true
+                                            viewModel.loadRecap()
+                                        },
+                                        colors = ButtonDefaults.textButtonColors(
+                                            contentColor = Color(0xFFa78bfa)
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.AutoAwesome,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Catch Up",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
 
                             Text(
                                 text = description,
@@ -1081,6 +1129,176 @@ fun AudiobookDetailScreen(
                 },
                 containerColor = Color(0xFF1e293b)
             )
+        }
+
+        // AI Recap Dialog (Catch Up)
+        if (showRecapDialog) {
+            Dialog(
+                onDismissRequest = {
+                    showRecapDialog = false
+                    viewModel.dismissRecap()
+                }
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 200.dp, max = 500.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1e293b)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        // Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = Color(0xFFa78bfa),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Catch Up",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    showRecapDialog = false
+                                    viewModel.dismissRecap()
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = Color(0xFF9ca3af)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Content
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        ) {
+                            when {
+                                isLoadingRecap -> {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = Color(0xFFa78bfa),
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text(
+                                            text = "Generating recap...",
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF9ca3af)
+                                        )
+                                        Text(
+                                            text = "This may take a moment",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF6b7280)
+                                        )
+                                    }
+                                }
+                                recapError != null -> {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "Failed to load recap",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFFef4444)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = recapError ?: "Unknown error",
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF9ca3af),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                                recap != null -> {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(rememberScrollState())
+                                    ) {
+                                        Text(
+                                            text = recap!!.recap,
+                                            fontSize = 15.sp,
+                                            color = Color(0xFFd1d5db),
+                                            lineHeight = 24.sp
+                                        )
+                                        if (recap!!.cached == true) {
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                text = "Cached recap",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF6b7280),
+                                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                            )
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    Text(
+                                        text = "No recap available",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF9ca3af),
+                                        modifier = Modifier.align(Alignment.Center)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Regenerate button (only show when recap is loaded)
+                        if (recap != null && !isLoadingRecap) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextButton(
+                                onClick = {
+                                    viewModel.clearRecap()
+                                    viewModel.loadRecap()
+                                },
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color(0xFF3b82f6)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Regenerate",
+                                    color = Color(0xFF3b82f6)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Add to Collection Dialog
