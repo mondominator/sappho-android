@@ -10,17 +10,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -152,12 +152,6 @@ fun MainScreen(
                         launchSingleTop = true
                     }
                 },
-                onReadingListClick = {
-                    showUserMenu = false
-                    navController.navigate(Screen.ReadingList.route) {
-                        launchSingleTop = true
-                    }
-                },
                 onSettingsClick = {
                     showUserMenu = false
                     navController.navigate(Screen.Settings.route) {
@@ -256,6 +250,16 @@ fun MainScreen(
                     onAudiobookClick = { audiobookId ->
                         navController.navigate(Screen.AudiobookDetail.createRoute(audiobookId))
                     },
+                    onCollectionsClick = {
+                        navController.navigate(Screen.Collections.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onReadingListClick = {
+                        navController.navigate(Screen.ReadingList.route) {
+                            launchSingleTop = true
+                        }
+                    },
                     initialAuthor = author,
                     initialSeries = series
                 )
@@ -282,11 +286,12 @@ fun MainScreen(
                 )
             }
             composable(Screen.Profile.route) {
-                ProfileScreen(onLogout = onLogout)
+                ProfileScreen()
             }
             composable(Screen.Settings.route) {
                 com.sappho.audiobooks.presentation.settings.SettingsScreen(
-                    onBackClick = { navController.navigateUp() }
+                    onBackClick = { navController.navigateUp() },
+                    onLogout = onLogout
                 )
             }
             composable(Screen.Admin.route) {
@@ -802,7 +807,6 @@ fun TopBar(
     showUserMenu: Boolean,
     onUserMenuToggle: () -> Unit,
     onProfileClick: () -> Unit,
-    onReadingListClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAdminClick: () -> Unit,
     onLogout: () -> Unit,
@@ -934,9 +938,9 @@ fun TopBar(
                         onClick = onProfileClick
                     )
                     UserMenuItem(
-                        icon = Icons.Default.BookmarkAdded,
-                        text = "Reading List",
-                        onClick = onReadingListClick
+                        icon = Icons.Default.Settings,
+                        text = "Settings",
+                        onClick = onSettingsClick
                     )
                     UserMenuItem(
                         icon = Icons.Default.Download,
@@ -950,7 +954,7 @@ fun TopBar(
                             onClick = onUploadClick
                         )
                         UserMenuItem(
-                            icon = Icons.Default.Settings,
+                            icon = Icons.Default.AdminPanelSettings,
                             text = "Admin",
                             onClick = onAdminClick
                         )

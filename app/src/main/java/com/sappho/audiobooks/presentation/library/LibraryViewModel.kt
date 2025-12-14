@@ -117,6 +117,10 @@ class LibraryViewModel @Inject constructor(
     private val _collectionsForBook = MutableStateFlow<List<CollectionForBook>>(emptyList())
     val collectionsForBook: StateFlow<List<CollectionForBook>> = _collectionsForBook.asStateFlow()
 
+    // Reading list state
+    private val _readingList = MutableStateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>>(emptyList())
+    val readingList: StateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>> = _readingList.asStateFlow()
+
     // Batch selection state
     private val _selectedBookIds = MutableStateFlow<Set<Int>>(emptySet())
     val selectedBookIds: StateFlow<Set<Int>> = _selectedBookIds.asStateFlow()
@@ -128,6 +132,7 @@ class LibraryViewModel @Inject constructor(
         _serverUrl.value = authRepository.getServerUrlSync()
         loadCategories()
         loadCollections()
+        loadReadingList()
         checkAiStatus()
     }
 
@@ -183,6 +188,22 @@ class LibraryViewModel @Inject constructor(
     fun refresh() {
         loadCategories()
         loadCollections()
+        loadReadingList()
+    }
+
+    // Reading list methods
+    fun loadReadingList() {
+        viewModelScope.launch {
+            try {
+                val response = api.getFavorites()
+                if (response.isSuccessful) {
+                    _readingList.value = response.body() ?: emptyList()
+                    Log.d("LibraryViewModel", "Loaded ${_readingList.value.size} reading list items")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error loading reading list", e)
+            }
+        }
     }
 
     // Collection methods
