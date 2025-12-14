@@ -2866,11 +2866,13 @@ fun AllBooksView(
             }
             com.sappho.audiobooks.data.repository.LibrarySortOption.SERIES_POSITION -> compareBy<com.sappho.audiobooks.domain.model.Audiobook> { it.series ?: "\uFFFF" }
                 .thenBy { it.seriesPosition ?: 0f }
+            com.sappho.audiobooks.data.repository.LibrarySortOption.RATING -> compareByDescending { it.userRating ?: it.averageRating ?: 0f }
         }
         val sorted = filteredBooks.sortedWith(comparator)
         if (sortAscending || sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_ADDED ||
             sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_LISTENED ||
-            sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.PROGRESS) {
+            sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.PROGRESS ||
+            sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.RATING) {
             sorted
         } else {
             sorted.reversed()
