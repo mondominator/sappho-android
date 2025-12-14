@@ -136,6 +136,8 @@ enum class LibraryView {
 @Composable
 fun LibraryScreen(
     onAudiobookClick: (Int) -> Unit = {},
+    onCollectionsClick: () -> Unit = {},
+    onReadingListClick: () -> Unit = {},
     initialAuthor: String? = null,
     initialSeries: String? = null,
     viewModel: LibraryViewModel = hiltViewModel()
@@ -145,6 +147,8 @@ fun LibraryScreen(
     val authors by viewModel.authors.collectAsState()
     val genres by viewModel.genres.collectAsState()
     val allBooks by viewModel.allAudiobooks.collectAsState()
+    val collections by viewModel.collections.collectAsState()
+    val readingList by viewModel.readingList.collectAsState()
 
     // Refresh data when screen is loaded to get latest progress
     LaunchedEffect(Unit) {
@@ -192,10 +196,14 @@ fun LibraryScreen(
                     seriesCount = series.size,
                     authorsCount = authors.size,
                     genresCount = genres.size,
+                    collectionsCount = collections.size,
+                    readingListCount = readingList.size,
                     onSeriesClick = { currentViewName = LibraryView.SERIES.name },
                     onAuthorsClick = { currentViewName = LibraryView.AUTHORS.name },
                     onGenresClick = { currentViewName = LibraryView.GENRES.name },
-                    onAllBooksClick = { currentViewName = LibraryView.ALL_BOOKS.name }
+                    onAllBooksClick = { currentViewName = LibraryView.ALL_BOOKS.name },
+                    onCollectionsClick = onCollectionsClick,
+                    onReadingListClick = onReadingListClick
                 )
             }
             LibraryView.SERIES -> {
@@ -297,10 +305,14 @@ fun CategoriesView(
     seriesCount: Int,
     authorsCount: Int,
     genresCount: Int,
+    collectionsCount: Int,
+    readingListCount: Int,
     onSeriesClick: () -> Unit,
     onAuthorsClick: () -> Unit,
     onGenresClick: () -> Unit,
-    onAllBooksClick: () -> Unit
+    onAllBooksClick: () -> Unit,
+    onCollectionsClick: () -> Unit,
+    onReadingListClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -340,7 +352,7 @@ fun CategoriesView(
             )
         }
 
-        // Two column cards
+        // Two column cards - Authors & Genres
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -362,6 +374,33 @@ fun CategoriesView(
                     label = "genres",
                     gradientColors = listOf(Color(0xFF10b981), Color(0xFF059669)),
                     onClick = onGenresClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        // Two column cards - Collections & Reading List
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CategoryCardMedium(
+                    icon = Icons.Default.LibraryBooks,
+                    title = "Collections",
+                    count = collectionsCount,
+                    label = "collections",
+                    gradientColors = listOf(Color(0xFFf59e0b), Color(0xFFd97706)),
+                    onClick = onCollectionsClick,
+                    modifier = Modifier.weight(1f)
+                )
+                CategoryCardMedium(
+                    icon = Icons.Default.BookmarkAdded,
+                    title = "Reading List",
+                    count = readingListCount,
+                    label = "books",
+                    gradientColors = listOf(Color(0xFFec4899), Color(0xFFdb2777)),
+                    onClick = onReadingListClick,
                     modifier = Modifier.weight(1f)
                 )
             }
