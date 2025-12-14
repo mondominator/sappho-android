@@ -218,8 +218,7 @@ fun MainScreen(
                                 R.anim.stay
                             )
                         }
-                    },
-                    onCastClick = { showCastDialog = true }
+                    }
                 )
             }
         },

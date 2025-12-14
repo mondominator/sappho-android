@@ -11,9 +11,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,8 +42,7 @@ fun MinimizedPlayerBar(
     playerState: PlayerState,
     serverUrl: String?,
     castHelper: CastHelper,
-    onExpand: () -> Unit,
-    onCastClick: () -> Unit
+    onExpand: () -> Unit
 ) {
     val audiobook by playerState.currentAudiobook.collectAsState()
     val localIsPlaying by playerState.isPlaying.collectAsState()
@@ -114,17 +114,17 @@ fun MinimizedPlayerBar(
 
                 // Title and metadata
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
                 ) {
                     // Marquee scrolling title
                     MarqueeText(
                         text = book.title,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White
+                        color = Color.White,
+                        lineHeight = 16.sp
                     )
-
-                    Spacer(modifier = Modifier.height(2.dp))
 
                     book.author?.let { author ->
                         Text(
@@ -132,11 +132,10 @@ fun MinimizedPlayerBar(
                             fontSize = 12.sp,
                             color = Color(0xFF9ca3af),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 14.sp
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(2.dp))
 
                     // Time display with pulsing animation when playing
                     val timePulseTransition = rememberInfiniteTransition(label = "timePulse")
@@ -156,26 +155,32 @@ fun MinimizedPlayerBar(
                     Text(
                         text = "${formatTime(currentPosition)} / ${formatTime(duration)}",
                         fontSize = 11.sp,
-                        color = if (isPlaying) timeColor else Color(0xFF6b7280)
+                        color = if (isPlaying) timeColor else Color(0xFF6b7280),
+                        lineHeight = 13.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.width(24.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
-                // Cast button (before play button)
+                // Seek back button (10 seconds)
                 IconButton(
-                    onClick = onCastClick,
-                    modifier = Modifier.size(40.dp)
+                    onClick = {
+                        if (isCastConnected) {
+                            val newPosition = (currentPosition - 10).coerceAtLeast(0)
+                            castHelper.seek(newPosition)
+                        } else {
+                            AudioPlaybackService.instance?.skipBackward()
+                        }
+                    },
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Cast,
-                        contentDescription = "Cast",
-                        tint = if (isCastConnected) Color(0xFF3b82f6) else Color(0xFF9ca3af),
-                        modifier = Modifier.size(22.dp)
+                        imageVector = Icons.Default.Replay10,
+                        contentDescription = "Seek back 10 seconds",
+                        tint = Color(0xFF9ca3af),
+                        modifier = Modifier.size(32.dp)
                     )
                 }
-
-                Spacer(modifier = Modifier.width(12.dp))
 
                 // Play/Pause button - Modern circular button with animation
                 val playInteractionSource = remember { MutableInteractionSource() }
@@ -222,7 +227,7 @@ fun MinimizedPlayerBar(
 
                 Box(
                     modifier = Modifier
-                        .size(54.dp)
+                        .size(56.dp)
                         .scale(if (isPlaying) playScale * playPulseScale else playScale)
                         .graphicsLayer {
                             alpha = if (isPlaying) playPulseAlpha else 1f
@@ -250,11 +255,31 @@ fun MinimizedPlayerBar(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = if (isPlaying) "Pause" else "Play",
                         tint = Color.White,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+
+                // Seek forward button (10 seconds)
+                IconButton(
+                    onClick = {
+                        if (isCastConnected) {
+                            val newPosition = currentPosition + 10
+                            castHelper.seek(newPosition)
+                        } else {
+                            AudioPlaybackService.instance?.skipForward()
+                        }
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Forward10,
+                        contentDescription = "Skip forward 10 seconds",
+                        tint = Color(0xFF9ca3af),
                         modifier = Modifier.size(32.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
             }
         }
     }
@@ -277,7 +302,8 @@ fun MarqueeText(
     fontSize: androidx.compose.ui.unit.TextUnit,
     fontWeight: FontWeight,
     color: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    lineHeight: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified
 ) {
     val scrollState = rememberScrollState()
 
@@ -319,7 +345,8 @@ fun MarqueeText(
             fontWeight = fontWeight,
             color = color,
             maxLines = 1,
-            softWrap = false
+            softWrap = false,
+            lineHeight = lineHeight
         )
     }
 }
