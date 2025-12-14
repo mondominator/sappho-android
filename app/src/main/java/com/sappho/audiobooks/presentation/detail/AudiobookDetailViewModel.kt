@@ -3,6 +3,7 @@ package com.sappho.audiobooks.presentation.detail
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sappho.audiobooks.data.remote.AudiobookRecapResponse
 import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
 import com.sappho.audiobooks.data.remote.AverageRating
 import com.sappho.audiobooks.data.remote.ChapterUpdate
@@ -120,6 +121,22 @@ class AudiobookDetailViewModel @Inject constructor(
 
     private val _isLoadingCollections = MutableStateFlow(false)
     val isLoadingCollections: StateFlow<Boolean> = _isLoadingCollections
+
+    // AI Recap (Catch Up)
+    private val _isAiConfigured = MutableStateFlow(false)
+    val isAiConfigured: StateFlow<Boolean> = _isAiConfigured
+
+    private val _recap = MutableStateFlow<AudiobookRecapResponse?>(null)
+    val recap: StateFlow<AudiobookRecapResponse?> = _recap
+
+    private val _isLoadingRecap = MutableStateFlow(false)
+    val isLoadingRecap: StateFlow<Boolean> = _isLoadingRecap
+
+    private val _recapError = MutableStateFlow<String?>(null)
+    val recapError: StateFlow<String?> = _recapError
+
+    private val _previousBookCompleted = MutableStateFlow(false)
+    val previousBookCompleted: StateFlow<Boolean> = _previousBookCompleted
 
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
@@ -625,6 +642,82 @@ class AudiobookDetailViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    fun checkAiStatus() {
+        viewModelScope.launch {
+            try {
+                val response = api.getAiStatus()
+                if (response.isSuccessful) {
+                    _isAiConfigured.value = response.body()?.configured ?: false
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _isAiConfigured.value = false
+            }
+        }
+    }
+
+    fun loadRecap() {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isLoadingRecap.value) return@launch
+                _isLoadingRecap.value = true
+                _recapError.value = null
+                try {
+                    val response = api.getAudiobookRecap(book.id)
+                    if (response.isSuccessful) {
+                        _recap.value = response.body()
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        val errorMessage = try {
+                            val jsonError = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
+                            jsonError.get("error")?.asString ?: jsonError.get("message")?.asString
+                        } catch (e: Exception) {
+                            null
+                        }
+                        _recapError.value = errorMessage ?: "Failed to load recap"
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _recapError.value = e.message ?: "Error loading recap"
+                } finally {
+                    _isLoadingRecap.value = false
+                }
+            }
+        }
+    }
+
+    fun clearRecap() {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                try {
+                    api.clearAudiobookRecap(book.id)
+                    _recap.value = null
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    fun dismissRecap() {
+        _recap.value = null
+        _recapError.value = null
+    }
+
+    fun checkPreviousBookStatus(audiobookId: Int) {
+        viewModelScope.launch {
+            try {
+                val response = api.getPreviousBookStatus(audiobookId)
+                if (response.isSuccessful) {
+                    _previousBookCompleted.value = response.body()?.previousBookCompleted ?: false
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _previousBookCompleted.value = false
             }
         }
     }

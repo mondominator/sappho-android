@@ -195,6 +195,17 @@ interface SapphoApi {
     @DELETE("api/series/{seriesName}/recap")
     suspend fun clearSeriesRecap(@Path("seriesName", encoded = true) seriesName: String): Response<Unit>
 
+    // Audiobook Recap (Catch Up)
+    @GET("api/audiobooks/{id}/recap")
+    suspend fun getAudiobookRecap(@Path("id") audiobookId: Int): Response<AudiobookRecapResponse>
+
+    @DELETE("api/audiobooks/{id}/recap")
+    suspend fun clearAudiobookRecap(@Path("id") audiobookId: Int): Response<Unit>
+
+    // Previous Book Status (for Catch Up button visibility)
+    @GET("api/audiobooks/{id}/previous-book-status")
+    suspend fun getPreviousBookStatus(@Path("id") audiobookId: Int): Response<PreviousBookStatusResponse>
+
     // Ratings
     @GET("api/ratings/audiobook/{audiobookId}")
     suspend fun getUserRating(@Path("audiobookId") audiobookId: Int): Response<UserRating?>
@@ -458,6 +469,29 @@ data class RecapBookInfo(
     val id: Int,
     val title: String,
     val position: Float?
+)
+
+data class AudiobookRecapResponse(
+    val recap: String,
+    val cached: Boolean?,
+    @com.google.gson.annotations.SerializedName("cached_at")
+    val cachedAt: String?,
+    @com.google.gson.annotations.SerializedName("books_included")
+    val booksIncluded: List<RecapBookInfo>?
+)
+
+data class PreviousBookStatusResponse(
+    @com.google.gson.annotations.SerializedName("previousBookCompleted")
+    val previousBookCompleted: Boolean,
+    @com.google.gson.annotations.SerializedName("previousBook")
+    val previousBook: PreviousBookInfo?
+)
+
+data class PreviousBookInfo(
+    val id: Int,
+    val title: String,
+    @com.google.gson.annotations.SerializedName("series_position")
+    val seriesPosition: Float?
 )
 
 // Admin Settings Data Classes
