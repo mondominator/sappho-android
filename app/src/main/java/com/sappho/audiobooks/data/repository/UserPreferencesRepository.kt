@@ -16,7 +16,8 @@ enum class LibrarySortOption(val displayName: String) {
     RECENTLY_LISTENED("Recently Listened"),
     DURATION("Duration"),
     PROGRESS("Progress"),
-    SERIES_POSITION("Series Position")
+    SERIES_POSITION("Series Position"),
+    RATING("Rating")
 }
 
 enum class LibraryFilterOption(val displayName: String) {
