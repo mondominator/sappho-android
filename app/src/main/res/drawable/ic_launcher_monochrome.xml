@@ -4,9 +4,82 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Simple "S" shape for Sappho monochrome icon -->
+    <!-- Sappho monochrome icon: stylized S/swan above open book -->
+    <!-- Centered in 108x108 adaptive icon safe zone (66x66 centered) -->
+
+    <!-- Stylized S/Swan shape -->
     <path
         android:fillColor="#000000"
-        android:pathData="M54,24 C36,24 24,36 24,48 C24,60 36,66 54,66 C72,66 84,72 84,84 C84,96 72,108 54,108 C36,108 24,96 24,84
-                          M54,0 C72,0 84,12 84,24 C84,36 72,42 54,42 C36,42 24,36 24,24 C24,12 36,0 54,0" />
+        android:pathData="
+            M54,18
+            C54,18 58,18 62,20
+            C66,22 69,26 69,31
+            C69,36 66,40 62,42
+            C58,44 54,44 54,44
+            C54,44 50,44 47,47
+            C44,50 44,54 47,57
+            C50,60 54,60 54,60
+            C54,60 58,60 62,58
+            C66,56 69,52 69,47
+            L74,47
+            C74,55 70,61 64,64
+            C58,67 52,67 47,64
+            C42,61 39,55 39,49
+            C39,43 42,38 47,35
+            C52,32 54,32 54,32
+            C54,32 58,32 61,30
+            C64,28 64,25 62,23
+            C60,21 56,21 54,23
+            C52,25 52,28 54,30
+            L49,30
+            C46,26 47,21 51,18
+            C53,17 54,18 54,18
+            Z" />
+
+    <!-- Spiral/curl in the S -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="
+            M54,38
+            C56,38 58,40 58,42
+            C58,44 56,46 54,46
+            C52,46 50,44 50,42
+            C50,40 52,38 54,38
+            Z" />
+
+    <!-- Open book - left page -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="
+            M24,72
+            L24,86
+            Q24,88 26,88
+            L52,82
+            Q54,82 54,80
+            L54,68
+            Q54,66 52,67
+            L26,72
+            Q24,72 24,72
+            Z" />
+
+    <!-- Open book - right page -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="
+            M84,72
+            L84,86
+            Q84,88 82,88
+            L56,82
+            Q54,82 54,80
+            L54,68
+            Q54,66 56,67
+            L82,72
+            Q84,72 84,72
+            Z" />
+
+    <!-- Book spine/center -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="
+            M52,67 L54,65 L56,67 L56,82 L54,84 L52,82 Z" />
 </vector>
