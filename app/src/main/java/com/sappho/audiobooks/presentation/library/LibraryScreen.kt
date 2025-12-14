@@ -1980,28 +1980,21 @@ fun AuthorBooksView(
             .fillMaxSize()
             .background(Color(0xFF0A0E1A))
     ) {
-        // Hero Section with avatar
+        // Hero Section with avatar on left, name on right
         item {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp)
-            ) {
-                // Gradient background
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    avatarColors[colorIndex][0].copy(alpha = 0.4f),
-                                    Color(0xFF0A0E1A)
-                                )
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                avatarColors[colorIndex][0].copy(alpha = 0.4f),
+                                Color(0xFF0A0E1A)
                             )
                         )
-                )
-
-                // Back button
+                    )
+            ) {
+                // Back button row
                 IconButton(
                     onClick = onBackClick,
                     modifier = Modifier
@@ -2015,17 +2008,18 @@ fun AuthorBooksView(
                     )
                 }
 
-                // Avatar and name
-                Column(
+                // Avatar and name row
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 60.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Large avatar
+                    // Avatar on left
                     Box(
                         modifier = Modifier
-                            .size(100.dp)
+                            .size(80.dp)
                             .background(
                                 Brush.linearGradient(avatarColors[colorIndex]),
                                 CircleShape
@@ -2035,31 +2029,21 @@ fun AuthorBooksView(
                     ) {
                         Text(
                             text = initials,
-                            fontSize = 36.sp,
+                            fontSize = 28.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
+                    // Name on right
                     Text(
                         text = authorName,
-                        fontSize = 24.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
+                        color = Color.White
                     )
-
-                    if (genres.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = genres.take(3).joinToString(" • "),
-                            fontSize = 13.sp,
-                            color = Color(0xFF9ca3af),
-                            textAlign = TextAlign.Center
-                        )
-                    }
                 }
             }
         }
