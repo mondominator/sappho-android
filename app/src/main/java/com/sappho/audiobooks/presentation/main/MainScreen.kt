@@ -158,12 +158,6 @@ fun MainScreen(
                         launchSingleTop = true
                     }
                 },
-                onCollectionsClick = {
-                    showUserMenu = false
-                    navController.navigate(Screen.Collections.route) {
-                        launchSingleTop = true
-                    }
-                },
                 onSettingsClick = {
                     showUserMenu = false
                     navController.navigate(Screen.Settings.route) {
@@ -809,7 +803,6 @@ fun TopBar(
     onUserMenuToggle: () -> Unit,
     onProfileClick: () -> Unit,
     onReadingListClick: () -> Unit,
-    onCollectionsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAdminClick: () -> Unit,
     onLogout: () -> Unit,
@@ -856,6 +849,7 @@ fun TopBar(
                 val navItems = listOf(
                     Triple(Screen.Home, Icons.Default.Home, "Home"),
                     Triple(Screen.Library, Icons.Default.MenuBook, "Library"),
+                    Triple(Screen.Collections, Icons.Default.LibraryBooks, "Collections"),
                     Triple(Screen.Search, Icons.Default.Search, "Search")
                 )
 
@@ -943,11 +937,6 @@ fun TopBar(
                         icon = Icons.Default.BookmarkAdded,
                         text = "Reading List",
                         onClick = onReadingListClick
-                    )
-                    UserMenuItem(
-                        icon = Icons.Default.LibraryBooks,
-                        text = "Collections",
-                        onClick = onCollectionsClick
                     )
                     UserMenuItem(
                         icon = Icons.Default.Download,
