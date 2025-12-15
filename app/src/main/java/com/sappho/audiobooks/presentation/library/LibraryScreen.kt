@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.sappho.audiobooks.presentation.theme.CategoryColors
 import kotlinx.coroutines.launch
 
 /**
@@ -347,7 +348,7 @@ fun CategoriesView(
                 title = "Series",
                 count = seriesCount,
                 label = "series",
-                gradientColors = listOf(Color(0xFF5BC0DE), Color(0xFF3498DB)),
+                gradientColors = listOf(CategoryColors.contentLight, CategoryColors.contentDark),
                 onClick = onSeriesClick
             )
         }
@@ -363,7 +364,7 @@ fun CategoriesView(
                     title = "Authors",
                     count = authorsCount,
                     label = "authors",
-                    gradientColors = listOf(Color(0xFF5BC0DE), Color(0xFF3498DB)),
+                    gradientColors = listOf(CategoryColors.contentLight, CategoryColors.contentDark),
                     onClick = onAuthorsClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -372,7 +373,7 @@ fun CategoriesView(
                     title = "Genres",
                     count = genresCount,
                     label = "genres",
-                    gradientColors = listOf(Color(0xFF5BC0DE), Color(0xFF3498DB)),
+                    gradientColors = listOf(CategoryColors.contentLight, CategoryColors.contentDark),
                     onClick = onGenresClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -390,7 +391,7 @@ fun CategoriesView(
                     title = "Collections",
                     count = collectionsCount,
                     label = "collections",
-                    gradientColors = listOf(Color(0xFF26A69A), Color(0xFF00897B)),
+                    gradientColors = listOf(CategoryColors.personalLight, CategoryColors.personalDark),
                     onClick = onCollectionsClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -399,7 +400,7 @@ fun CategoriesView(
                     title = "Reading List",
                     count = readingListCount,
                     label = "books",
-                    gradientColors = listOf(Color(0xFF26A69A), Color(0xFF00897B)),
+                    gradientColors = listOf(CategoryColors.personalLight, CategoryColors.personalDark),
                     onClick = onReadingListClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -412,7 +413,7 @@ fun CategoriesView(
                 icon = Icons.Default.GridView,
                 title = "All Books",
                 subtitle = "Browse your complete collection",
-                gradientColors = listOf(Color(0xFF374151), Color(0xFF1f2937)),
+                gradientColors = listOf(CategoryColors.neutralLight, CategoryColors.neutralDark),
                 onClick = onAllBooksClick
             )
         }
