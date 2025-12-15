@@ -359,8 +359,7 @@ fun PlayerScreen(
                             ) {
                                 Text(
                                     text = book.title.take(2).uppercase(),
-                                    fontSize = 48.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.displayLarge,
                                     color = SapphoInfo
                                 )
                             }
@@ -372,8 +371,7 @@ fun PlayerScreen(
                     // Title
                     Text(
                         text = book.title,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineMedium,
                         color = Color.White,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
@@ -386,7 +384,7 @@ fun PlayerScreen(
                     book.author?.let { author ->
                         Text(
                             text = author,
-                            fontSize = 15.sp,
+                            style = MaterialTheme.typography.titleSmall,
                             color = LegacyBlueLight,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
@@ -412,7 +410,7 @@ fun PlayerScreen(
                         }
                         Text(
                             text = seriesText,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = LegacyBlueLight.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center,
                             maxLines = 1,
@@ -628,8 +626,7 @@ fun PlayerScreen(
                                 ) {
                                     Text(
                                         text = formatTime(dragPosition.toLong()),
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleLarge,
                                         color = SapphoInfo
                                     )
                                 }
@@ -642,12 +639,12 @@ fun PlayerScreen(
                         ) {
                             Text(
                                 text = formatTime(displayedPosition.toLong()),
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = if (isDragging) SapphoInfo else SapphoIconDefault
                             )
                             Text(
                                 text = formatTime(duration),
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = SapphoIconDefault
                             )
                         }
@@ -745,9 +742,8 @@ fun PlayerScreen(
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = currentChapter?.title ?: "—",
-                                    fontSize = 12.sp,
+                                    style = MaterialTheme.typography.labelMedium,
                                     color = Color.White,
-                                    fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -788,9 +784,8 @@ fun PlayerScreen(
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = "${playbackSpeed}x",
-                                    fontSize = 12.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White
                                 )
                             }
                         }
@@ -843,9 +838,8 @@ fun PlayerScreen(
                                         val secs = sleepTimerRemaining % 60
                                         "${mins}:${secs.toString().padStart(2, '0')}"
                                     } else "Off",
-                                    fontSize = 12.sp,
-                                    color = if (hasSleepTimer) SapphoStarFilled else Color.White,
-                                    fontWeight = FontWeight.SemiBold
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (hasSleepTimer) SapphoStarFilled else Color.White
                                 )
                             }
                         }
@@ -920,7 +914,7 @@ fun PlayerScreen(
                                         Text(
                                             text = chapter.title ?: "Chapter ${index + 1}",
                                             color = Color.White,
-                                            fontWeight = FontWeight.Normal,
+                                            style = MaterialTheme.typography.bodyMedium,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.weight(1f).padding(end = 8.dp)
@@ -929,7 +923,7 @@ fun PlayerScreen(
                                     Text(
                                         text = formatTime(chapter.startTime.toLong()),
                                         color = SapphoIconDefault,
-                                        fontSize = 12.sp
+                                        style = MaterialTheme.typography.labelMedium
                                     )
                                 }
                             }
@@ -1040,7 +1034,7 @@ fun PlayerScreen(
                                         Text(
                                             "${mins}:${secs.toString().padStart(2, '0')} remaining",
                                             color = SapphoStarFilled.copy(alpha = 0.8f),
-                                            fontSize = 14.sp
+                                            style = MaterialTheme.typography.bodyMedium
                                         )
                                     }
                                     TextButton(
