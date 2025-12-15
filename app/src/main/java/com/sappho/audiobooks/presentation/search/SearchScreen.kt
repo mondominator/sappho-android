@@ -81,7 +81,7 @@ fun SearchScreen(
                         Text(
                             text = "Search books, series, authors...",
                             color = SapphoTextMuted,
-                            fontSize = 16.sp
+                            style = MaterialTheme.typography.bodyLarge
                         )
                     }
                     BasicTextField(
@@ -90,10 +90,7 @@ fun SearchScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
-                        textStyle = TextStyle(
-                            color = SapphoText,
-                            fontSize = 16.sp
-                        ),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = SapphoText),
                         singleLine = true,
                         cursorBrush = SolidColor(SapphoInfo)
                     )
@@ -145,7 +142,7 @@ fun SearchScreen(
                         Text(
                             text = "Search for books, series, or authors",
                             color = SapphoTextMuted,
-                            fontSize = 16.sp
+                            style = MaterialTheme.typography.bodyLarge
                         )
                     }
                 }
@@ -158,7 +155,7 @@ fun SearchScreen(
                     Text(
                         text = "No results found",
                         color = SapphoTextMuted,
-                        fontSize = 16.sp
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             }
@@ -173,8 +170,7 @@ fun SearchScreen(
                         item {
                             Text(
                                 text = "Books",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge,
                                 color = SapphoIconDefault,
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
@@ -193,8 +189,7 @@ fun SearchScreen(
                         item {
                             Text(
                                 text = "Series",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge,
                                 color = SapphoIconDefault,
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
@@ -212,8 +207,7 @@ fun SearchScreen(
                         item {
                             Text(
                                 text = "Authors",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge,
                                 color = SapphoIconDefault,
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
@@ -271,8 +265,7 @@ private fun SearchResultItem(
                 ) {
                     Text(
                         text = book.title.take(1).uppercase(),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge,
                         color = SapphoInfo
                     )
                 }
@@ -284,8 +277,7 @@ private fun SearchResultItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = book.title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.titleSmall,
                 color = SapphoText,
                 maxLines = 1
             )
@@ -295,7 +287,7 @@ private fun SearchResultItem(
             }
             Text(
                 text = subtitle,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = SapphoIconDefault,
                 maxLines = 1
             )
@@ -335,8 +327,7 @@ private fun SeriesResultItem(
 
         Text(
             text = series,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.titleSmall,
             color = SapphoText
         )
     }
@@ -374,8 +365,7 @@ private fun AuthorResultItem(
 
         Text(
             text = author,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.titleSmall,
             color = SapphoText
         )
     }

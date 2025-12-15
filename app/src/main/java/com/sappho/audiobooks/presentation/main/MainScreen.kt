@@ -493,14 +493,13 @@ fun MainScreen(
                                         Text(
                                             text = downloadedBook.audiobook.title,
                                             color = Color.White,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium,
+                                            style = MaterialTheme.typography.bodyMedium,
                                             maxLines = 1
                                         )
                                         Text(
                                             text = formatFileSize(downloadedBook.fileSize),
                                             color = SapphoIconDefault,
-                                            fontSize = 12.sp
+                                            style = MaterialTheme.typography.labelMedium
                                         )
                                     }
                                     IconButton(
@@ -609,7 +608,7 @@ private fun UploadDialog(
                 Text(
                     text = "Supported: MP3, M4A, M4B, FLAC, OGG, WAV",
                     color = SapphoIconDefault,
-                    fontSize = 12.sp
+                    style = MaterialTheme.typography.labelMedium
                 )
 
                 // File picker button
@@ -629,8 +628,7 @@ private fun UploadDialog(
                     Text(
                         text = "${selectedFiles.size} file(s) selected",
                         color = SapphoSuccess,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        style = MaterialTheme.typography.labelLarge
                     )
 
                     selectedFiles.take(5).forEach { uri ->
@@ -641,19 +639,19 @@ private fun UploadDialog(
                         ) {
                             Icon(Icons.Outlined.AudioFile, contentDescription = null, tint = SapphoIconDefault, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(fileName, color = SapphoTextLight, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(fileName, color = SapphoTextLight, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     if (selectedFiles.size > 5) {
-                        Text("...and ${selectedFiles.size - 5} more", color = SapphoTextMuted, fontSize = 11.sp)
+                        Text("...and ${selectedFiles.size - 5} more", color = SapphoTextMuted, style = MaterialTheme.typography.labelSmall)
                     }
 
                     TextButton(onClick = { selectedFiles = emptyList() }) {
-                        Text("Clear selection", color = SapphoError, fontSize = 12.sp)
+                        Text("Clear selection", color = SapphoError, style = MaterialTheme.typography.labelMedium)
                     }
 
                     // Optional metadata
-                    Text("Optional metadata (leave blank to auto-detect)", color = SapphoTextMuted, fontSize = 11.sp)
+                    Text("Optional metadata (leave blank to auto-detect)", color = SapphoTextMuted, style = MaterialTheme.typography.labelSmall)
 
                     OutlinedTextField(
                         value = title,
@@ -714,7 +712,7 @@ private fun UploadDialog(
                     Text(
                         "Uploading... ${(uploadProgress * 100).toInt()}%",
                         color = SapphoIconDefault,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
 
@@ -739,7 +737,7 @@ private fun UploadDialog(
                             Text(
                                 result.message ?: if (result.success) "Upload complete" else "Upload failed",
                                 color = if (result.success) SapphoSuccess else SapphoError,
-                                fontSize = 13.sp
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
@@ -905,8 +903,7 @@ fun TopBar(
                     Text(
                         text = user?.username?.first()?.uppercaseChar()?.toString() ?: "U",
                         color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge
                     )
                 }
             }
@@ -976,13 +973,13 @@ fun TopBar(
                             Text(
                                 text = "App v$appVersion",
                                 color = SapphoTextMuted,
-                                fontSize = 11.sp
+                                style = MaterialTheme.typography.labelSmall
                             )
                             if (serverVersion != null) {
                                 Text(
                                     text = "Server v$serverVersion",
                                     color = SapphoTextMuted,
-                                    fontSize = 11.sp
+                                    style = MaterialTheme.typography.labelSmall
                                 )
                             }
                         }
@@ -1016,7 +1013,7 @@ fun UserMenuItem(
         Text(
             text = text,
             color = SapphoTextLight,
-            fontSize = 14.sp
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 }

@@ -103,8 +103,7 @@ fun MinimizedPlayerBar(
                         ) {
                             Text(
                                 text = book.title.take(1).uppercase(),
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.headlineSmall,
                                 color = SapphoInfo
                             )
                         }
@@ -130,11 +129,10 @@ fun MinimizedPlayerBar(
                     book.author?.let { author ->
                         Text(
                             text = author,
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.labelMedium,
                             color = SapphoIconDefault,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = 14.sp
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -155,9 +153,8 @@ fun MinimizedPlayerBar(
 
                     Text(
                         text = "${formatTime(currentPosition)} / ${formatTime(duration)}",
-                        fontSize = 11.sp,
-                        color = if (isPlaying) timeColor else SapphoTextMuted,
-                        lineHeight = 13.sp
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isPlaying) timeColor else SapphoTextMuted
                     )
                 }
 

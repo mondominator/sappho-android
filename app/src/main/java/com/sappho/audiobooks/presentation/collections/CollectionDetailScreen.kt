@@ -106,8 +106,7 @@ fun CollectionDetailScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (isEditMode) "${selectedBooks.size} selected" else (collection?.name ?: "Collection"),
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineLarge,
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -117,7 +116,7 @@ fun CollectionDetailScreen(
                                 if (desc.isNotBlank()) {
                                     Text(
                                         text = desc,
-                                        fontSize = 13.sp,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = SapphoIconDefault,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -185,7 +184,7 @@ fun CollectionDetailScreen(
                         ) {
                             Text(
                                 text = error ?: "Error loading collection",
-                                fontSize = 16.sp,
+                                style = MaterialTheme.typography.bodyLarge,
                                 color = SapphoError
                             )
                             Button(
@@ -217,14 +216,13 @@ fun CollectionDetailScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "No books in this collection",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleLarge,
                             color = Color.White
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Add books from the book detail page",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = SapphoIconDefault
                         )
                     }
@@ -381,8 +379,7 @@ private fun CollectionBookItem(
                 ) {
                     Text(
                         text = book.title.take(2).uppercase(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineLarge,
                         color = Color.White
                     )
                 }
@@ -462,11 +459,9 @@ private fun CollectionBookItem(
         ) {
             Text(
                 text = book.title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.labelMedium,
                 color = Color.White,
                 maxLines = 2,
-                lineHeight = 14.sp,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
@@ -474,7 +469,7 @@ private fun CollectionBookItem(
             book.author?.let {
                 Text(
                     text = it,
-                    fontSize = 10.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = SapphoIconDefault,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -499,8 +494,7 @@ private fun CollectionBookItem(
                     Spacer(modifier = Modifier.width(2.dp))
                     Text(
                         text = String.format(java.util.Locale.US, "%.1f", displayRating),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.labelSmall,
                         color = SapphoStarFilled
                     )
                 }
@@ -540,8 +534,7 @@ private fun EditCollectionDialog(
             ) {
                 Text(
                     text = "Edit Collection",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineSmall,
                     color = Color.White
                 )
 
@@ -597,14 +590,13 @@ private fun EditCollectionDialog(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Public Collection",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White
                             )
                             Text(
                                 text = if (editIsPublic) "Anyone can view and add books"
                                        else "Only you can see this collection",
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.labelMedium,
                                 color = SapphoIconDefault
                             )
                         }

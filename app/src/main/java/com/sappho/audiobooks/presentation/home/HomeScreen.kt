@@ -118,7 +118,7 @@ fun HomeScreen(
                         )
                         Text(
                             text = "Offline mode",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = SapphoWarning
                         )
                     }
@@ -543,8 +543,7 @@ private fun AddToCollectionDialog(
                 ) {
                     Text(
                         text = "Add to Collection",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = Color.White
                     )
                     IconButton(

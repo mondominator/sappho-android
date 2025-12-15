@@ -119,8 +119,7 @@ fun CollectionsScreen(
                     }
                     Text(
                         text = if (isEditMode) "${selectedCollections.size} selected" else "Collections",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineLarge,
                         color = Color.White
                     )
                 }
@@ -188,14 +187,13 @@ fun CollectionsScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "No collections yet",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleLarge,
                             color = Color.White
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Create a collection to organize your audiobooks",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = SapphoIconDefault
                         )
                         Spacer(modifier = Modifier.height(24.dp))
@@ -375,8 +373,7 @@ private fun CollectionCard(
                     ) {
                         Text(
                             text = "${collection.bookCount ?: 0}",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
                             color = Color.White
                         )
                     }
@@ -426,8 +423,7 @@ private fun CollectionCard(
                     ) {
                         Text(
                             text = collection.name,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelLarge,
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -457,7 +453,7 @@ private fun CollectionCard(
                         if (desc.isNotBlank()) {
                             Text(
                                 text = desc,
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.labelMedium,
                                 color = SapphoIconDefault,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -470,7 +466,7 @@ private fun CollectionCard(
                     Text(
                         text = if (collection.isOwner == 1) "Created by you"
                                else "Created by ${collection.creatorUsername ?: "Unknown"}",
-                        fontSize = 10.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = SapphoTextMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -569,8 +565,7 @@ private fun CreateCollectionDialog(
             ) {
                 Text(
                     text = "Create Collection",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineSmall,
                     color = Color.White
                 )
 
