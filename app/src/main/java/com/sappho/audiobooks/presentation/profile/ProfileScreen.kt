@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -89,7 +90,7 @@ fun ProfileScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFF0A0E1A)
+        containerColor = SapphoBackground
     ) { paddingValues ->
         if (isLoading) {
             Box(
@@ -98,7 +99,7 @@ fun ProfileScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3B82F6))
+                CircularProgressIndicator(color = SapphoInfo)
             }
         } else {
             Column(
@@ -113,8 +114,8 @@ fun ProfileScreen(
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    Color(0xFF1e3a5f),
-                                    Color(0xFF0A0E1A)
+                                    SapphoSurfaceLight,
+                                    SapphoBackground
                                 )
                             )
                         )
@@ -129,7 +130,7 @@ fun ProfileScreen(
                             modifier = Modifier
                                 .size(100.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF3B82F6))
+                                .background(SapphoInfo)
                                 .clickable { imagePickerLauncher.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
@@ -187,11 +188,11 @@ fun ProfileScreen(
                                 Icon(
                                     imageVector = Icons.Outlined.Upload,
                                     contentDescription = null,
-                                    tint = Color(0xFF3b82f6),
+                                    tint = SapphoInfo,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Upload", fontSize = 13.sp, color = Color(0xFF3b82f6))
+                                Text("Upload", fontSize = 13.sp, color = SapphoInfo)
                             }
                             if (user?.avatar != null || avatarUri != null) {
                                 TextButton(
@@ -207,11 +208,11 @@ fun ProfileScreen(
                                     Icon(
                                         imageVector = Icons.Outlined.Delete,
                                         contentDescription = null,
-                                        tint = Color(0xFFef4444),
+                                        tint = SapphoError,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Remove", fontSize = 13.sp, color = Color(0xFFef4444))
+                                    Text("Remove", fontSize = 13.sp, color = SapphoError)
                                 }
                             }
                         }
@@ -232,7 +233,7 @@ fun ProfileScreen(
                         Text(
                             text = "@${user?.username ?: ""}",
                             fontSize = 14.sp,
-                            color = Color(0xFF9ca3af)
+                            color = SapphoIconDefault
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -240,13 +241,13 @@ fun ProfileScreen(
                         // Role badge
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = if (user?.isAdmin == 1) Color(0xFF10b981).copy(alpha = 0.15f)
-                            else Color(0xFF3b82f6).copy(alpha = 0.15f)
+                            color = if (user?.isAdmin == 1) SapphoSuccess.copy(alpha = 0.15f)
+                            else SapphoInfo.copy(alpha = 0.15f)
                         ) {
                             Text(
                                 text = if (user?.isAdmin == 1) "Administrator" else "User",
                                 fontSize = 12.sp,
-                                color = if (user?.isAdmin == 1) Color(0xFF10b981) else Color(0xFF3b82f6),
+                                color = if (user?.isAdmin == 1) SapphoSuccess else SapphoInfo,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                             )
@@ -264,7 +265,7 @@ fun ProfileScreen(
                             Text(
                                 text = "Member since $date",
                                 fontSize = 12.sp,
-                                color = Color(0xFF6b7280)
+                                color = SapphoTextMuted
                             )
                         }
                     }
@@ -299,14 +300,14 @@ private fun ProfileTab(
                     value = formatListenTime(userStats.totalListenTime),
                     label = "Listen Time",
                     icon = Icons.Outlined.Headphones,
-                    color = Color(0xFF3b82f6)
+                    color = SapphoInfo
                 )
                 StatCard(
                     modifier = Modifier.weight(1f),
                     value = userStats.booksCompleted.toString(),
                     label = "Completed",
                     icon = Icons.Outlined.CheckCircle,
-                    color = Color(0xFF10b981)
+                    color = SapphoSuccess
                 )
             }
 
@@ -321,14 +322,14 @@ private fun ProfileTab(
                     value = userStats.currentlyListening.toString(),
                     label = "In Progress",
                     icon = Icons.Outlined.PlayCircle,
-                    color = Color(0xFFf59e0b)
+                    color = SapphoWarning
                 )
                 StatCard(
                     modifier = Modifier.weight(1f),
                     value = "${userStats.currentStreak} days",
                     label = "Streak",
                     icon = Icons.Outlined.LocalFireDepartment,
-                    color = Color(0xFFef4444)
+                    color = SapphoError
                 )
             }
 
@@ -357,7 +358,7 @@ private fun ProfileTab(
                             )
                             Text(
                                 text = "${author.bookCount} books • ${formatListenTime(author.listenTime)}",
-                                color = Color(0xFF9ca3af),
+                                color = SapphoIconDefault,
                                 fontSize = 12.sp
                             )
                         }
@@ -390,7 +391,7 @@ private fun ProfileTab(
                             )
                             Text(
                                 text = "${genre.bookCount} books • ${formatListenTime(genre.listenTime)}",
-                                color = Color(0xFF9ca3af),
+                                color = SapphoIconDefault,
                                 fontSize = 12.sp
                             )
                         }
@@ -417,7 +418,7 @@ private fun ProfileTab(
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF374151))
+                                    .background(SapphoProgressTrack)
                             ) {
                                 if (item.coverImage != null && serverUrl != null) {
                                     AsyncImage(
@@ -433,7 +434,7 @@ private fun ProfileTab(
                                     ) {
                                         Text(
                                             text = item.title.take(1).uppercase(),
-                                            color = Color(0xFF9ca3af),
+                                            color = SapphoIconDefault,
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -452,7 +453,7 @@ private fun ProfileTab(
                                 item.author?.let { author ->
                                     Text(
                                         text = author,
-                                        color = Color(0xFF6b7280),
+                                        color = SapphoTextMuted,
                                         fontSize = 12.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -464,14 +465,14 @@ private fun ProfileTab(
                                 Icon(
                                     imageVector = Icons.Outlined.CheckCircle,
                                     contentDescription = "Completed",
-                                    tint = Color(0xFF10b981),
+                                    tint = SapphoSuccess,
                                     modifier = Modifier.size(20.dp)
                                 )
                             } else if (item.duration != null && item.duration > 0) {
                                 val progress = (item.position.toFloat() / item.duration).coerceIn(0f, 1f)
                                 Text(
                                     text = "${(progress * 100).toInt()}%",
-                                    color = Color(0xFF3b82f6),
+                                    color = SapphoInfo,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -488,7 +489,7 @@ private fun ProfileTab(
             ) {
                 Text(
                     text = "No listening stats yet",
-                    color = Color(0xFF6b7280),
+                    color = SapphoTextMuted,
                     fontSize = 14.sp
                 )
             }
@@ -509,7 +510,7 @@ private fun StatCard(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Column(
             modifier = Modifier
@@ -535,7 +536,7 @@ private fun StatCard(
             Text(
                 text = label,
                 fontSize = 12.sp,
-                color = Color(0xFF9ca3af),
+                color = SapphoIconDefault,
                 textAlign = TextAlign.Center
             )
         }
@@ -552,7 +553,7 @@ private fun SectionCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Column(
             modifier = Modifier
@@ -566,7 +567,7 @@ private fun SectionCard(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = Color(0xFF3b82f6),
+                    tint = SapphoInfo,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))

@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -210,7 +211,7 @@ fun MainScreen(
                 )
             }
         },
-        containerColor = Color(0xFF0A0E1A)
+        containerColor = SapphoBackground
     ) { paddingValues ->
         Box {
             NavHost(
@@ -374,7 +375,7 @@ fun MainScreen(
                         if (isCasting) {
                             Text(
                                 "Currently casting",
-                                color = Color(0xFF10b981),
+                                color = SapphoSuccess,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
@@ -385,17 +386,17 @@ fun MainScreen(
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Disconnect", color = Color(0xFFef4444))
+                                Text("Disconnect", color = SapphoError)
                             }
                         } else if (availableRoutes.isEmpty()) {
                             Text(
                                 "No Cast devices found on your network. Make sure your Cast devices are powered on and connected to the same WiFi network.",
-                                color = Color(0xFF9ca3af)
+                                color = SapphoIconDefault
                             )
                         } else {
                             Text(
                                 "Select a device:",
-                                color = Color(0xFF9ca3af),
+                                color = SapphoIconDefault,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                             availableRoutes.forEach { route ->
@@ -445,7 +446,7 @@ fun MainScreen(
                                         Icon(
                                             imageVector = Icons.Default.Cast,
                                             contentDescription = null,
-                                            tint = Color(0xFF9ca3af),
+                                            tint = SapphoIconDefault,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -456,10 +457,10 @@ fun MainScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showCastDialog = false }) {
-                        Text("Cancel", color = Color(0xFF3b82f6))
+                        Text("Cancel", color = SapphoInfo)
                     }
                 },
-                containerColor = Color(0xFF1e293b)
+                containerColor = SapphoSurfaceLight
             )
         }
 
@@ -475,7 +476,7 @@ fun MainScreen(
                         if (downloadedBooks.isEmpty()) {
                             Text(
                                 "No downloaded books yet. Download books from the book detail page to listen offline.",
-                                color = Color(0xFF9ca3af)
+                                color = SapphoIconDefault
                             )
                         } else {
                             downloadedBooks.forEach { downloadedBook ->
@@ -498,7 +499,7 @@ fun MainScreen(
                                         )
                                         Text(
                                             text = formatFileSize(downloadedBook.fileSize),
-                                            color = Color(0xFF9ca3af),
+                                            color = SapphoIconDefault,
                                             fontSize = 12.sp
                                         )
                                     }
@@ -510,7 +511,7 @@ fun MainScreen(
                                         Icon(
                                             imageVector = Icons.Default.Delete,
                                             contentDescription = "Delete",
-                                            tint = Color(0xFFef4444),
+                                            tint = SapphoError,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -521,10 +522,10 @@ fun MainScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showDownloadsDialog = false }) {
-                        Text("Close", color = Color(0xFF3b82f6))
+                        Text("Close", color = SapphoInfo)
                     }
                 },
-                containerColor = Color(0xFF1e293b)
+                containerColor = SapphoSurfaceLight
             )
         }
 
@@ -537,7 +538,7 @@ fun MainScreen(
                 text = {
                     Text(
                         "Remove \"${bookToDelete?.audiobook?.title ?: "this book"}\" from downloads? This will only delete the local file - your listening progress on the server will not be affected.",
-                        color = Color(0xFFd1d5db)
+                        color = SapphoTextLight
                     )
                 },
                 confirmButton = {
@@ -549,15 +550,15 @@ fun MainScreen(
                             downloadToDelete = null
                         }
                     ) {
-                        Text("Remove", color = Color(0xFFef4444))
+                        Text("Remove", color = SapphoError)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { downloadToDelete = null }) {
-                        Text("Cancel", color = Color(0xFF3b82f6))
+                        Text("Cancel", color = SapphoInfo)
                     }
                 },
-                containerColor = Color(0xFF1e293b)
+                containerColor = SapphoSurfaceLight
             )
         }
 
@@ -607,7 +608,7 @@ private fun UploadDialog(
             ) {
                 Text(
                     text = "Supported: MP3, M4A, M4B, FLAC, OGG, WAV",
-                    color = Color(0xFF9ca3af),
+                    color = SapphoIconDefault,
                     fontSize = 12.sp
                 )
 
@@ -615,7 +616,7 @@ private fun UploadDialog(
                 Button(
                     onClick = { filePickerLauncher.launch(arrayOf("audio/*")) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6)),
+                    colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -627,7 +628,7 @@ private fun UploadDialog(
                 if (selectedFiles.isNotEmpty()) {
                     Text(
                         text = "${selectedFiles.size} file(s) selected",
-                        color = Color(0xFF10b981),
+                        color = SapphoSuccess,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -638,21 +639,21 @@ private fun UploadDialog(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Outlined.AudioFile, contentDescription = null, tint = Color(0xFF9ca3af), modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.AudioFile, contentDescription = null, tint = SapphoIconDefault, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(fileName, color = Color(0xFFd1d5db), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(fileName, color = SapphoTextLight, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     if (selectedFiles.size > 5) {
-                        Text("...and ${selectedFiles.size - 5} more", color = Color(0xFF6b7280), fontSize = 11.sp)
+                        Text("...and ${selectedFiles.size - 5} more", color = SapphoTextMuted, fontSize = 11.sp)
                     }
 
                     TextButton(onClick = { selectedFiles = emptyList() }) {
-                        Text("Clear selection", color = Color(0xFFef4444), fontSize = 12.sp)
+                        Text("Clear selection", color = SapphoError, fontSize = 12.sp)
                     }
 
                     // Optional metadata
-                    Text("Optional metadata (leave blank to auto-detect)", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    Text("Optional metadata (leave blank to auto-detect)", color = SapphoTextMuted, fontSize = 11.sp)
 
                     OutlinedTextField(
                         value = title,
@@ -663,10 +664,10 @@ private fun UploadDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack,
+                            focusedLabelColor = SapphoInfo,
+                            unfocusedLabelColor = SapphoIconDefault
                         )
                     )
 
@@ -679,10 +680,10 @@ private fun UploadDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack,
+                            focusedLabelColor = SapphoInfo,
+                            unfocusedLabelColor = SapphoIconDefault
                         )
                     )
 
@@ -695,10 +696,10 @@ private fun UploadDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack,
+                            focusedLabelColor = SapphoInfo,
+                            unfocusedLabelColor = SapphoIconDefault
                         )
                     )
                 }
@@ -708,11 +709,11 @@ private fun UploadDialog(
                     LinearProgressIndicator(
                         progress = uploadProgress,
                         modifier = Modifier.fillMaxWidth(),
-                        color = Color(0xFF3b82f6)
+                        color = SapphoInfo
                     )
                     Text(
                         "Uploading... ${(uploadProgress * 100).toInt()}%",
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
                 }
@@ -722,7 +723,7 @@ private fun UploadDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        color = if (result.success) Color(0xFF10b981).copy(alpha = 0.1f) else Color(0xFFef4444).copy(alpha = 0.1f)
+                        color = if (result.success) SapphoSuccess.copy(alpha = 0.1f) else SapphoError.copy(alpha = 0.1f)
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
@@ -732,12 +733,12 @@ private fun UploadDialog(
                             Icon(
                                 if (result.success) Icons.Outlined.CheckCircle else Icons.Outlined.Error,
                                 contentDescription = null,
-                                tint = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                                tint = if (result.success) SapphoSuccess else SapphoError,
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
                                 result.message ?: if (result.success) "Upload complete" else "Upload failed",
-                                color = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                                color = if (result.success) SapphoSuccess else SapphoError,
                                 fontSize = 13.sp
                             )
                         }
@@ -758,7 +759,7 @@ private fun UploadDialog(
                         )
                     },
                     enabled = uploadState != UploadState.UPLOADING,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10b981))
+                    colors = ButtonDefaults.buttonColors(containerColor = SapphoSuccess)
                 ) {
                     Text("Upload")
                 }
@@ -772,7 +773,7 @@ private fun UploadDialog(
                         viewModel.clearUploadResult()
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                    colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
                 ) {
                     Text("Done")
                 }
@@ -781,11 +782,11 @@ private fun UploadDialog(
         dismissButton = {
             if (uploadState != UploadState.UPLOADING && uploadResult == null) {
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -824,9 +825,9 @@ fun TopBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF1a1a1a))
+                .background(SapphoSurface)
                 .statusBarsPadding()
-                .border(width = 1.dp, color = Color(0xFF2a2a2a))
+                .border(width = 1.dp, color = SapphoSurfaceBorder)
         ) {
         Row(
             modifier = Modifier
@@ -877,7 +878,7 @@ fun TopBar(
                         Icon(
                             imageVector = icon,
                             contentDescription = label,
-                            tint = Color(0xFF9ca3af),
+                            tint = SapphoIconDefault,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -889,7 +890,7 @@ fun TopBar(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF3B82F6))
+                    .background(SapphoInfo)
                     .clickable(onClick = onUserMenuToggle),
                 contentAlignment = Alignment.Center
             ) {
@@ -920,12 +921,12 @@ fun TopBar(
                     .offset(x = (-20).dp, y = 65.dp)
                     .width(200.dp)
                     .background(
-                        color = Color(0xFF1a1a1a),
+                        color = SapphoSurface,
                         shape = RoundedCornerShape(8.dp)
                     )
                     .border(
                         width = 1.dp,
-                        color = Color(0xFF2a2a2a),
+                        color = SapphoSurfaceBorder,
                         shape = RoundedCornerShape(8.dp)
                     )
                     .padding(8.dp)
@@ -974,13 +975,13 @@ fun TopBar(
                         Column {
                             Text(
                                 text = "App v$appVersion",
-                                color = Color(0xFF6b7280),
+                                color = SapphoTextMuted,
                                 fontSize = 11.sp
                             )
                             if (serverVersion != null) {
                                 Text(
                                     text = "Server v$serverVersion",
-                                    color = Color(0xFF6b7280),
+                                    color = SapphoTextMuted,
                                     fontSize = 11.sp
                                 )
                             }
@@ -1009,12 +1010,12 @@ fun UserMenuItem(
         Icon(
             imageVector = icon,
             contentDescription = text,
-            tint = Color(0xFF9ca3af),
+            tint = SapphoIconDefault,
             modifier = Modifier.size(18.dp)
         )
         Text(
             text = text,
-            color = Color(0xFFd1d5db),
+            color = SapphoTextLight,
             fontSize = 14.sp
         )
     }

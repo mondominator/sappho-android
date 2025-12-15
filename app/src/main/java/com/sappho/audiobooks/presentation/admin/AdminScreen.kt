@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -81,12 +82,12 @@ fun AdminScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0A0E1A)
+                    containerColor = SapphoBackground
                 )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFF0A0E1A)
+        containerColor = SapphoBackground
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -97,7 +98,7 @@ fun AdminScreen(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF1e293b))
+                    .background(SapphoSurfaceLight)
                     .padding(horizontal = 8.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -134,7 +135,7 @@ private fun AdminTabChip(
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        color = if (selected) Color(0xFF3b82f6) else Color(0xFF374151)
+        color = if (selected) SapphoInfo else SapphoProgressTrack
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -191,8 +192,8 @@ private fun LibraryTab(viewModel: AdminViewModel) {
             SwipeRefreshIndicator(
                 state = state,
                 refreshTriggerDistance = trigger,
-                backgroundColor = Color(0xFF1e293b),
-                contentColor = Color(0xFF3b82f6)
+                backgroundColor = SapphoSurfaceLight,
+                contentColor = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -224,7 +225,7 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
             }
         } else {
             serverSettings?.let { response ->
@@ -236,7 +237,7 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                     icon = Icons.Outlined.Folder,
                     action = {
                         IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
+                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
                         }
                     }
                 ) {
@@ -280,7 +281,7 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                             .fillMaxWidth()
                             .padding(vertical = 4.dp),
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF374151).copy(alpha = 0.5f)
+                        color = SapphoProgressTrack.copy(alpha = 0.5f)
                     ) {
                         Column(
                             modifier = Modifier.padding(12.dp)
@@ -293,13 +294,13 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(job.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                                     job.description?.let { desc ->
-                                        Text(desc, color = Color(0xFF9ca3af), fontSize = 12.sp)
+                                        Text(desc, color = SapphoIconDefault, fontSize = 12.sp)
                                     }
                                 }
                                 if (job.canTrigger == true) {
                                     Button(
                                         onClick = { viewModel.triggerJob(job.id) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6)),
+                                        colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo),
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                         modifier = Modifier.height(32.dp)
                                     ) {
@@ -319,10 +320,10 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 val statusColor = when (job.status.lowercase()) {
-                                    "running" -> Color(0xFF10b981)
-                                    "scheduled" -> Color(0xFF3b82f6)
-                                    "idle" -> Color(0xFF9ca3af)
-                                    else -> Color(0xFF9ca3af)
+                                    "running" -> SapphoSuccess
+                                    "scheduled" -> SapphoInfo
+                                    "idle" -> SapphoIconDefault
+                                    else -> SapphoIconDefault
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
@@ -337,18 +338,18 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                                     )
                                 }
                                 job.interval?.let {
-                                    Text("Interval: $it", color = Color(0xFF6b7280), fontSize = 11.sp)
+                                    Text("Interval: $it", color = SapphoTextMuted, fontSize = 11.sp)
                                 }
                             }
                             job.lastRun?.let { lastRun ->
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text("Last run: ${formatBackupDate(lastRun)}", color = Color(0xFF6b7280), fontSize = 11.sp)
+                                Text("Last run: ${formatBackupDate(lastRun)}", color = SapphoTextMuted, fontSize = 11.sp)
                             }
                             job.lastResult?.let { result ->
-                                Text("Result: $result", color = Color(0xFF9ca3af), fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text("Result: $result", color = SapphoIconDefault, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                             job.nextRun?.let { nextRun ->
-                                Text("Next: ${formatBackupDate(nextRun)}", color = Color(0xFF3b82f6), fontSize = 11.sp)
+                                Text("Next: ${formatBackupDate(nextRun)}", color = SapphoInfo, fontSize = 11.sp)
                             }
                         }
                     }
@@ -442,7 +443,7 @@ private fun EditLibrarySettingsDialog(
                 if (lockedFields.isNotEmpty()) {
                     Text(
                         "Locked fields are set via docker-compose and cannot be changed here.",
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
                 }
@@ -457,30 +458,30 @@ private fun EditLibrarySettingsDialog(
                         libraryScanInterval = if ("libraryScanInterval" !in lockedFields) scanInterval.toIntOrNull() else null
                     ))
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
             ) {
                 Text("Save")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
+                Text("Cancel", color = SapphoIconDefault)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
 @Composable
 private fun LockedField(label: String, value: String) {
     Column {
-        Text(label, color = Color(0xFF9ca3af), fontSize = 12.sp)
+        Text(label, color = SapphoIconDefault, fontSize = 12.sp)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(Icons.Outlined.Lock, contentDescription = "Locked", tint = Color(0xFF6b7280), modifier = Modifier.size(14.dp))
-            Text(value, color = Color(0xFF6b7280), fontSize = 14.sp)
+            Icon(Icons.Outlined.Lock, contentDescription = "Locked", tint = SapphoTextMuted, modifier = Modifier.size(14.dp))
+            Text(value, color = SapphoTextMuted, fontSize = 14.sp)
         }
     }
 }
@@ -509,7 +510,7 @@ private fun ServerSettingsTab(viewModel: AdminViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
             }
         } else {
             serverSettings?.let { response ->
@@ -521,7 +522,7 @@ private fun ServerSettingsTab(viewModel: AdminViewModel) {
                     icon = Icons.Outlined.Settings,
                     action = {
                         IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
+                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
                         }
                     }
                 ) {
@@ -535,7 +536,7 @@ private fun ServerSettingsTab(viewModel: AdminViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No server settings available", color = Color(0xFF9ca3af))
+                    Text("No server settings available", color = SapphoIconDefault)
                 }
             }
         }
@@ -591,13 +592,13 @@ private fun EditServerSettingsDialog(
                 }
 
                 if ("nodeEnv" !in lockedFields) {
-                    Text("Environment", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                    Text("Environment", color = SapphoIconDefault, fontSize = 12.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("development", "production").forEach { env ->
                             Surface(
                                 modifier = Modifier.clickable { nodeEnv = env },
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (nodeEnv == env) Color(0xFF3b82f6) else Color(0xFF374151)
+                                color = if (nodeEnv == env) SapphoInfo else SapphoProgressTrack
                             ) {
                                 Text(
                                     env.replaceFirstChar { it.uppercase() },
@@ -639,14 +640,14 @@ private fun EditServerSettingsDialog(
                 if (lockedFields.isNotEmpty()) {
                     Text(
                         "Locked fields are set via docker-compose and cannot be changed here.",
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
                 }
 
                 Text(
                     "Note: Some changes require a server restart to take effect.",
-                    color = Color(0xFFf59e0b),
+                    color = SapphoWarning,
                     fontSize = 12.sp
                 )
             }
@@ -661,17 +662,17 @@ private fun EditServerSettingsDialog(
                         dataDir = if ("dataDir" !in lockedFields) dataDir else null
                     ))
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
             ) {
                 Text("Save")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
+                Text("Cancel", color = SapphoIconDefault)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -713,7 +714,7 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                 icon = Icons.Outlined.Psychology,
                 action = {
                     IconButton(onClick = { showProviderDialog = true }) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
+                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
                     }
                 }
             ) {
@@ -742,7 +743,7 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                 icon = Icons.Outlined.AutoStories,
                 action = {
                     IconButton(onClick = { showRecapDialog = true }) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
+                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
                     }
                 }
             ) {
@@ -753,7 +754,7 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                 if (settings.recapCustomPrompt != null) {
                     Text(
                         "Custom Prompt:",
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
                     Text(
@@ -781,7 +782,7 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF374151))
+                colors = ButtonDefaults.buttonColors(containerColor = SapphoProgressTrack)
             ) {
                 Icon(Icons.Outlined.Science, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -792,13 +793,13 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    color = if (result.error == null) Color(0xFF10b981).copy(alpha = 0.2f)
-                    else Color(0xFFef4444).copy(alpha = 0.2f)
+                    color = if (result.error == null) SapphoSuccess.copy(alpha = 0.2f)
+                    else SapphoError.copy(alpha = 0.2f)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
                             text = if (result.error == null) "Test Successful" else "Test Failed",
-                            color = if (result.error == null) Color(0xFF10b981) else Color(0xFFef4444),
+                            color = if (result.error == null) SapphoSuccess else SapphoError,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
@@ -815,7 +816,7 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
             }
         } else if (hasLoaded) {
             // Loaded but no settings - show configuration option
@@ -825,14 +826,14 @@ private fun AiSettingsTab(viewModel: AdminViewModel) {
             ) {
                 Text(
                     "AI features are not configured. Configure AI to enable recap generation and other AI-powered features.",
-                    color = Color(0xFF9ca3af),
+                    color = SapphoIconDefault,
                     fontSize = 14.sp
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = { showProviderDialog = true },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                    colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
                 ) {
                     Icon(Icons.Outlined.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
@@ -908,7 +909,7 @@ private fun EditAiProviderDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("AI Provider", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                Text("AI Provider", color = SapphoIconDefault, fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("openai", "gemini", "").forEach { p ->
                         val label = when(p) {
@@ -919,7 +920,7 @@ private fun EditAiProviderDialog(
                         Surface(
                             modifier = Modifier.clickable { provider = p },
                             shape = RoundedCornerShape(8.dp),
-                            color = if (provider == p) Color(0xFF3b82f6) else Color(0xFF374151)
+                            color = if (provider == p) SapphoInfo else SapphoProgressTrack
                         ) {
                             Text(
                                 label,
@@ -942,7 +943,7 @@ private fun EditAiProviderDialog(
                                 Icon(
                                     if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = null,
-                                    tint = Color(0xFF9ca3af)
+                                    tint = SapphoIconDefault
                                 )
                             }
                         },
@@ -967,7 +968,7 @@ private fun EditAiProviderDialog(
                                 Icon(
                                     if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = null,
-                                    tint = Color(0xFF9ca3af)
+                                    tint = SapphoIconDefault
                                 )
                             }
                         },
@@ -998,15 +999,15 @@ private fun EditAiProviderDialog(
                     ))
                 }
             ) {
-                Text("Save", color = Color(0xFF3b82f6))
+                Text("Save", color = SapphoInfo)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
+                Text("Cancel", color = SapphoIconDefault)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -1035,8 +1036,8 @@ private fun EditRecapSettingsDialog(
                         checked = offensiveMode,
                         onCheckedChange = { offensiveMode = it },
                         colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF3b82f6),
-                            uncheckedColor = Color(0xFF6b7280)
+                            checkedColor = SapphoInfo,
+                            uncheckedColor = SapphoTextMuted
                         )
                     )
                     Text("Offensive Mode (uncensored recaps)", color = Color.White)
@@ -1066,15 +1067,15 @@ private fun EditRecapSettingsDialog(
                     ))
                 }
             ) {
-                Text("Save", color = Color(0xFF3b82f6))
+                Text("Save", color = SapphoInfo)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
+                Text("Cancel", color = SapphoIconDefault)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -1108,8 +1109,8 @@ private fun UsersTab(viewModel: AdminViewModel) {
             SwipeRefreshIndicator(
                 state = state,
                 refreshTriggerDistance = trigger,
-                backgroundColor = Color(0xFF1e293b),
-                contentColor = Color(0xFF3b82f6)
+                backgroundColor = SapphoSurfaceLight,
+                contentColor = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -1134,7 +1135,7 @@ private fun UsersTab(viewModel: AdminViewModel) {
                     )
                     Button(
                         onClick = { showCreateDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                        colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1179,7 +1180,7 @@ private fun UsersTab(viewModel: AdminViewModel) {
         AlertDialog(
             onDismissRequest = { userToDelete = null },
             title = { Text("Delete User", color = Color.White) },
-            text = { Text("Are you sure you want to delete ${user.username}?", color = Color(0xFF9ca3af)) },
+            text = { Text("Are you sure you want to delete ${user.username}?", color = SapphoIconDefault) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -1187,15 +1188,15 @@ private fun UsersTab(viewModel: AdminViewModel) {
                         userToDelete = null
                     }
                 ) {
-                    Text("Delete", color = Color(0xFFef4444))
+                    Text("Delete", color = SapphoError)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { userToDelete = null }) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             },
-            containerColor = Color(0xFF1e293b)
+            containerColor = SapphoSurfaceLight
         )
     }
 }
@@ -1209,7 +1210,7 @@ private fun UserCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Row(
             modifier = Modifier
@@ -1232,11 +1233,11 @@ private fun UserCard(
                     if (user.isAdmin == 1) {
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFF10b981).copy(alpha = 0.2f)
+                            color = SapphoSuccess.copy(alpha = 0.2f)
                         ) {
                             Text(
                                 "Admin",
-                                color = Color(0xFF10b981),
+                                color = SapphoSuccess,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
@@ -1246,17 +1247,17 @@ private fun UserCard(
                 user.email?.let { email ->
                     Text(
                         text = email,
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 13.sp
                     )
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = Color(0xFF3b82f6))
+                    Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = Color(0xFFef4444))
+                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = SapphoError)
                 }
             }
         }
@@ -1296,7 +1297,7 @@ private fun CreateUserDialog(
                             Icon(
                                 if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                 contentDescription = null,
-                                tint = Color(0xFF9ca3af)
+                                tint = SapphoIconDefault
                             )
                         }
                     },
@@ -1318,8 +1319,8 @@ private fun CreateUserDialog(
                         checked = isAdmin,
                         onCheckedChange = { isAdmin = it },
                         colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF3b82f6),
-                            uncheckedColor = Color(0xFF6b7280)
+                            checkedColor = SapphoInfo,
+                            uncheckedColor = SapphoTextMuted
                         )
                     )
                     Text("Administrator", color = Color.White)
@@ -1333,15 +1334,15 @@ private fun CreateUserDialog(
                 },
                 enabled = username.isNotBlank() && password.isNotBlank()
             ) {
-                Text("Create", color = Color(0xFF3b82f6))
+                Text("Create", color = SapphoInfo)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
+                Text("Cancel", color = SapphoIconDefault)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -1379,7 +1380,7 @@ private fun EditUserDialog(
                             Icon(
                                 if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                 contentDescription = null,
-                                tint = Color(0xFF9ca3af)
+                                tint = SapphoIconDefault
                             )
                         }
                     },
@@ -1401,8 +1402,8 @@ private fun EditUserDialog(
                         checked = isAdmin,
                         onCheckedChange = { isAdmin = it },
                         colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF3b82f6),
-                            uncheckedColor = Color(0xFF6b7280)
+                            checkedColor = SapphoInfo,
+                            uncheckedColor = SapphoTextMuted
                         )
                     )
                     Text("Administrator", color = Color.White)
@@ -1423,15 +1424,15 @@ private fun EditUserDialog(
                 },
                 enabled = username.isNotBlank()
             ) {
-                Text("Update", color = Color(0xFF3b82f6))
+                Text("Update", color = SapphoInfo)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
+                Text("Cancel", color = SapphoIconDefault)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -1465,8 +1466,8 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
             SwipeRefreshIndicator(
                 state = state,
                 refreshTriggerDistance = trigger,
-                backgroundColor = Color(0xFF1e293b),
-                contentColor = Color(0xFF3b82f6)
+                backgroundColor = SapphoSurfaceLight,
+                contentColor = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -1491,7 +1492,7 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
                     )
                     Button(
                         onClick = { showCreateDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                        colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1504,7 +1505,7 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
                 Text(
                     "API keys allow external applications to access your library. " +
                     "Keep your keys secure and revoke any that are compromised.",
-                    color = Color(0xFF9ca3af),
+                    color = SapphoIconDefault,
                     fontSize = 13.sp
                 )
             }
@@ -1515,7 +1516,7 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
                         modifier = Modifier.fillMaxWidth().padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                        CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
                     }
                 }
             } else if (apiKeys.isEmpty()) {
@@ -1528,13 +1529,13 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
                             Icon(
                                 Icons.Outlined.Key,
                                 contentDescription = null,
-                                tint = Color(0xFF6b7280),
+                                tint = SapphoTextMuted,
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 "No API keys yet",
-                                color = Color(0xFF6b7280),
+                                color = SapphoTextMuted,
                                 fontSize = 14.sp
                             )
                         }
@@ -1578,7 +1579,7 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
         AlertDialog(
             onDismissRequest = { keyToDelete = null },
             title = { Text("Delete API Key", color = Color.White) },
-            text = { Text("Are you sure you want to delete '${apiKey.name}'? This action cannot be undone.", color = Color(0xFF9ca3af)) },
+            text = { Text("Are you sure you want to delete '${apiKey.name}'? This action cannot be undone.", color = SapphoIconDefault) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -1586,15 +1587,15 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
                         keyToDelete = null
                     }
                 ) {
-                    Text("Delete", color = Color(0xFFef4444))
+                    Text("Delete", color = SapphoError)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { keyToDelete = null }) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             },
-            containerColor = Color(0xFF1e293b)
+            containerColor = SapphoSurfaceLight
         )
     }
 }
@@ -1611,7 +1612,7 @@ private fun ApiKeyCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Column(
             modifier = Modifier
@@ -1635,11 +1636,11 @@ private fun ApiKeyCard(
                     )
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = if (isActive) Color(0xFF10b981).copy(alpha = 0.2f) else Color(0xFFef4444).copy(alpha = 0.2f)
+                        color = if (isActive) SapphoSuccess.copy(alpha = 0.2f) else SapphoError.copy(alpha = 0.2f)
                     ) {
                         Text(
                             if (isActive) "Active" else "Inactive",
-                            color = if (isActive) Color(0xFF10b981) else Color(0xFFef4444),
+                            color = if (isActive) SapphoSuccess else SapphoError,
                             fontSize = 11.sp,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -1650,11 +1651,11 @@ private fun ApiKeyCard(
                         Icon(
                             if (isActive) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
                             contentDescription = if (isActive) "Deactivate" else "Activate",
-                            tint = if (isActive) Color(0xFF10b981) else Color(0xFF6b7280)
+                            tint = if (isActive) SapphoSuccess else SapphoTextMuted
                         )
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = Color(0xFFef4444))
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = SapphoError)
                     }
                 }
             }
@@ -1666,19 +1667,19 @@ private fun ApiKeyCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Column {
-                    Text("Key", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    Text("Key", color = SapphoTextMuted, fontSize = 11.sp)
                     Text(
                         "${apiKey.keyPrefix}...",
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 13.sp,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                     )
                 }
                 Column {
-                    Text("Permissions", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    Text("Permissions", color = SapphoTextMuted, fontSize = 11.sp)
                     Text(
                         apiKey.permissions.replaceFirstChar { it.uppercase() },
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 13.sp
                     )
                 }
@@ -1691,35 +1692,35 @@ private fun ApiKeyCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Column {
-                    Text("Created", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    Text("Created", color = SapphoTextMuted, fontSize = 11.sp)
                     Text(
                         try {
                             dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(apiKey.createdAt) ?: Date())
                         } catch (e: Exception) { apiKey.createdAt },
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 13.sp
                     )
                 }
                 apiKey.lastUsedAt?.let { lastUsed ->
                     Column {
-                        Text("Last Used", color = Color(0xFF6b7280), fontSize = 11.sp)
+                        Text("Last Used", color = SapphoTextMuted, fontSize = 11.sp)
                         Text(
                             try {
                                 dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(lastUsed) ?: Date())
                             } catch (e: Exception) { lastUsed },
-                            color = Color(0xFF9ca3af),
+                            color = SapphoIconDefault,
                             fontSize = 13.sp
                         )
                     }
                 }
                 apiKey.expiresAt?.let { expires ->
                     Column {
-                        Text("Expires", color = Color(0xFF6b7280), fontSize = 11.sp)
+                        Text("Expires", color = SapphoTextMuted, fontSize = 11.sp)
                         Text(
                             try {
                                 dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(expires) ?: Date())
                             } catch (e: Exception) { expires },
-                            color = Color(0xFF9ca3af),
+                            color = SapphoIconDefault,
                             fontSize = 13.sp
                         )
                     }
@@ -1756,8 +1757,8 @@ private fun CreateApiKeyDialog(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF3b82f6),
-                        unfocusedBorderColor = Color(0xFF374151)
+                        focusedBorderColor = SapphoInfo,
+                        unfocusedBorderColor = SapphoProgressTrack
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1775,15 +1776,15 @@ private fun CreateApiKeyDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack
                         ),
                         modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
                     ExposedDropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false },
-                        modifier = Modifier.background(Color(0xFF374151))
+                        modifier = Modifier.background(SapphoProgressTrack)
                     ) {
                         permissionOptions.forEach { option ->
                             DropdownMenuItem(
@@ -1807,8 +1808,8 @@ private fun CreateApiKeyDialog(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF3b82f6),
-                        unfocusedBorderColor = Color(0xFF374151)
+                        focusedBorderColor = SapphoInfo,
+                        unfocusedBorderColor = SapphoProgressTrack
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1823,15 +1824,15 @@ private fun CreateApiKeyDialog(
                 },
                 enabled = name.isNotBlank()
             ) {
-                Text("Create", color = Color(0xFF3b82f6))
+                Text("Create", color = SapphoInfo)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
+                Text("Cancel", color = SapphoIconDefault)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -1850,7 +1851,7 @@ private fun NewApiKeyDialog(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF10b981))
+                Icon(Icons.Default.Check, contentDescription = null, tint = SapphoSuccess)
                 Text("API Key Created", color = Color.White)
             }
         },
@@ -1858,13 +1859,13 @@ private fun NewApiKeyDialog(
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
                     "Your new API key has been created. Copy it now - you won't be able to see it again!",
-                    color = Color(0xFFfbbf24),
+                    color = SapphoStarFilled,
                     fontSize = 13.sp
                 )
 
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF0f172a)
+                    color = SapphoBackground
                 ) {
                     Row(
                         modifier = Modifier
@@ -1889,24 +1890,24 @@ private fun NewApiKeyDialog(
                             Icon(
                                 if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
                                 contentDescription = "Copy",
-                                tint = if (copied) Color(0xFF10b981) else Color(0xFF3b82f6)
+                                tint = if (copied) SapphoSuccess else SapphoInfo
                             )
                         }
                     }
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Name: ${response.name}", color = Color(0xFF9ca3af), fontSize = 12.sp)
-                    Text("Permissions: ${response.permissions.replaceFirstChar { it.uppercase() }}", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                    Text("Name: ${response.name}", color = SapphoIconDefault, fontSize = 12.sp)
+                    Text("Permissions: ${response.permissions.replaceFirstChar { it.uppercase() }}", color = SapphoIconDefault, fontSize = 12.sp)
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Done", color = Color(0xFF3b82f6))
+                Text("Done", color = SapphoInfo)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -1939,8 +1940,8 @@ private fun BackupTab(viewModel: AdminViewModel) {
             SwipeRefreshIndicator(
                 state = state,
                 refreshTriggerDistance = trigger,
-                backgroundColor = Color(0xFF1e293b),
-                contentColor = Color(0xFF3b82f6)
+                backgroundColor = SapphoSurfaceLight,
+                contentColor = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -1965,7 +1966,7 @@ private fun BackupTab(viewModel: AdminViewModel) {
                     )
                     Button(
                         onClick = { viewModel.createBackup() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                        colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
@@ -1978,7 +1979,7 @@ private fun BackupTab(viewModel: AdminViewModel) {
                 item {
                     Text(
                         "No backups found",
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 14.sp,
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
@@ -2000,7 +2001,7 @@ private fun BackupTab(viewModel: AdminViewModel) {
         AlertDialog(
             onDismissRequest = { backupToDelete = null },
             title = { Text("Delete Backup", color = Color.White) },
-            text = { Text("Are you sure you want to delete ${backup.filename}?", color = Color(0xFF9ca3af)) },
+            text = { Text("Are you sure you want to delete ${backup.filename}?", color = SapphoIconDefault) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -2008,15 +2009,15 @@ private fun BackupTab(viewModel: AdminViewModel) {
                         backupToDelete = null
                     }
                 ) {
-                    Text("Delete", color = Color(0xFFef4444))
+                    Text("Delete", color = SapphoError)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { backupToDelete = null }) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             },
-            containerColor = Color(0xFF1e293b)
+            containerColor = SapphoSurfaceLight
         )
     }
 
@@ -2028,7 +2029,7 @@ private fun BackupTab(viewModel: AdminViewModel) {
             text = {
                 Text(
                     "Are you sure you want to restore ${backup.filename}? This will overwrite the current database.",
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
             },
             confirmButton = {
@@ -2038,15 +2039,15 @@ private fun BackupTab(viewModel: AdminViewModel) {
                         backupToRestore = null
                     }
                 ) {
-                    Text("Restore", color = Color(0xFFf59e0b))
+                    Text("Restore", color = SapphoWarning)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { backupToRestore = null }) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             },
-            containerColor = Color(0xFF1e293b)
+            containerColor = SapphoSurfaceLight
         )
     }
 }
@@ -2060,7 +2061,7 @@ private fun BackupCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Row(
             modifier = Modifier
@@ -2079,22 +2080,22 @@ private fun BackupCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
                         text = backup.sizeFormatted ?: formatFileSize(backup.size),
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
                     Text(
                         text = backup.createdFormatted ?: backup.created ?: "Unknown",
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = onRestore) {
-                    Icon(Icons.Outlined.Restore, contentDescription = "Restore", tint = Color(0xFFf59e0b))
+                    Icon(Icons.Outlined.Restore, contentDescription = "Restore", tint = SapphoWarning)
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = Color(0xFFef4444))
+                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = SapphoError)
                 }
             }
         }
@@ -2112,7 +2113,7 @@ private fun DuplicateGroupCard(
             .padding(vertical = 4.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFF374151).copy(alpha = 0.5f)
+        color = SapphoProgressTrack.copy(alpha = 0.5f)
     ) {
         Row(
             modifier = Modifier
@@ -2136,11 +2137,11 @@ private fun DuplicateGroupCard(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFFf59e0b).copy(alpha = 0.2f)
+                        color = SapphoWarning.copy(alpha = 0.2f)
                     ) {
                         Text(
                             "${group.books.size} copies",
-                            color = Color(0xFFf59e0b),
+                            color = SapphoWarning,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -2149,7 +2150,7 @@ private fun DuplicateGroupCard(
                     group.matchReason?.let { reason ->
                         Text(
                             text = reason,
-                            color = Color(0xFF6b7280),
+                            color = SapphoTextMuted,
                             fontSize = 12.sp
                         )
                     }
@@ -2158,7 +2159,7 @@ private fun DuplicateGroupCard(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = "View",
-                tint = Color(0xFF6b7280),
+                tint = SapphoTextMuted,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -2180,7 +2181,7 @@ private fun DuplicateMergeDialog(
                 Text("Merge Duplicates", color = Color.White)
                 Text(
                     "Select the copy to keep. Others will be deleted.",
-                    color = Color(0xFF9ca3af),
+                    color = SapphoIconDefault,
                     fontSize = 12.sp
                 )
             }
@@ -2197,10 +2198,10 @@ private fun DuplicateMergeDialog(
                             .fillMaxWidth()
                             .clickable { selectedKeepId = book.id },
                         shape = RoundedCornerShape(8.dp),
-                        color = if (isSelected) Color(0xFF3b82f6).copy(alpha = 0.2f) else Color(0xFF374151),
+                        color = if (isSelected) SapphoInfo.copy(alpha = 0.2f) else SapphoProgressTrack,
                         border = if (isSelected) androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            Color(0xFF3b82f6)
+                            SapphoInfo
                         ) else null
                     ) {
                         Row(
@@ -2214,8 +2215,8 @@ private fun DuplicateMergeDialog(
                                 selected = isSelected,
                                 onClick = { selectedKeepId = book.id },
                                 colors = RadioButtonDefaults.colors(
-                                    selectedColor = Color(0xFF3b82f6),
-                                    unselectedColor = Color(0xFF6b7280)
+                                    selectedColor = SapphoInfo,
+                                    unselectedColor = SapphoTextMuted
                                 )
                             )
                             Column(modifier = Modifier.weight(1f)) {
@@ -2230,14 +2231,14 @@ private fun DuplicateMergeDialog(
                                 book.author?.let { author ->
                                     Text(
                                         text = "by $author",
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         fontSize = 12.sp
                                     )
                                 }
                                 book.filePath?.let { path ->
                                     Text(
                                         text = path.substringAfterLast("/"),
-                                        color = Color(0xFF6b7280),
+                                        color = SapphoTextMuted,
                                         fontSize = 11.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -2246,7 +2247,7 @@ private fun DuplicateMergeDialog(
                                 book.createdAt?.let { created ->
                                     Text(
                                         text = "Added: ${formatBackupDate(created)}",
-                                        color = Color(0xFF6b7280),
+                                        color = SapphoTextMuted,
                                         fontSize = 10.sp
                                     )
                                 }
@@ -2254,11 +2255,11 @@ private fun DuplicateMergeDialog(
                             if (group.suggestedKeep == book.id) {
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF10b981).copy(alpha = 0.2f)
+                                    color = SapphoSuccess.copy(alpha = 0.2f)
                                 ) {
                                     Text(
                                         "Suggested",
-                                        color = Color(0xFF10b981),
+                                        color = SapphoSuccess,
                                         fontSize = 9.sp,
                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                     )
@@ -2272,7 +2273,7 @@ private fun DuplicateMergeDialog(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFef4444).copy(alpha = 0.1f)
+                    color = SapphoError.copy(alpha = 0.1f)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
@@ -2282,12 +2283,12 @@ private fun DuplicateMergeDialog(
                         Icon(
                             Icons.Outlined.Warning,
                             contentDescription = null,
-                            tint = Color(0xFFef4444),
+                            tint = SapphoError,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
                             "This will permanently delete ${group.books.size - 1} duplicate(s). Files will also be removed from disk.",
-                            color = Color(0xFFef4444),
+                            color = SapphoError,
                             fontSize = 12.sp
                         )
                     }
@@ -2302,7 +2303,7 @@ private fun DuplicateMergeDialog(
                         onMerge(keepId, deleteIds)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFef4444)),
+                colors = ButtonDefaults.buttonColors(containerColor = SapphoError),
                 enabled = selectedKeepId != null
             ) {
                 Text("Merge & Delete")
@@ -2310,10 +2311,10 @@ private fun DuplicateMergeDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF9ca3af))
+                Text("Cancel", color = SapphoIconDefault)
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -2376,8 +2377,8 @@ private fun LogsTab(viewModel: AdminViewModel) {
             SwipeRefreshIndicator(
                 state = state,
                 refreshTriggerDistance = trigger,
-                backgroundColor = Color(0xFF1e293b),
-                contentColor = Color(0xFF3b82f6)
+                backgroundColor = SapphoSurfaceLight,
+                contentColor = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -2407,7 +2408,7 @@ private fun LogsTab(viewModel: AdminViewModel) {
                 Surface(
                     modifier = Modifier.clickable { autoRefresh = !autoRefresh },
                     shape = RoundedCornerShape(8.dp),
-                    color = if (autoRefresh) Color(0xFF10b981).copy(alpha = 0.2f) else Color(0xFF374151)
+                    color = if (autoRefresh) SapphoSuccess.copy(alpha = 0.2f) else SapphoProgressTrack
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -2417,21 +2418,21 @@ private fun LogsTab(viewModel: AdminViewModel) {
                         Icon(
                             Icons.Outlined.Autorenew,
                             contentDescription = "Auto-refresh",
-                            tint = if (autoRefresh) Color(0xFF10b981) else Color(0xFF9ca3af),
+                            tint = if (autoRefresh) SapphoSuccess else SapphoIconDefault,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             "Auto",
-                            color = if (autoRefresh) Color(0xFF10b981) else Color(0xFF9ca3af),
+                            color = if (autoRefresh) SapphoSuccess else SapphoIconDefault,
                             fontSize = 12.sp
                         )
                     }
                 }
                 IconButton(onClick = { viewModel.refreshLogs(level = selectedLevel) }) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "Refresh", tint = Color(0xFF3b82f6))
+                    Icon(Icons.Outlined.Refresh, contentDescription = "Refresh", tint = SapphoInfo)
                 }
                 IconButton(onClick = { showClearConfirmation = true }) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Clear", tint = Color(0xFFef4444))
+                    Icon(Icons.Outlined.Delete, contentDescription = "Clear", tint = SapphoError)
                 }
             }
         }
@@ -2440,14 +2441,14 @@ private fun LogsTab(viewModel: AdminViewModel) {
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Search logs...", color = Color(0xFF6b7280)) },
+            placeholder = { Text("Search logs...", color = SapphoTextMuted) },
             leadingIcon = {
-                Icon(Icons.Outlined.Search, contentDescription = null, tint = Color(0xFF6b7280))
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = SapphoTextMuted)
             },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color(0xFF6b7280))
+                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = SapphoTextMuted)
                     }
                 }
             },
@@ -2465,10 +2466,10 @@ private fun LogsTab(viewModel: AdminViewModel) {
                     onClick = { selectedLevel = level },
                     label = { Text(label) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFF3b82f6),
+                        selectedContainerColor = SapphoInfo,
                         selectedLabelColor = Color.White,
-                        containerColor = Color(0xFF374151),
-                        labelColor = Color(0xFF9ca3af)
+                        containerColor = SapphoProgressTrack,
+                        labelColor = SapphoIconDefault
                     )
                 )
             }
@@ -2478,7 +2479,7 @@ private fun LogsTab(viewModel: AdminViewModel) {
         if (searchQuery.isNotEmpty()) {
             Text(
                 "${filteredLogs.size} of ${logs.size} logs match",
-                color = Color(0xFF9ca3af),
+                color = SapphoIconDefault,
                 fontSize = 12.sp
             )
         }
@@ -2488,7 +2489,7 @@ private fun LogsTab(viewModel: AdminViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
             }
         } else if (filteredLogs.isEmpty()) {
             Box(
@@ -2497,7 +2498,7 @@ private fun LogsTab(viewModel: AdminViewModel) {
             ) {
                 Text(
                     if (searchQuery.isNotEmpty()) "No logs match your search" else "No logs available",
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
             }
         } else {
@@ -2517,7 +2518,7 @@ private fun LogsTab(viewModel: AdminViewModel) {
         AlertDialog(
             onDismissRequest = { showClearConfirmation = false },
             title = { Text("Clear Logs", color = Color.White) },
-            text = { Text("Are you sure you want to clear all logs? This action cannot be undone.", color = Color(0xFF9ca3af)) },
+            text = { Text("Are you sure you want to clear all logs? This action cannot be undone.", color = SapphoIconDefault) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -2525,15 +2526,15 @@ private fun LogsTab(viewModel: AdminViewModel) {
                         showClearConfirmation = false
                     }
                 ) {
-                    Text("Clear", color = Color(0xFFef4444))
+                    Text("Clear", color = SapphoError)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirmation = false }) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             },
-            containerColor = Color(0xFF1e293b)
+            containerColor = SapphoSurfaceLight
         )
     }
 }
@@ -2541,16 +2542,16 @@ private fun LogsTab(viewModel: AdminViewModel) {
 @Composable
 private fun LogEntryCard(log: LogEntry) {
     val levelColor = when (log.level.lowercase()) {
-        "error" -> Color(0xFFef4444)
-        "warn" -> Color(0xFFf59e0b)
-        "info" -> Color(0xFF3b82f6)
-        else -> Color(0xFF9ca3af)
+        "error" -> SapphoError
+        "warn" -> SapphoWarning
+        "info" -> SapphoInfo
+        else -> SapphoIconDefault
     }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -2578,7 +2579,7 @@ private fun LogEntryCard(log: LogEntry) {
                 )
                 Text(
                     text = formatBackupDate(log.timestamp),
-                    color = Color(0xFF6b7280),
+                    color = SapphoTextMuted,
                     fontSize = 11.sp
                 )
             }
@@ -2615,8 +2616,8 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
             SwipeRefreshIndicator(
                 state = state,
                 refreshTriggerDistance = trigger,
-                backgroundColor = Color(0xFF1e293b),
-                contentColor = Color(0xFF3b82f6)
+                backgroundColor = SapphoSurfaceLight,
+                contentColor = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -2633,7 +2634,7 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                     modifier = Modifier.fillMaxWidth().padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color(0xFF3b82f6), modifier = Modifier.size(32.dp))
+                    CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
                 }
             } else {
             statistics?.let { stats ->
@@ -2648,14 +2649,14 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                             value = totals.books.toString(),
                             label = "Audiobooks",
                             icon = Icons.Outlined.LibraryBooks,
-                            color = Color(0xFF3b82f6)
+                            color = SapphoInfo
                         )
                         StatCard(
                             modifier = Modifier.weight(1f),
                             value = formatFileSize(totals.size),
                             label = "Total Size",
                             icon = Icons.Outlined.Storage,
-                            color = Color(0xFF8b5cf6)
+                            color = LegacyPurple
                         )
                     }
 
@@ -2697,7 +2698,7 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                                     )
                                     Text(
                                         "${author.count} books",
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         fontSize = 14.sp
                                     )
                                 }
@@ -2724,7 +2725,7 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                                     )
                                     Text(
                                         "${s.count} books",
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         fontSize = 14.sp
                                     )
                                 }
@@ -2750,7 +2751,7 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                                     )
                                     Text(
                                         "${format.count} (${formatFileSize(format.size)})",
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         fontSize = 14.sp
                                     )
                                 }
@@ -2778,12 +2779,12 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(
                                             "${user.booksCompleted ?: 0}/${user.booksStarted ?: 0} finished",
-                                            color = Color(0xFF9ca3af),
+                                            color = SapphoIconDefault,
                                             fontSize = 12.sp
                                         )
                                         Text(
                                             formatDuration(user.totalListenTime ?: 0),
-                                            color = Color(0xFF9ca3af),
+                                            color = SapphoIconDefault,
                                             fontSize = 12.sp
                                         )
                                     }
@@ -2798,7 +2799,7 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                     modifier = Modifier.fillMaxWidth().padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No statistics available", color = Color(0xFF9ca3af))
+                    Text("No statistics available", color = SapphoIconDefault)
                 }
             }
         }
@@ -2818,7 +2819,7 @@ private fun AdminSectionCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -2836,7 +2837,7 @@ private fun AdminSectionCard(
                         Icon(
                             imageVector = it,
                             contentDescription = null,
-                            tint = Color(0xFF3b82f6),
+                            tint = SapphoInfo,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -2863,7 +2864,7 @@ private fun InfoRow(label: String, value: String, locked: Boolean = false) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = Color(0xFF9ca3af), fontSize = 14.sp)
+        Text(label, color = SapphoIconDefault, fontSize = 14.sp)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -2872,13 +2873,13 @@ private fun InfoRow(label: String, value: String, locked: Boolean = false) {
                 Icon(
                     Icons.Outlined.Lock,
                     contentDescription = "Locked",
-                    tint = Color(0xFF6b7280),
+                    tint = SapphoTextMuted,
                     modifier = Modifier.size(12.dp)
                 )
             }
             Text(
                 value,
-                color = if (locked) Color(0xFF6b7280) else Color.White,
+                color = if (locked) SapphoTextMuted else Color.White,
                 fontSize = 14.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -2893,7 +2894,7 @@ private fun ActionButton(
     text: String,
     description: String,
     icon: ImageVector,
-    color: Color = Color(0xFF3b82f6),
+    color: Color = SapphoInfo,
     onClick: () -> Unit
 ) {
     Surface(
@@ -2916,12 +2917,12 @@ private fun ActionButton(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(text, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                Text(description, color = Color(0xFF6b7280), fontSize = 13.sp)
+                Text(description, color = SapphoTextMuted, fontSize = 13.sp)
             }
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = Color(0xFF6b7280),
+                tint = SapphoTextMuted,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -2939,7 +2940,7 @@ private fun StatCard(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Column(
             modifier = Modifier
@@ -2964,7 +2965,7 @@ private fun StatCard(
             Text(
                 text = label,
                 fontSize = 12.sp,
-                color = Color(0xFF9ca3af)
+                color = SapphoIconDefault
             )
         }
     }
@@ -2974,11 +2975,11 @@ private fun StatCard(
 private fun adminTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = Color.White,
     unfocusedTextColor = Color.White,
-    focusedBorderColor = Color(0xFF3b82f6),
-    unfocusedBorderColor = Color(0xFF374151),
-    focusedLabelColor = Color(0xFF3b82f6),
-    unfocusedLabelColor = Color(0xFF9ca3af),
-    cursorColor = Color(0xFF3b82f6)
+    focusedBorderColor = SapphoInfo,
+    unfocusedBorderColor = SapphoProgressTrack,
+    focusedLabelColor = SapphoInfo,
+    unfocusedLabelColor = SapphoIconDefault,
+    cursorColor = SapphoInfo
 )
 
 // ============ Utility Functions ============
@@ -3051,7 +3052,7 @@ private fun UploadDialog(
             ) {
                 Text(
                     text = "Supported: MP3, M4A, M4B, FLAC, OGG, WAV",
-                    color = Color(0xFF9ca3af),
+                    color = SapphoIconDefault,
                     fontSize = 12.sp
                 )
 
@@ -3059,7 +3060,7 @@ private fun UploadDialog(
                 Button(
                     onClick = { filePickerLauncher.launch(arrayOf("audio/*")) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6)),
+                    colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -3071,7 +3072,7 @@ private fun UploadDialog(
                 if (selectedFiles.isNotEmpty()) {
                     Text(
                         text = "${selectedFiles.size} file(s) selected",
-                        color = Color(0xFF10b981),
+                        color = SapphoSuccess,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -3082,21 +3083,21 @@ private fun UploadDialog(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Outlined.AudioFile, contentDescription = null, tint = Color(0xFF9ca3af), modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.AudioFile, contentDescription = null, tint = SapphoIconDefault, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(fileName, color = Color(0xFFd1d5db), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(fileName, color = SapphoTextLight, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     if (selectedFiles.size > 5) {
-                        Text("...and ${selectedFiles.size - 5} more", color = Color(0xFF6b7280), fontSize = 11.sp)
+                        Text("...and ${selectedFiles.size - 5} more", color = SapphoTextMuted, fontSize = 11.sp)
                     }
 
                     TextButton(onClick = { selectedFiles = emptyList() }) {
-                        Text("Clear selection", color = Color(0xFFef4444), fontSize = 12.sp)
+                        Text("Clear selection", color = SapphoError, fontSize = 12.sp)
                     }
 
                     // Optional metadata
-                    Text("Optional metadata (leave blank to auto-detect)", color = Color(0xFF6b7280), fontSize = 11.sp)
+                    Text("Optional metadata (leave blank to auto-detect)", color = SapphoTextMuted, fontSize = 11.sp)
 
                     OutlinedTextField(
                         value = title,
@@ -3131,11 +3132,11 @@ private fun UploadDialog(
                     LinearProgressIndicator(
                         progress = uploadProgress,
                         modifier = Modifier.fillMaxWidth(),
-                        color = Color(0xFF3b82f6)
+                        color = SapphoInfo
                     )
                     Text(
                         "Uploading... ${(uploadProgress * 100).toInt()}%",
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
                 }
@@ -3145,7 +3146,7 @@ private fun UploadDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        color = if (result.success) Color(0xFF10b981).copy(alpha = 0.1f) else Color(0xFFef4444).copy(alpha = 0.1f)
+                        color = if (result.success) SapphoSuccess.copy(alpha = 0.1f) else SapphoError.copy(alpha = 0.1f)
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
@@ -3155,12 +3156,12 @@ private fun UploadDialog(
                             Icon(
                                 if (result.success) Icons.Outlined.CheckCircle else Icons.Outlined.Error,
                                 contentDescription = null,
-                                tint = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                                tint = if (result.success) SapphoSuccess else SapphoError,
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
                                 result.message ?: if (result.success) "Upload complete" else "Upload failed",
-                                color = if (result.success) Color(0xFF10b981) else Color(0xFFef4444),
+                                color = if (result.success) SapphoSuccess else SapphoError,
                                 fontSize = 13.sp
                             )
                         }
@@ -3181,7 +3182,7 @@ private fun UploadDialog(
                         )
                     },
                     enabled = uploadState != UploadState.UPLOADING,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10b981))
+                    colors = ButtonDefaults.buttonColors(containerColor = SapphoSuccess)
                 ) {
                     Text("Upload")
                 }
@@ -3195,7 +3196,7 @@ private fun UploadDialog(
                         viewModel.clearUploadResult()
                         onDismiss()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3b82f6))
+                    colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
                 ) {
                     Text("Done")
                 }
@@ -3204,11 +3205,11 @@ private fun UploadDialog(
         dismissButton = {
             if (uploadState != UploadState.UPLOADING && uploadResult == null) {
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 

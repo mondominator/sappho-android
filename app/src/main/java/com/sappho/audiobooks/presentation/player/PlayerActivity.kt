@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -179,7 +180,7 @@ fun PlayerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0E1A))
+            .background(SapphoBackground)
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragEnd = {
@@ -229,7 +230,7 @@ fun PlayerScreen(
                     Icon(
                         imageVector = Icons.Default.Cast,
                         contentDescription = "Cast",
-                        tint = if (isCastConnected) Color(0xFF3b82f6) else Color(0xFF9ca3af),
+                        tint = if (isCastConnected) SapphoInfo else SapphoIconDefault,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -253,7 +254,7 @@ fun PlayerScreen(
                                 if (isCastConnected) {
                                     Text(
                                         "Currently casting",
-                                        color = Color(0xFF10b981),
+                                        color = SapphoSuccess,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.padding(bottom = 8.dp)
                                     )
@@ -264,7 +265,7 @@ fun PlayerScreen(
                                         },
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Text("Disconnect", color = Color(0xFFef4444))
+                                        Text("Disconnect", color = SapphoError)
                                     }
                                 } else if (isScanning) {
                                     Row(
@@ -273,15 +274,15 @@ fun PlayerScreen(
                                     ) {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(20.dp),
-                                            color = Color(0xFF3b82f6),
+                                            color = SapphoInfo,
                                             strokeWidth = 2.dp
                                         )
-                                        Text("Scanning for Cast devices...", color = Color(0xFF9ca3af))
+                                        Text("Scanning for Cast devices...", color = SapphoIconDefault)
                                     }
                                 } else if (availableRoutes.isEmpty()) {
-                                    Text("No Cast devices found.", color = Color(0xFF9ca3af))
+                                    Text("No Cast devices found.", color = SapphoIconDefault)
                                 } else {
-                                    Text("Select a device:", color = Color(0xFF9ca3af), modifier = Modifier.padding(bottom = 8.dp))
+                                    Text("Select a device:", color = SapphoIconDefault, modifier = Modifier.padding(bottom = 8.dp))
                                     availableRoutes.forEachIndexed { index, route ->
                                         TextButton(
                                             onClick = {
@@ -319,10 +320,10 @@ fun PlayerScreen(
                         },
                         confirmButton = {
                             TextButton(onClick = { showCastDialog = false }) {
-                                Text("Cancel", color = Color(0xFF3b82f6))
+                                Text("Cancel", color = SapphoInfo)
                             }
                         },
-                        containerColor = Color(0xFF1e293b)
+                        containerColor = SapphoSurfaceLight
                     )
                 }
             }
@@ -342,7 +343,7 @@ fun PlayerScreen(
                             .fillMaxWidth(0.75f)
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1e293b))
+                            .background(SapphoSurfaceLight)
                     ) {
                         if (book.coverImage != null && serverUrl != null) {
                             AsyncImage(
@@ -360,7 +361,7 @@ fun PlayerScreen(
                                     text = book.title.take(2).uppercase(),
                                     fontSize = 48.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF3b82f6)
+                                    color = SapphoInfo
                                 )
                             }
                         }
@@ -386,7 +387,7 @@ fun PlayerScreen(
                         Text(
                             text = author,
                             fontSize = 15.sp,
-                            color = Color(0xFF60a5fa),
+                            color = LegacyBlueLight,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -412,7 +413,7 @@ fun PlayerScreen(
                         Text(
                             text = seriesText,
                             fontSize = 13.sp,
-                            color = Color(0xFF60a5fa).copy(alpha = 0.7f),
+                            color = LegacyBlueLight.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -459,7 +460,7 @@ fun PlayerScreen(
                             Icon(
                                 imageVector = Icons.Default.SkipPrevious,
                                 contentDescription = "Previous chapter",
-                                tint = if (chapters.isEmpty()) Color(0xFF4b5563) else Color.White,
+                                tint = if (chapters.isEmpty()) LegacyGrayDark else Color.White,
                                 modifier = Modifier
                                     .size(32.dp)
                                     .scale(prevChapterScale)
@@ -504,7 +505,7 @@ fun PlayerScreen(
                                 .size(72.dp)
                                 .scale(playScale)
                                 .clip(CircleShape)
-                                .background(Color(0xFF3b82f6))
+                                .background(SapphoInfo)
                                 .clickable(
                                     interactionSource = playSource,
                                     indication = null
@@ -590,7 +591,7 @@ fun PlayerScreen(
                             Icon(
                                 imageVector = Icons.Default.SkipNext,
                                 contentDescription = "Next chapter",
-                                tint = if (chapters.isEmpty()) Color(0xFF4b5563) else Color.White,
+                                tint = if (chapters.isEmpty()) LegacyGrayDark else Color.White,
                                 modifier = Modifier
                                     .size(32.dp)
                                     .scale(nextChapterScale)
@@ -622,14 +623,14 @@ fun PlayerScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF1e293b))
+                                        .background(SapphoSurfaceLight)
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
                                     Text(
                                         text = formatTime(dragPosition.toLong()),
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF3b82f6)
+                                        color = SapphoInfo
                                     )
                                 }
                             }
@@ -642,12 +643,12 @@ fun PlayerScreen(
                             Text(
                                 text = formatTime(displayedPosition.toLong()),
                                 fontSize = 13.sp,
-                                color = if (isDragging) Color(0xFF3b82f6) else Color(0xFF9ca3af)
+                                color = if (isDragging) SapphoInfo else SapphoIconDefault
                             )
                             Text(
                                 text = formatTime(duration),
                                 fontSize = 13.sp,
-                                color = Color(0xFF9ca3af)
+                                color = SapphoIconDefault
                             )
                         }
 
@@ -676,7 +677,7 @@ fun PlayerScreen(
                                     modifier = Modifier
                                         .size(16.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF3b82f6))
+                                        .background(SapphoInfo)
                                 )
                             },
                             track = { sliderState ->
@@ -689,14 +690,14 @@ fun PlayerScreen(
                                         .fillMaxWidth()
                                         .height(4.dp)
                                         .clip(RoundedCornerShape(2.dp))
-                                        .background(Color(0xFF374151))
+                                        .background(SapphoProgressTrack)
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth(fraction)
                                             .height(4.dp)
                                             .clip(RoundedCornerShape(2.dp))
-                                            .background(Color(0xFF3b82f6))
+                                            .background(SapphoInfo)
                                     )
                                 }
                             }
@@ -717,7 +718,7 @@ fun PlayerScreen(
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(
                                     Brush.horizontalGradient(
-                                        listOf(Color(0xFF1e293b), Color(0xFF334155))
+                                        listOf(SapphoSurfaceLight, SapphoSurfaceDark)
                                     )
                                 )
                                 .clickable { showChapters = !showChapters }
@@ -731,14 +732,14 @@ fun PlayerScreen(
                                     modifier = Modifier
                                         .size(32.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF3b82f6).copy(alpha = 0.15f)),
+                                        .background(SapphoInfo.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.List,
                                         contentDescription = "Chapters",
                                         modifier = Modifier.size(18.dp),
-                                        tint = Color(0xFF60a5fa)
+                                        tint = LegacyBlueLight
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
@@ -760,7 +761,7 @@ fun PlayerScreen(
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(
                                     Brush.horizontalGradient(
-                                        listOf(Color(0xFF1e293b), Color(0xFF334155))
+                                        listOf(SapphoSurfaceLight, SapphoSurfaceDark)
                                     )
                                 )
                                 .clickable { showPlaybackSpeed = !showPlaybackSpeed }
@@ -774,14 +775,14 @@ fun PlayerScreen(
                                     modifier = Modifier
                                         .size(32.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF8b5cf6).copy(alpha = 0.15f)),
+                                        .background(LegacyPurple.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Speed,
                                         contentDescription = "Speed",
                                         modifier = Modifier.size(18.dp),
-                                        tint = Color(0xFFa78bfa)
+                                        tint = LegacyPurpleLight
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
@@ -803,11 +804,11 @@ fun PlayerScreen(
                                 .background(
                                     if (hasSleepTimer) {
                                         Brush.horizontalGradient(
-                                            listOf(Color(0xFFf59e0b).copy(alpha = 0.2f), Color(0xFFfbbf24).copy(alpha = 0.2f))
+                                            listOf(SapphoWarning.copy(alpha = 0.2f), SapphoStarFilled.copy(alpha = 0.2f))
                                         )
                                     } else {
                                         Brush.horizontalGradient(
-                                            listOf(Color(0xFF1e293b), Color(0xFF334155))
+                                            listOf(SapphoSurfaceLight, SapphoSurfaceDark)
                                         )
                                     }
                                 )
@@ -823,8 +824,8 @@ fun PlayerScreen(
                                         .size(32.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(
-                                            if (hasSleepTimer) Color(0xFFf59e0b).copy(alpha = 0.3f)
-                                            else Color(0xFFf59e0b).copy(alpha = 0.15f)
+                                            if (hasSleepTimer) SapphoWarning.copy(alpha = 0.3f)
+                                            else SapphoWarning.copy(alpha = 0.15f)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -832,7 +833,7 @@ fun PlayerScreen(
                                         imageVector = Icons.Default.Bedtime,
                                         contentDescription = "Sleep Timer",
                                         modifier = Modifier.size(18.dp),
-                                        tint = Color(0xFFfbbf24)
+                                        tint = SapphoStarFilled
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
@@ -843,7 +844,7 @@ fun PlayerScreen(
                                         "${mins}:${secs.toString().padStart(2, '0')}"
                                     } else "Off",
                                     fontSize = 12.sp,
-                                    color = if (hasSleepTimer) Color(0xFFfbbf24) else Color.White,
+                                    color = if (hasSleepTimer) SapphoStarFilled else Color.White,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -911,7 +912,7 @@ fun PlayerScreen(
                                             text = chapter.title ?: "Chapter ${index + 1}",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF3b82f6),
+                                            color = SapphoInfo,
                                             modifier = Modifier.weight(1f).padding(end = 8.dp)
                                         )
                                     } else {
@@ -927,7 +928,7 @@ fun PlayerScreen(
                                     }
                                     Text(
                                         text = formatTime(chapter.startTime.toLong()),
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         fontSize = 12.sp
                                     )
                                 }
@@ -937,10 +938,10 @@ fun PlayerScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showChapters = false }) {
-                        Text("Close", color = Color(0xFF3b82f6))
+                        Text("Close", color = SapphoInfo)
                     }
                 },
-                containerColor = Color(0xFF1e293b)
+                containerColor = SapphoSurfaceLight
             )
         }
 
@@ -962,7 +963,7 @@ fun PlayerScreen(
                             ) {
                                 Text(
                                     text = "${speed}x",
-                                    color = if (speed == playbackSpeed) Color(0xFF3b82f6) else Color.White,
+                                    color = if (speed == playbackSpeed) SapphoInfo else Color.White,
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
@@ -971,10 +972,10 @@ fun PlayerScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showPlaybackSpeed = false }) {
-                        Text("Close", color = Color(0xFF3b82f6))
+                        Text("Close", color = SapphoInfo)
                     }
                 },
-                containerColor = Color(0xFF1e293b)
+                containerColor = SapphoSurfaceLight
             )
         }
 
@@ -1003,7 +1004,7 @@ fun PlayerScreen(
                         Icon(
                             imageVector = Icons.Default.Bedtime,
                             contentDescription = null,
-                            tint = Color(0xFFfbbf24),
+                            tint = SapphoStarFilled,
                             modifier = Modifier.size(24.dp)
                         )
                         Text("Sleep Timer", color = Color.White)
@@ -1019,7 +1020,7 @@ fun PlayerScreen(
                                     .fillMaxWidth()
                                     .padding(bottom = 12.dp),
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFf59e0b).copy(alpha = 0.15f)
+                                color = SapphoWarning.copy(alpha = 0.15f)
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -1031,14 +1032,14 @@ fun PlayerScreen(
                                     Column {
                                         Text(
                                             "Timer active",
-                                            color = Color(0xFFfbbf24),
+                                            color = SapphoStarFilled,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         val mins = (sleepTimerRemaining ?: 0) / 60
                                         val secs = (sleepTimerRemaining ?: 0) % 60
                                         Text(
                                             "${mins}:${secs.toString().padStart(2, '0')} remaining",
-                                            color = Color(0xFFfbbf24).copy(alpha = 0.8f),
+                                            color = SapphoStarFilled.copy(alpha = 0.8f),
                                             fontSize = 14.sp
                                         )
                                     }
@@ -1047,7 +1048,7 @@ fun PlayerScreen(
                                             AudioPlaybackService.instance?.cancelSleepTimer()
                                         }
                                     ) {
-                                        Text("Cancel", color = Color(0xFFef4444))
+                                        Text("Cancel", color = SapphoError)
                                     }
                                 }
                             }
@@ -1073,7 +1074,7 @@ fun PlayerScreen(
                                         Icon(
                                             imageVector = Icons.Default.CheckCircle,
                                             contentDescription = null,
-                                            tint = Color(0xFF10b981),
+                                            tint = SapphoSuccess,
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
@@ -1084,10 +1085,10 @@ fun PlayerScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showSleepTimer = false }) {
-                        Text("Close", color = Color(0xFF3b82f6))
+                        Text("Close", color = SapphoInfo)
                     }
                 },
-                containerColor = Color(0xFF1e293b)
+                containerColor = SapphoSurfaceLight
             )
         }
 
@@ -1121,7 +1122,7 @@ fun PlayingAnimation() {
                     .width(3.dp)
                     .height((12 * animatedHeight).dp)
                     .background(
-                        color = Color(0xFF3b82f6),
+                        color = SapphoInfo,
                         shape = RoundedCornerShape(2.dp)
                     )
             )

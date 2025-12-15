@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -139,14 +140,14 @@ fun AudiobookDetailScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0E1A))
+            .background(SapphoBackground)
     ) {
         if (isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3B82F6))
+                CircularProgressIndicator(color = SapphoInfo)
             }
         } else {
             audiobook?.let { book ->
@@ -166,9 +167,9 @@ fun AudiobookDetailScreen(
                         OutlinedButton(
                             onClick = onBackClick,
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF9ca3af)
+                                contentColor = SapphoIconDefault
                             ),
-                            border = BorderStroke(1.dp, Color(0xFF374151)),
+                            border = BorderStroke(1.dp, SapphoProgressTrack),
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                         ) {
@@ -186,9 +187,9 @@ fun AudiobookDetailScreen(
                             OutlinedButton(
                                 onClick = { showEditMetadataDialog = true },
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF3b82f6)
+                                    contentColor = SapphoInfo
                                 ),
-                                border = BorderStroke(1.dp, Color(0xFF3b82f6).copy(alpha = 0.3f)),
+                                border = BorderStroke(1.dp, SapphoInfo.copy(alpha = 0.3f)),
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                             ) {
@@ -210,7 +211,7 @@ fun AudiobookDetailScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp)
                                 .background(
-                                    Color(0xFFfb923c).copy(alpha = 0.2f),
+                                    SapphoWarning.copy(alpha = 0.2f),
                                     RoundedCornerShape(8.dp)
                                 )
                                 .padding(12.dp),
@@ -220,13 +221,13 @@ fun AudiobookDetailScreen(
                             Icon(
                                 imageVector = Icons.Default.CloudOff,
                                 contentDescription = null,
-                                tint = Color(0xFFfb923c),
+                                tint = SapphoWarning,
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
                                 text = "Offline mode",
                                 fontSize = 14.sp,
-                                color = Color(0xFFfb923c)
+                                color = SapphoWarning
                             )
                         }
                         Spacer(modifier = Modifier.height(16.dp))
@@ -252,7 +253,7 @@ fun AudiobookDetailScreen(
                                         spotColor = Color.Black.copy(alpha = 0.6f)
                                     )
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(Color(0xFF374151))
+                                    .background(SapphoProgressTrack)
                             ) {
                                 if (book.coverImage != null && serverUrl != null) {
                                     // Let Coil try to load - it may have the image cached
@@ -272,7 +273,7 @@ fun AudiobookDetailScreen(
                                             text = book.title.take(2),
                                             fontSize = 72.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF3B82F6)
+                                            color = SapphoInfo
                                         )
                                     }
                                 }
@@ -292,14 +293,14 @@ fun AudiobookDetailScreen(
                                     if (isTogglingFavorite) {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(20.dp),
-                                            color = Color(0xFF3b82f6),
+                                            color = SapphoInfo,
                                             strokeWidth = 2.dp
                                         )
                                     } else {
                                         Icon(
                                             imageVector = if (isFavorite) Icons.Filled.BookmarkAdded else Icons.Filled.BookmarkBorder,
                                             contentDescription = if (isFavorite) "Remove from reading list" else "Add to reading list",
-                                            tint = if (isFavorite) Color(0xFF3b82f6) else Color.White,
+                                            tint = if (isFavorite) SapphoInfo else Color.White,
                                             modifier = Modifier.size(22.dp)
                                         )
                                     }
@@ -339,11 +340,11 @@ fun AudiobookDetailScreen(
                                             .background(
                                                 if (isCompleted) {
                                                     Brush.horizontalGradient(
-                                                        listOf(Color(0xFF10b981), Color(0xFF34d399))
+                                                        listOf(SapphoSuccess, LegacyGreenLight)
                                                     )
                                                 } else {
                                                     Brush.horizontalGradient(
-                                                        listOf(Color(0xFF3b82f6), Color(0xFF60a5fa))
+                                                        listOf(SapphoInfo, LegacyBlueLight)
                                                     )
                                                 }
                                             )
@@ -386,7 +387,7 @@ fun AudiobookDetailScreen(
                                         Icon(
                                             imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
                                             contentDescription = "Rate $starIndex stars",
-                                            tint = if (isSelected) Color(0xFFfbbf24) else Color(0xFF4b5563),
+                                            tint = if (isSelected) SapphoStarFilled else LegacyGrayDark,
                                             modifier = Modifier.size(28.dp)
                                         )
                                     }
@@ -396,7 +397,7 @@ fun AudiobookDetailScreen(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
-                                        color = Color(0xFFfbbf24),
+                                        color = SapphoStarFilled,
                                         strokeWidth = 2.dp
                                     )
                                 }
@@ -412,13 +413,13 @@ fun AudiobookDetailScreen(
                                     Text(
                                         text = "Your rating",
                                         fontSize = 12.sp,
-                                        color = Color(0xFF9ca3af)
+                                        color = SapphoIconDefault
                                     )
                                 } else {
                                     Text(
                                         text = "Tap to rate",
                                         fontSize = 12.sp,
-                                        color = Color(0xFF6b7280)
+                                        color = SapphoTextMuted
                                     )
                                 }
 
@@ -427,12 +428,12 @@ fun AudiobookDetailScreen(
                                         Text(
                                             text = "  •  ",
                                             fontSize = 12.sp,
-                                            color = Color(0xFF4b5563)
+                                            color = LegacyGrayDark
                                         )
                                         Icon(
                                             imageVector = Icons.Filled.Star,
                                             contentDescription = null,
-                                            tint = Color(0xFFfbbf24),
+                                            tint = SapphoStarFilled,
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Spacer(modifier = Modifier.width(2.dp))
@@ -440,12 +441,12 @@ fun AudiobookDetailScreen(
                                             text = String.format(java.util.Locale.US, "%.1f", avg.average ?: 0f),
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = Color(0xFFe5e7eb)
+                                            color = LegacyWhite
                                         )
                                         Text(
                                             text = " (${avg.count})",
                                             fontSize = 12.sp,
-                                            color = Color(0xFF9ca3af)
+                                            color = SapphoIconDefault
                                         )
                                     }
                                 }
@@ -471,8 +472,8 @@ fun AudiobookDetailScreen(
                             .padding(horizontal = 24.dp)
                             .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isThisBookPlaying) Color(0xFF3b82f6).copy(alpha = 0.15f) else Color(0xFF10b981).copy(alpha = 0.15f),
-                            contentColor = if (isThisBookPlaying) Color(0xFF93c5fd) else Color(0xFF6ee7b7)
+                            containerColor = if (isThisBookPlaying) SapphoInfo.copy(alpha = 0.15f) else SapphoSuccess.copy(alpha = 0.15f),
+                            contentColor = if (isThisBookPlaying) LegacyBluePale else LegacyGreenPale
                         ),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
@@ -511,8 +512,8 @@ fun AudiobookDetailScreen(
                                         .weight(1f)
                                         .height(48.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF3b82f6).copy(alpha = 0.15f),
-                                        contentColor = Color(0xFF93c5fd)
+                                        containerColor = SapphoInfo.copy(alpha = 0.15f),
+                                        contentColor = LegacyBluePale
                                     ),
                                     shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
@@ -540,14 +541,14 @@ fun AudiobookDetailScreen(
                                         .height(48.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = when {
-                                            isDownloading -> Color(0xFF3b82f6).copy(alpha = 0.15f)
-                                            isDownloaded -> Color(0xFF10b981).copy(alpha = 0.15f)
-                                            else -> Color(0xFF3b82f6).copy(alpha = 0.15f)
+                                            isDownloading -> SapphoInfo.copy(alpha = 0.15f)
+                                            isDownloaded -> SapphoSuccess.copy(alpha = 0.15f)
+                                            else -> SapphoInfo.copy(alpha = 0.15f)
                                         },
                                         contentColor = when {
-                                            isDownloading -> Color(0xFF93c5fd)
-                                            isDownloaded -> Color(0xFF6ee7b7)
-                                            else -> Color(0xFF93c5fd)
+                                            isDownloading -> LegacyBluePale
+                                            isDownloaded -> LegacyGreenPale
+                                            else -> LegacyBluePale
                                         }
                                     ),
                                     shape = RoundedCornerShape(12.dp),
@@ -557,7 +558,7 @@ fun AudiobookDetailScreen(
                                         CircularProgressIndicator(
                                             progress = downloadProgress,
                                             modifier = Modifier.size(16.dp),
-                                            color = Color(0xFF93c5fd),
+                                            color = LegacyBluePale,
                                             strokeWidth = 2.dp
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
@@ -598,9 +599,9 @@ fun AudiobookDetailScreen(
                                     viewModel.loadCollectionsForBook(book.id)
                                 },
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF3b82f6)
+                                    contentColor = SapphoInfo
                                 ),
-                                border = BorderStroke(1.dp, Color(0xFF3b82f6).copy(alpha = 0.3f)),
+                                border = BorderStroke(1.dp, SapphoInfo.copy(alpha = 0.3f)),
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {
@@ -621,9 +622,9 @@ fun AudiobookDetailScreen(
                             OutlinedButton(
                                 onClick = { viewModel.markFinished() },
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF22c55e)
+                                    contentColor = LegacyGreen
                                 ),
-                                border = BorderStroke(1.dp, Color(0xFF22c55e).copy(alpha = 0.3f)),
+                                border = BorderStroke(1.dp, LegacyGreen.copy(alpha = 0.3f)),
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {
@@ -639,9 +640,9 @@ fun AudiobookDetailScreen(
                                 OutlinedButton(
                                     onClick = { viewModel.clearProgress() },
                                     colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = Color(0xFFfb923c)
+                                        contentColor = SapphoWarning
                                     ),
-                                    border = BorderStroke(1.dp, Color(0xFFfb923c).copy(alpha = 0.3f)),
+                                    border = BorderStroke(1.dp, SapphoWarning.copy(alpha = 0.3f)),
                                     shape = RoundedCornerShape(8.dp),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                                 ) {
@@ -658,16 +659,16 @@ fun AudiobookDetailScreen(
                                 onClick = { viewModel.refreshMetadata() },
                                 enabled = !isRefreshingMetadata,
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF9ca3af)
+                                    contentColor = SapphoIconDefault
                                 ),
-                                border = BorderStroke(1.dp, Color(0xFF374151)),
+                                border = BorderStroke(1.dp, SapphoProgressTrack),
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {
                                 if (isRefreshingMetadata) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         strokeWidth = 2.dp
                                     )
                                 } else {
@@ -690,9 +691,9 @@ fun AudiobookDetailScreen(
                                 OutlinedButton(
                                     onClick = { showDeleteBookDialog = true },
                                     colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = Color(0xFFef4444)
+                                        contentColor = SapphoError
                                     ),
-                                    border = BorderStroke(1.dp, Color(0xFFef4444).copy(alpha = 0.3f)),
+                                    border = BorderStroke(1.dp, SapphoError.copy(alpha = 0.3f)),
                                     shape = RoundedCornerShape(8.dp),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                                 ) {
@@ -735,7 +736,7 @@ fun AudiobookDetailScreen(
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp),
-                                    color = Color(0xFF1e293b).copy(alpha = 0.5f),
+                                    color = SapphoSurfaceLight.copy(alpha = 0.5f),
                                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
                                 ) {
                                     Column(
@@ -763,13 +764,13 @@ fun AudiobookDetailScreen(
                                                     text = if (prog.completed == 1) "Completed" else "${progressHours}h ${progressMinutes}m listened",
                                                     fontSize = 16.sp,
                                                     fontWeight = FontWeight.Medium,
-                                                    color = if (prog.completed == 1) Color(0xFF10b981) else Color.White
+                                                    color = if (prog.completed == 1) SapphoSuccess else Color.White
                                                 )
                                                 if (prog.completed != 1) {
                                                     Text(
                                                         text = "of ${totalHours}h ${totalMinutes}m total",
                                                         fontSize = 14.sp,
-                                                        color = Color(0xFF9ca3af)
+                                                        color = SapphoIconDefault
                                                     )
                                                 }
                                             }
@@ -778,7 +779,7 @@ fun AudiobookDetailScreen(
                                                     text = "$percentage%",
                                                     fontSize = 20.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = Color(0xFF3b82f6)
+                                                    color = SapphoInfo
                                                 )
                                             }
                                         }
@@ -790,7 +791,7 @@ fun AudiobookDetailScreen(
                                                     .fillMaxWidth()
                                                     .height(6.dp)
                                                     .clip(RoundedCornerShape(3.dp))
-                                                    .background(Color(0xFF374151))
+                                                    .background(SapphoProgressTrack)
                                             ) {
                                                 Box(
                                                     modifier = Modifier
@@ -798,7 +799,7 @@ fun AudiobookDetailScreen(
                                                         .fillMaxHeight()
                                                         .background(
                                                             Brush.horizontalGradient(
-                                                                listOf(Color(0xFF3b82f6), Color(0xFF60a5fa))
+                                                                listOf(SapphoInfo, LegacyBlueLight)
                                                             )
                                                         )
                                                 )
@@ -828,7 +829,7 @@ fun AudiobookDetailScreen(
                                                         Text(
                                                             text = "Current Chapter",
                                                             fontSize = 12.sp,
-                                                            color = Color(0xFF9ca3af)
+                                                            color = SapphoIconDefault
                                                         )
                                                         Text(
                                                             text = chapter.title ?: "Chapter ${currentChapterIndex + 1}",
@@ -842,7 +843,7 @@ fun AudiobookDetailScreen(
                                                     Text(
                                                         text = "${currentChapterIndex + 1} of ${chapters.size}",
                                                         fontSize = 14.sp,
-                                                        color = Color(0xFF9ca3af)
+                                                        color = SapphoIconDefault
                                                     )
                                                 }
                                             }
@@ -889,7 +890,7 @@ fun AudiobookDetailScreen(
                                             viewModel.loadRecap()
                                         },
                                         colors = ButtonDefaults.textButtonColors(
-                                            contentColor = Color(0xFFa78bfa)
+                                            contentColor = LegacyPurpleLight
                                         )
                                     ) {
                                         Icon(
@@ -910,7 +911,7 @@ fun AudiobookDetailScreen(
                             Text(
                                 text = description,
                                 fontSize = 16.sp,
-                                color = Color(0xFFd1d5db),
+                                color = SapphoTextLight,
                                 lineHeight = 28.8.sp
                             )
                         }
@@ -991,7 +992,7 @@ fun AudiobookDetailScreen(
                                     .fillMaxWidth()
                                     .clickable { filesExpanded = !filesExpanded },
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFF1e293b).copy(alpha = 0.5f),
+                                color = SapphoSurfaceLight.copy(alpha = 0.5f),
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
                             ) {
                                 Row(
@@ -1008,12 +1009,12 @@ fun AudiobookDetailScreen(
                                         Icon(
                                             imageVector = Icons.Default.Description,
                                             contentDescription = null,
-                                            tint = Color(0xFFE0E7F1),
+                                            tint = SapphoText,
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Text(
                                             text = "${files.size} File${if (files.size != 1) "s" else ""}",
-                                            color = Color(0xFFE0E7F1),
+                                            color = SapphoText,
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Medium
                                         )
@@ -1021,7 +1022,7 @@ fun AudiobookDetailScreen(
                                     Icon(
                                         imageVector = if (filesExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                                         contentDescription = null,
-                                        tint = Color(0xFFE0E7F1),
+                                        tint = SapphoText,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -1038,7 +1039,7 @@ fun AudiobookDetailScreen(
                                         Surface(
                                             modifier = Modifier.fillMaxWidth(),
                                             shape = RoundedCornerShape(8.dp),
-                                            color = Color(0xFF1e293b).copy(alpha = 0.3f)
+                                            color = SapphoSurfaceLight.copy(alpha = 0.3f)
                                         ) {
                                             Column(
                                                 modifier = Modifier
@@ -1047,13 +1048,13 @@ fun AudiobookDetailScreen(
                                             ) {
                                                 Text(
                                                     text = file.name,
-                                                    color = Color(0xFFE0E7F1),
+                                                    color = SapphoText,
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.Medium
                                                 )
                                                 Text(
                                                     text = formatFileSize(file.size),
-                                                    color = Color(0xFF9ca3af),
+                                                    color = SapphoIconDefault,
                                                     fontSize = 12.sp
                                                 )
                                             }
@@ -1109,7 +1110,7 @@ fun AudiobookDetailScreen(
                 text = {
                     Text(
                         "Remove this book from downloads? This will only delete the local file - your listening progress on the server will not be affected.",
-                        color = Color(0xFFd1d5db)
+                        color = SapphoTextLight
                     )
                 },
                 confirmButton = {
@@ -1119,15 +1120,15 @@ fun AudiobookDetailScreen(
                             showDeleteDownloadDialog = false
                         }
                     ) {
-                        Text("Remove", color = Color(0xFFef4444))
+                        Text("Remove", color = SapphoError)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteDownloadDialog = false }) {
-                        Text("Cancel", color = Color(0xFF3b82f6))
+                        Text("Cancel", color = SapphoInfo)
                     }
                 },
-                containerColor = Color(0xFF1e293b)
+                containerColor = SapphoSurfaceLight
             )
         }
 
@@ -1144,7 +1145,7 @@ fun AudiobookDetailScreen(
                         .fillMaxWidth()
                         .heightIn(min = 200.dp, max = 500.dp),
                     shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFF1e293b)
+                    color = SapphoSurfaceLight
                 ) {
                     Column(
                         modifier = Modifier.padding(24.dp)
@@ -1161,7 +1162,7 @@ fun AudiobookDetailScreen(
                                 Icon(
                                     imageVector = Icons.Filled.AutoAwesome,
                                     contentDescription = null,
-                                    tint = Color(0xFFa78bfa),
+                                    tint = LegacyPurpleLight,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -1181,7 +1182,7 @@ fun AudiobookDetailScreen(
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Close",
-                                    tint = Color(0xFF9ca3af)
+                                    tint = SapphoIconDefault
                                 )
                             }
                         }
@@ -1202,19 +1203,19 @@ fun AudiobookDetailScreen(
                                         verticalArrangement = Arrangement.Center
                                     ) {
                                         CircularProgressIndicator(
-                                            color = Color(0xFFa78bfa),
+                                            color = LegacyPurpleLight,
                                             modifier = Modifier.size(40.dp)
                                         )
                                         Spacer(modifier = Modifier.height(16.dp))
                                         Text(
                                             text = "Generating recap...",
                                             fontSize = 14.sp,
-                                            color = Color(0xFF9ca3af)
+                                            color = SapphoIconDefault
                                         )
                                         Text(
                                             text = "This may take a moment",
                                             fontSize = 12.sp,
-                                            color = Color(0xFF6b7280)
+                                            color = SapphoTextMuted
                                         )
                                     }
                                 }
@@ -1228,13 +1229,13 @@ fun AudiobookDetailScreen(
                                             text = "Failed to load recap",
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = Color(0xFFef4444)
+                                            color = SapphoError
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
                                             text = recapError ?: "Unknown error",
                                             fontSize = 14.sp,
-                                            color = Color(0xFF9ca3af),
+                                            color = SapphoIconDefault,
                                             textAlign = TextAlign.Center
                                         )
                                     }
@@ -1248,7 +1249,7 @@ fun AudiobookDetailScreen(
                                         Text(
                                             text = recap!!.recap,
                                             fontSize = 15.sp,
-                                            color = Color(0xFFd1d5db),
+                                            color = SapphoTextLight,
                                             lineHeight = 24.sp
                                         )
                                         if (recap!!.cached == true) {
@@ -1256,7 +1257,7 @@ fun AudiobookDetailScreen(
                                             Text(
                                                 text = "Cached recap",
                                                 fontSize = 12.sp,
-                                                color = Color(0xFF6b7280),
+                                                color = SapphoTextMuted,
                                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                                             )
                                         }
@@ -1266,7 +1267,7 @@ fun AudiobookDetailScreen(
                                     Text(
                                         text = "No recap available",
                                         fontSize = 14.sp,
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         modifier = Modifier.align(Alignment.Center)
                                     )
                                 }
@@ -1287,12 +1288,12 @@ fun AudiobookDetailScreen(
                                     imageVector = Icons.Filled.Refresh,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
-                                    tint = Color(0xFF3b82f6)
+                                    tint = SapphoInfo
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "Regenerate",
-                                    color = Color(0xFF3b82f6)
+                                    color = SapphoInfo
                                 )
                             }
                         }
@@ -1327,7 +1328,7 @@ fun AudiobookDetailScreen(
                 text = {
                     Text(
                         "Delete \"${audiobook?.title}\"? This action cannot be undone.",
-                        color = Color(0xFFd1d5db)
+                        color = SapphoTextLight
                     )
                 },
                 confirmButton = {
@@ -1339,15 +1340,15 @@ fun AudiobookDetailScreen(
                             }
                         }
                     ) {
-                        Text("Delete", color = Color(0xFFef4444))
+                        Text("Delete", color = SapphoError)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteBookDialog = false }) {
-                        Text("Cancel", color = Color(0xFF3b82f6))
+                        Text("Cancel", color = SapphoInfo)
                     }
                 },
-                containerColor = Color(0xFF1e293b)
+                containerColor = SapphoSurfaceLight
             )
         }
 
@@ -1425,7 +1426,7 @@ private fun ClickableMetadataItem(label: String, value: String, onClick: () -> U
             text = label.uppercase(),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF9ca3af),
+            color = SapphoIconDefault,
             letterSpacing = 0.5.sp
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -1433,7 +1434,7 @@ private fun ClickableMetadataItem(label: String, value: String, onClick: () -> U
             text = value,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF3b82f6) // Blue color to indicate clickable
+            color = SapphoInfo // Blue color to indicate clickable
         )
     }
 }
@@ -1447,7 +1448,7 @@ private fun MetadataItem(label: String, value: String) {
             text = label.uppercase(),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF9ca3af),
+            color = SapphoIconDefault,
             letterSpacing = 0.5.sp
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -1465,8 +1466,8 @@ private fun ChapterItem(chapter: com.sappho.audiobooks.domain.model.Chapter, ind
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1a1a1a), RoundedCornerShape(8.dp))
-            .border(1.dp, Color(0xFF374151), RoundedCornerShape(8.dp))
+            .background(SapphoSurface, RoundedCornerShape(8.dp))
+            .border(1.dp, SapphoProgressTrack, RoundedCornerShape(8.dp))
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -1474,7 +1475,7 @@ private fun ChapterItem(chapter: com.sappho.audiobooks.domain.model.Chapter, ind
         Text(
             text = chapter.title ?: "Chapter $index",
             fontSize = 14.sp,
-            color = Color(0xFFd1d5db),
+            color = SapphoTextLight,
             modifier = Modifier.weight(1f).padding(end = 8.dp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -1494,7 +1495,7 @@ private fun ChapterItem(chapter: com.sappho.audiobooks.domain.model.Chapter, ind
             Text(
                 text = durationText,
                 fontSize = 12.sp,
-                color = Color(0xFF9ca3af)
+                color = SapphoIconDefault
             )
         }
     }
@@ -1505,8 +1506,8 @@ private fun FileItem(file: com.sappho.audiobooks.domain.model.AudiobookFile) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF1a1a1a), RoundedCornerShape(8.dp))
-            .border(1.dp, Color(0xFF374151), RoundedCornerShape(8.dp))
+            .background(SapphoSurface, RoundedCornerShape(8.dp))
+            .border(1.dp, SapphoProgressTrack, RoundedCornerShape(8.dp))
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -1514,7 +1515,7 @@ private fun FileItem(file: com.sappho.audiobooks.domain.model.AudiobookFile) {
         Text(
             text = file.filename,
             fontSize = 14.sp,
-            color = Color(0xFFd1d5db),
+            color = SapphoTextLight,
             modifier = Modifier.weight(1f)
         )
 
@@ -1529,7 +1530,7 @@ private fun FileItem(file: com.sappho.audiobooks.domain.model.AudiobookFile) {
         Text(
             text = sizeText,
             fontSize = 12.sp,
-            color = Color(0xFF9ca3af)
+            color = SapphoIconDefault
         )
     }
 }
@@ -1596,7 +1597,7 @@ private fun StarRatingBar(
                 Icon(
                     imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
                     contentDescription = "Star $starIndex",
-                    tint = if (isSelected) Color(0xFFfbbf24) else Color(0xFF6b7280),
+                    tint = if (isSelected) SapphoStarFilled else SapphoTextMuted,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -1606,7 +1607,7 @@ private fun StarRatingBar(
             Spacer(modifier = Modifier.width(8.dp))
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
-                color = Color(0xFFfbbf24),
+                color = SapphoStarFilled,
                 strokeWidth = 2.dp
             )
         }
@@ -1644,7 +1645,7 @@ private fun CompactStarRating(
                 Icon(
                     imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
                     contentDescription = "Star $starIndex",
-                    tint = if (isSelected) Color(0xFFfbbf24) else Color(0xFF6b7280),
+                    tint = if (isSelected) SapphoStarFilled else SapphoTextMuted,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -1654,7 +1655,7 @@ private fun CompactStarRating(
             Spacer(modifier = Modifier.width(4.dp))
             CircularProgressIndicator(
                 modifier = Modifier.size(14.dp),
-                color = Color(0xFFfbbf24),
+                color = SapphoStarFilled,
                 strokeWidth = 2.dp
             )
         }
@@ -1682,7 +1683,7 @@ private fun AverageRatingDisplay(
                     else -> Icons.Filled.StarBorder
                 },
                 contentDescription = null,
-                tint = if (fillAmount > 0f) Color(0xFFfbbf24) else Color(0xFF6b7280),
+                tint = if (fillAmount > 0f) SapphoStarFilled else SapphoTextMuted,
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -1692,7 +1693,7 @@ private fun AverageRatingDisplay(
             text = String.format(java.util.Locale.US, "%.1f", average),
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFFfbbf24)
+            color = SapphoStarFilled
         )
     }
 }
@@ -1752,7 +1753,7 @@ fun EditMetadataDialog(
                 .fillMaxWidth()
                 .fillMaxHeight(0.9f),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF1e293b)
+            color = SapphoSurfaceLight
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
@@ -1779,7 +1780,7 @@ fun EditMetadataDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = if (!isBusy) Color(0xFF9ca3af) else Color(0xFF4b5563)
+                            tint = if (!isBusy) SapphoIconDefault else LegacyGrayDark
                         )
                     }
                 }
@@ -1799,12 +1800,12 @@ fun EditMetadataDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        color = if (isSuccess) Color(0xFF10b981).copy(alpha = 0.15f) else Color(0xFFef4444).copy(alpha = 0.15f)
+                        color = if (isSuccess) SapphoSuccess.copy(alpha = 0.15f) else SapphoError.copy(alpha = 0.15f)
                     ) {
                         Text(
                             text = result,
                             fontSize = 12.sp,
-                            color = if (isSuccess) Color(0xFF34d399) else Color(0xFFf87171),
+                            color = if (isSuccess) LegacyGreenLight else LegacyRedLight,
                             modifier = Modifier.padding(12.dp)
                         )
                     }
@@ -1816,12 +1817,12 @@ fun EditMetadataDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        color = if (isSuccess) Color(0xFF10b981).copy(alpha = 0.15f) else Color(0xFFef4444).copy(alpha = 0.15f)
+                        color = if (isSuccess) SapphoSuccess.copy(alpha = 0.15f) else SapphoError.copy(alpha = 0.15f)
                     ) {
                         Text(
                             text = result,
                             fontSize = 12.sp,
-                            color = if (isSuccess) Color(0xFF34d399) else Color(0xFFf87171),
+                            color = if (isSuccess) LegacyGreenLight else LegacyRedLight,
                             modifier = Modifier.padding(12.dp)
                         )
                     }
@@ -1836,14 +1837,14 @@ fun EditMetadataDialog(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = Color(0xFF10b981),
+                            color = SapphoSuccess,
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Embedding metadata into file...",
                             fontSize = 12.sp,
-                            color = Color(0xFF34d399)
+                            color = LegacyGreenLight
                         )
                     }
                 }
@@ -1857,14 +1858,14 @@ fun EditMetadataDialog(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = Color(0xFF8b5cf6),
+                            color = LegacyPurple,
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Fetching chapters from Audnexus...",
                             fontSize = 12.sp,
-                            color = Color(0xFFa78bfa)
+                            color = LegacyPurpleLight
                         )
                     }
                 }
@@ -1877,15 +1878,15 @@ fun EditMetadataDialog(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isBusy && (title.isNotBlank() || author.isNotBlank()),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF8b5cf6).copy(alpha = 0.15f),
-                        contentColor = Color(0xFFa78bfa)
+                        containerColor = LegacyPurple.copy(alpha = 0.15f),
+                        contentColor = LegacyPurpleLight
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     if (isSearching) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            color = Color(0xFFa78bfa),
+                            color = LegacyPurpleLight,
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1906,8 +1907,8 @@ fun EditMetadataDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF374151).copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, Color(0xFF8b5cf6).copy(alpha = 0.3f))
+                        color = SapphoProgressTrack.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, LegacyPurple.copy(alpha = 0.3f))
                     ) {
                         Column(
                             modifier = Modifier.padding(12.dp),
@@ -1922,7 +1923,7 @@ fun EditMetadataDialog(
                                     text = "${searchResults.size} Results",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFFa78bfa)
+                                    color = LegacyPurpleLight
                                 )
                                 TextButton(
                                     onClick = {
@@ -1931,7 +1932,7 @@ fun EditMetadataDialog(
                                     },
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
-                                    Text("Hide", color = Color(0xFF9ca3af), fontSize = 12.sp)
+                                    Text("Hide", color = SapphoIconDefault, fontSize = 12.sp)
                                 }
                             }
 
@@ -1953,18 +1954,18 @@ fun EditMetadataDialog(
                     Text(
                         text = error,
                         fontSize = 12.sp,
-                        color = Color(0xFFef4444)
+                        color = SapphoError
                     )
                 }
 
-                Divider(color = Color(0xFF374151))
+                Divider(color = SapphoProgressTrack)
 
                 // ===== BASIC INFO SECTION =====
                 Text(
                     text = "Basic Info",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9ca3af),
+                    color = SapphoIconDefault,
                     modifier = Modifier.padding(top = 4.dp)
                 )
 
@@ -2031,14 +2032,14 @@ fun EditMetadataDialog(
                     )
                 }
 
-                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
 
                 // ===== CLASSIFICATION SECTION =====
                 Text(
                     text = "Classification",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
 
                 // Genre
@@ -2093,26 +2094,26 @@ fun EditMetadataDialog(
                             checked = abridged,
                             onCheckedChange = { abridged = it },
                             colors = CheckboxDefaults.colors(
-                                checkedColor = Color(0xFF3b82f6),
-                                uncheckedColor = Color(0xFF9ca3af)
+                                checkedColor = SapphoInfo,
+                                uncheckedColor = SapphoIconDefault
                             )
                         )
                         Text(
                             text = "Abridged",
-                            color = Color(0xFFE0E7F1),
+                            color = SapphoText,
                             fontSize = 14.sp
                         )
                     }
                 }
 
-                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
 
                 // ===== PUBLISHING SECTION =====
                 Text(
                     text = "Publishing",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
 
                 // Publisher
@@ -2148,14 +2149,14 @@ fun EditMetadataDialog(
                     )
                 }
 
-                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
 
                 // ===== IDENTIFIERS SECTION =====
                 Text(
                     text = "Identifiers",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
 
                 // ISBN
@@ -2190,7 +2191,7 @@ fun EditMetadataDialog(
                         onClick = { onFetchChapters(asin) },
                         enabled = !isBusy && asin.isNotBlank() && asin.matches(Regex("^[A-Z0-9]{10}$", RegexOption.IGNORE_CASE)),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF8b5cf6)
+                            containerColor = LegacyPurple
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
@@ -2204,14 +2205,14 @@ fun EditMetadataDialog(
                     }
                 }
 
-                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
 
                 // ===== COVER SECTION =====
                 Text(
                     text = "Cover Image",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
 
                 // Cover URL
@@ -2219,7 +2220,7 @@ fun EditMetadataDialog(
                     value = coverUrl,
                     onValueChange = { coverUrl = it },
                     label = { Text("Cover Image URL") },
-                    placeholder = { Text("Enter URL to download cover", color = Color(0xFF6b7280)) },
+                    placeholder = { Text("Enter URL to download cover", color = SapphoTextMuted) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = editTextFieldColors()
@@ -2229,19 +2230,19 @@ fun EditMetadataDialog(
                     Text(
                         text = "Cover will be downloaded from URL when saved",
                         fontSize = 11.sp,
-                        color = Color(0xFF10b981),
+                        color = SapphoSuccess,
                         modifier = Modifier.padding(start = 4.dp)
                     )
                 }
 
-                Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
 
                 // ===== DESCRIPTION SECTION =====
                 Text(
                     text = "Description",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
 
                 // Description (multi-line)
@@ -2292,7 +2293,7 @@ fun EditMetadataDialog(
                         },
                         enabled = !isBusy,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3b82f6)
+                            containerColor = SapphoInfo
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
@@ -2334,7 +2335,7 @@ fun EditMetadataDialog(
                         },
                         enabled = !isBusy,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF10b981)
+                            containerColor = SapphoSuccess
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
@@ -2458,7 +2459,7 @@ private fun MetadataPreviewDialog(
                 .fillMaxWidth()
                 .fillMaxHeight(0.85f),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF1e293b)
+            color = SapphoSurfaceLight
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
@@ -2484,7 +2485,7 @@ private fun MetadataPreviewDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color(0xFF9ca3af)
+                            tint = SapphoIconDefault
                         )
                     }
                 }
@@ -2501,7 +2502,7 @@ private fun MetadataPreviewDialog(
                     Text(
                         text = "Select fields to apply:",
                         fontSize = 12.sp,
-                        color = Color(0xFF9ca3af)
+                        color = SapphoIconDefault
                     )
 
                 // Field rows with checkboxes
@@ -2730,7 +2731,7 @@ private fun MetadataPreviewDialog(
                         Text(
                             text = "No new values to apply - all fields match current values.",
                             fontSize = 12.sp,
-                            color = Color(0xFF6b7280),
+                            color = SapphoTextMuted,
                             modifier = Modifier.padding(vertical = 16.dp)
                         )
                     }
@@ -2741,7 +2742,7 @@ private fun MetadataPreviewDialog(
                 // Bottom button
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF1e293b)
+                    color = SapphoSurfaceLight
                 ) {
                     Button(
                         onClick = {
@@ -2749,7 +2750,7 @@ private fun MetadataPreviewDialog(
                         },
                         enabled = selectedFields.any { it.value },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3b82f6)
+                            containerColor = SapphoInfo
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2775,7 +2776,7 @@ private fun FieldPreviewRow(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(6.dp),
-        color = if (isSelected) Color(0xFF3b82f6).copy(alpha = 0.1f) else Color.Transparent
+        color = if (isSelected) SapphoInfo.copy(alpha = 0.1f) else Color.Transparent
     ) {
         Row(
             modifier = Modifier
@@ -2788,8 +2789,8 @@ private fun FieldPreviewRow(
                 checked = isSelected,
                 onCheckedChange = onSelectionChange,
                 colors = CheckboxDefaults.colors(
-                    checkedColor = Color(0xFF3b82f6),
-                    uncheckedColor = Color(0xFF6b7280)
+                    checkedColor = SapphoInfo,
+                    uncheckedColor = SapphoTextMuted
                 ),
                 modifier = Modifier.size(20.dp)
             )
@@ -2807,7 +2808,7 @@ private fun FieldPreviewRow(
                     Text(
                         text = oldValue,
                         fontSize = 11.sp,
-                        color = Color(0xFFef4444),
+                        color = SapphoError,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -2815,12 +2816,12 @@ private fun FieldPreviewRow(
                     Text(
                         text = " → ",
                         fontSize = 11.sp,
-                        color = Color(0xFF6b7280)
+                        color = SapphoTextMuted
                     )
                     Text(
                         text = newValue,
                         fontSize = 11.sp,
-                        color = Color(0xFF10b981),
+                        color = SapphoSuccess,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -2841,7 +2842,7 @@ private fun MetadataSearchResultItem(
             .fillMaxWidth()
             .clickable(onClick = onSelect),
         shape = RoundedCornerShape(6.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Row(
             modifier = Modifier.padding(10.dp),
@@ -2865,7 +2866,7 @@ private fun MetadataSearchResultItem(
                 Surface(
                     modifier = Modifier.size(50.dp),
                     shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF374151)
+                    color = SapphoProgressTrack
                 ) {
                     Box(
                         contentAlignment = Alignment.Center
@@ -2873,7 +2874,7 @@ private fun MetadataSearchResultItem(
                         Icon(
                             imageVector = Icons.Default.Description,
                             contentDescription = null,
-                            tint = Color(0xFF6b7280),
+                            tint = SapphoTextMuted,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -2908,7 +2909,7 @@ private fun MetadataSearchResultItem(
                         if (result.hasChapters == true) {
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFF8b5cf6).copy(alpha = 0.2f)
+                                color = LegacyPurple.copy(alpha = 0.2f)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -2918,13 +2919,13 @@ private fun MetadataSearchResultItem(
                                     Icon(
                                         imageVector = Icons.Default.List,
                                         contentDescription = null,
-                                        tint = Color(0xFFa78bfa),
+                                        tint = LegacyPurpleLight,
                                         modifier = Modifier.size(10.dp)
                                     )
                                     Text(
                                         text = "Ch",
                                         fontSize = 10.sp,
-                                        color = Color(0xFFa78bfa)
+                                        color = LegacyPurpleLight
                                     )
                                 }
                             }
@@ -2933,18 +2934,18 @@ private fun MetadataSearchResultItem(
                         Surface(
                             shape = RoundedCornerShape(4.dp),
                             color = when (result.source.lowercase()) {
-                                "audible" -> Color(0xFFf97316).copy(alpha = 0.2f)
-                                "google" -> Color(0xFF3b82f6).copy(alpha = 0.2f)
-                                else -> Color(0xFF10b981).copy(alpha = 0.2f)
+                                "audible" -> LegacyOrange.copy(alpha = 0.2f)
+                                "google" -> SapphoInfo.copy(alpha = 0.2f)
+                                else -> SapphoSuccess.copy(alpha = 0.2f)
                             }
                         ) {
                             Text(
                                 text = result.source.replaceFirstChar { it.uppercase() },
                                 fontSize = 10.sp,
                                 color = when (result.source.lowercase()) {
-                                    "audible" -> Color(0xFFfb923c)
-                                    "google" -> Color(0xFF60a5fa)
-                                    else -> Color(0xFF34d399)
+                                    "audible" -> SapphoWarning
+                                    "google" -> LegacyBlueLight
+                                    else -> LegacyGreenLight
                                 },
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
@@ -2956,7 +2957,7 @@ private fun MetadataSearchResultItem(
                     Text(
                         text = "by $author",
                         fontSize = 12.sp,
-                        color = Color(0xFF9ca3af),
+                        color = SapphoIconDefault,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2969,7 +2970,7 @@ private fun MetadataSearchResultItem(
                         Text(
                             text = "Narrated: $narrator",
                             fontSize = 11.sp,
-                            color = Color(0xFF6b7280),
+                            color = SapphoTextMuted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
@@ -2984,7 +2985,7 @@ private fun MetadataSearchResultItem(
                         Text(
                             text = seriesText,
                             fontSize = 11.sp,
-                            color = Color(0xFF8b5cf6),
+                            color = LegacyPurple,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2998,12 +2999,12 @@ private fun MetadataSearchResultItem(
 @Composable
 private fun editTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = Color.White,
-    unfocusedTextColor = Color(0xFFd1d5db),
-    focusedBorderColor = Color(0xFF3b82f6),
-    unfocusedBorderColor = Color(0xFF374151),
-    focusedLabelColor = Color(0xFF3b82f6),
-    unfocusedLabelColor = Color(0xFF9ca3af),
-    cursorColor = Color(0xFF3b82f6)
+    unfocusedTextColor = SapphoTextLight,
+    focusedBorderColor = SapphoInfo,
+    unfocusedBorderColor = SapphoProgressTrack,
+    focusedLabelColor = SapphoInfo,
+    unfocusedLabelColor = SapphoIconDefault,
+    cursorColor = SapphoInfo
 )
 
 @Composable
@@ -3056,7 +3057,7 @@ private fun ChaptersDialog(
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit chapters",
-                            tint = Color(0xFF3b82f6),
+                            tint = SapphoInfo,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -3074,7 +3075,7 @@ private fun ChaptersDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        color = if (isSuccess) Color(0xFF10b981).copy(alpha = 0.15f) else Color(0xFFef4444).copy(alpha = 0.15f)
+                        color = if (isSuccess) SapphoSuccess.copy(alpha = 0.15f) else SapphoError.copy(alpha = 0.15f)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -3084,14 +3085,14 @@ private fun ChaptersDialog(
                             Text(
                                 text = result,
                                 fontSize = 12.sp,
-                                color = if (isSuccess) Color(0xFF34d399) else Color(0xFFf87171),
+                                color = if (isSuccess) LegacyGreenLight else LegacyRedLight,
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(
                                 onClick = onClearChapterSaveResult,
                                 contentPadding = PaddingValues(4.dp)
                             ) {
-                                Text("Dismiss", fontSize = 10.sp, color = Color(0xFF9ca3af))
+                                Text("Dismiss", fontSize = 10.sp, color = SapphoIconDefault)
                             }
                         }
                     }
@@ -3102,7 +3103,7 @@ private fun ChaptersDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
-                        color = if (isSuccess) Color(0xFF10b981).copy(alpha = 0.15f) else Color(0xFFef4444).copy(alpha = 0.15f)
+                        color = if (isSuccess) SapphoSuccess.copy(alpha = 0.15f) else SapphoError.copy(alpha = 0.15f)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -3112,14 +3113,14 @@ private fun ChaptersDialog(
                             Text(
                                 text = result,
                                 fontSize = 12.sp,
-                                color = if (isSuccess) Color(0xFF34d399) else Color(0xFFf87171),
+                                color = if (isSuccess) LegacyGreenLight else LegacyRedLight,
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(
                                 onClick = onClearFetchChaptersResult,
                                 contentPadding = PaddingValues(4.dp)
                             ) {
-                                Text("Dismiss", fontSize = 10.sp, color = Color(0xFF9ca3af))
+                                Text("Dismiss", fontSize = 10.sp, color = SapphoIconDefault)
                             }
                         }
                     }
@@ -3153,7 +3154,7 @@ private fun ChaptersDialog(
                                 },
                                 enabled = !isBusy && asinInput.isNotBlank(),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF8b5cf6)
+                                    containerColor = LegacyPurple
                                 ),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {
@@ -3171,7 +3172,7 @@ private fun ChaptersDialog(
                                 onClick = { showAsinInput = false },
                                 enabled = !isBusy
                             ) {
-                                Text("Cancel", fontSize = 12.sp, color = Color(0xFF9ca3af))
+                                Text("Cancel", fontSize = 12.sp, color = SapphoIconDefault)
                             }
                         }
                     } else {
@@ -3180,8 +3181,8 @@ private fun ChaptersDialog(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isBusy,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF8b5cf6).copy(alpha = 0.15f),
-                                contentColor = Color(0xFFa78bfa)
+                                containerColor = LegacyPurple.copy(alpha = 0.15f),
+                                contentColor = LegacyPurpleLight
                             ),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -3195,7 +3196,7 @@ private fun ChaptersDialog(
                         }
                     }
 
-                    Divider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                    Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
                 }
 
                 // Chapter list
@@ -3219,7 +3220,7 @@ private fun ChaptersDialog(
                                 leadingIcon = {
                                     Text(
                                         text = "${index + 1}.",
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         fontSize = 12.sp,
                                         modifier = Modifier.padding(start = 8.dp)
                                     )
@@ -3227,7 +3228,7 @@ private fun ChaptersDialog(
                                 trailingIcon = {
                                     Text(
                                         text = formatTime(chapter.startTime.toLong()),
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         fontSize = 10.sp,
                                         modifier = Modifier.padding(end = 8.dp)
                                     )
@@ -3255,7 +3256,7 @@ private fun ChaptersDialog(
                                     )
                                     Text(
                                         text = formatTime(chapter.startTime.toLong()),
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         fontSize = 12.sp
                                     )
                                 }
@@ -3278,7 +3279,7 @@ private fun ChaptersDialog(
                         },
                         enabled = !isBusy
                     ) {
-                        Text("Cancel", color = Color(0xFF9ca3af))
+                        Text("Cancel", color = SapphoIconDefault)
                     }
                     Button(
                         onClick = {
@@ -3290,7 +3291,7 @@ private fun ChaptersDialog(
                         },
                         enabled = !isBusy,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3b82f6)
+                            containerColor = SapphoInfo
                         )
                     ) {
                         if (isSavingChapters) {
@@ -3306,11 +3307,11 @@ private fun ChaptersDialog(
                 }
             } else {
                 TextButton(onClick = onDismiss) {
-                    Text("Close", color = Color(0xFF3b82f6))
+                    Text("Close", color = SapphoInfo)
                 }
             }
         },
-        containerColor = Color(0xFF1e293b)
+        containerColor = SapphoSurfaceLight
     )
 }
 
@@ -3333,7 +3334,7 @@ private fun AddToCollectionDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF1a1a1a)
+                containerColor = SapphoSurface
             )
         ) {
             Column(
@@ -3360,7 +3361,7 @@ private fun AddToCollectionDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color(0xFF9ca3af)
+                            tint = SapphoIconDefault
                         )
                     }
                 }
@@ -3374,7 +3375,7 @@ private fun AddToCollectionDialog(
                             .height(200.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF3b82f6))
+                        CircularProgressIndicator(color = SapphoInfo)
                     }
                 } else {
                     // Create new collection form or button
@@ -3383,14 +3384,14 @@ private fun AddToCollectionDialog(
                             OutlinedTextField(
                                 value = newCollectionName,
                                 onValueChange = { newCollectionName = it },
-                                placeholder = { Text("Collection name", color = Color(0xFF6b7280)) },
+                                placeholder = { Text("Collection name", color = SapphoTextMuted) },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedTextColor = Color.White,
                                     unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color(0xFF3b82f6),
-                                    unfocusedBorderColor = Color(0xFF374151),
-                                    cursorColor = Color(0xFF3b82f6)
+                                    focusedBorderColor = SapphoInfo,
+                                    unfocusedBorderColor = SapphoProgressTrack,
+                                    cursorColor = SapphoInfo
                                 ),
                                 singleLine = true
                             )
@@ -3403,7 +3404,7 @@ private fun AddToCollectionDialog(
                                     showCreateForm = false
                                     newCollectionName = ""
                                 }) {
-                                    Text("Cancel", color = Color(0xFF9ca3af))
+                                    Text("Cancel", color = SapphoIconDefault)
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Button(
@@ -3416,7 +3417,7 @@ private fun AddToCollectionDialog(
                                     },
                                     enabled = newCollectionName.isNotBlank(),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF3b82f6)
+                                        containerColor = SapphoInfo
                                     ),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
@@ -3429,7 +3430,7 @@ private fun AddToCollectionDialog(
                             onClick = { showCreateForm = true },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF374151)
+                                containerColor = SapphoProgressTrack
                             ),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -3449,7 +3450,7 @@ private fun AddToCollectionDialog(
                     if (collections.isEmpty()) {
                         Text(
                             text = "No collections yet. Create one above!",
-                            color = Color(0xFF9ca3af),
+                            color = SapphoIconDefault,
                             fontSize = 14.sp,
                             modifier = Modifier.padding(vertical = 16.dp)
                         )
@@ -3464,7 +3465,7 @@ private fun AddToCollectionDialog(
                                     onClick = { onToggleCollection(collection.id) },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp),
-                                    color = if (isInCollection) Color(0xFF3b82f6).copy(alpha = 0.15f) else Color(0xFF374151)
+                                    color = if (isInCollection) SapphoInfo.copy(alpha = 0.15f) else SapphoProgressTrack
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -3482,7 +3483,7 @@ private fun AddToCollectionDialog(
                                             )
                                             Text(
                                                 text = "${collection.bookCount ?: 0} books",
-                                                color = Color(0xFF9ca3af),
+                                                color = SapphoIconDefault,
                                                 fontSize = 12.sp
                                             )
                                         }
@@ -3490,7 +3491,7 @@ private fun AddToCollectionDialog(
                                             Icon(
                                                 imageVector = Icons.Default.Check,
                                                 contentDescription = "In collection",
-                                                tint = Color(0xFF3b82f6),
+                                                tint = SapphoInfo,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
@@ -3508,7 +3509,7 @@ private fun AddToCollectionDialog(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF3b82f6)
+                        containerColor = SapphoInfo
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {

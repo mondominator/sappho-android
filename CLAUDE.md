@@ -212,6 +212,31 @@ For security vulnerabilities, use **GitHub Security Advisories** instead of regu
 2. Click "Advisories" → "New draft security advisory"
 3. This keeps vulnerability details private until a fix is released
 
+## Code Quality Principles
+
+**Focus on quality code, not just the easiest or fastest solution.**
+
+- **Use the theme system**: Never hardcode colors with `Color(0xFFXXXXXX)`. Use `MaterialTheme.colorScheme`, `MaterialTheme.sapphoColors`, or import from `Color.kt`
+- **Use Typography**: Don't use inline `fontSize` and `fontWeight`. Define text styles in `Type.kt` and use `MaterialTheme.typography`
+- **Consistent spacing**: Use the spacing scale (4, 8, 12, 16, 24, 32dp) consistently
+- **Single source of truth**: Define constants, colors, dimensions in one place and reference them
+- **Proper abstractions**: Create reusable composables instead of copy-pasting UI code
+- **Follow existing patterns**: Look at how similar features are implemented before adding new ones
+- **Clean imports**: Use specific imports from the theme package, not wildcard imports for colors
+
+Example - using theme colors:
+```kotlin
+// ❌ Bad - hardcoded color
+Text(color = Color(0xFF9CA3AF))
+
+// ✅ Good - theme reference
+Text(color = MaterialTheme.colorScheme.onSurfaceVariant)
+// or
+Text(color = MaterialTheme.sapphoColors.textMuted)
+// or import directly
+Text(color = SapphoTextSecondary)
+```
+
 ## PR Workflow
 
 - Always work on a new branch and merge back in via PR

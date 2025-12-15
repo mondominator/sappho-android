@@ -76,6 +76,18 @@ val SapphoStarEmpty = Color(0xFF374151)  // Star rating empty
 // These match the old hardcoded values for compatibility
 // -----------------------------------------------------------------------------
 val LegacyBlue = Color(0xFF3B82F6)
+val LegacyBlueDark = Color(0xFF1D4ED8)  // Shadow/darker blue
+val LegacyBlueLight = Color(0xFF60A5FA)  // Lighter blue for highlights
+val LegacyBluePale = Color(0xFF93C5FD)  // Very light blue
 val LegacyGray = Color(0xFF9CA3AF)
 val LegacyDarkGray = Color(0xFF374151)
 val LegacySlate = Color(0xFF1E293B)
+val LegacyGrayDark = Color(0xFF4B5563)  // Darker gray for muted icons
+val LegacyGreenLight = Color(0xFF34D399)  // Light success green
+val LegacyGreenPale = Color(0xFF6EE7B7)  // Very light green
+val LegacyGreen = Color(0xFF22C55E)  // Alternative success green
+val LegacyRedLight = Color(0xFFF87171)  // Light error red
+val LegacyPurple = Color(0xFF8B5CF6)  // Purple/violet
+val LegacyPurpleLight = Color(0xFFA78BFA)  // Light purple
+val LegacyOrange = Color(0xFFF97316)  // Audible orange
+val LegacyWhite = Color(0xFFE5E7EB)  // Off-white text
