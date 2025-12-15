@@ -71,13 +71,12 @@ fun ReadingListScreen(
             Column {
                 Text(
                     text = "Reading List",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = Color.White
                 )
                 Text(
                     text = "${books.size} books to read",
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = SapphoIconDefault
                 )
             }
@@ -107,13 +106,12 @@ fun ReadingListScreen(
                     )
                     Text(
                         text = "Your reading list is empty",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.titleLarge,
                         color = Color.White
                     )
                     Text(
                         text = "Add books to your reading list from the book detail page",
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = SapphoIconDefault
                     )
                 }
@@ -175,8 +173,7 @@ fun ReadingListBookItem(
                 ) {
                     Text(
                         text = book.title.take(2).uppercase(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineLarge,
                         color = Color.White
                     )
                 }
@@ -219,17 +216,15 @@ fun ReadingListBookItem(
 
         Text(
             text = book.title,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.labelMedium,
             color = Color.White,
-            maxLines = 2,
-            lineHeight = 14.sp
+            maxLines = 2
         )
 
         book.author?.let {
             Text(
                 text = it,
-                fontSize = 10.sp,
+                style = MaterialTheme.typography.labelSmall,
                 color = SapphoIconDefault,
                 maxLines = 1
             )
