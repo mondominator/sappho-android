@@ -186,7 +186,7 @@ fun LoginScreen(
                     Text(
                         text = (uiState as LoginUiState.Error).message,
                         color = LegacyRedLight,
-                        fontSize = 14.sp
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
@@ -214,8 +214,7 @@ fun LoginScreen(
                 } else {
                     Text(
                         text = "Login",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        style = MaterialTheme.typography.titleMedium
                     )
                 }
             }

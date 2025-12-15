@@ -155,8 +155,7 @@ fun ProfileScreen(
                                     Text(
                                         text = (user?.displayName ?: user?.username)?.firstOrNull()?.uppercaseChar()?.toString() ?: "U",
                                         color = Color.White,
-                                        fontSize = 40.sp,
-                                        fontWeight = FontWeight.Bold
+                                        style = MaterialTheme.typography.displayMedium
                                     )
                                 }
                             }
@@ -192,7 +191,7 @@ fun ProfileScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Upload", fontSize = 13.sp, color = SapphoInfo)
+                                Text("Upload", style = MaterialTheme.typography.bodySmall, color = SapphoInfo)
                             }
                             if (user?.avatar != null || avatarUri != null) {
                                 TextButton(
@@ -212,7 +211,7 @@ fun ProfileScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Remove", fontSize = 13.sp, color = SapphoError)
+                                    Text("Remove", style = MaterialTheme.typography.bodySmall, color = SapphoError)
                                 }
                             }
                         }
@@ -222,8 +221,7 @@ fun ProfileScreen(
                         // Name
                         Text(
                             text = user?.displayName ?: user?.username ?: "User",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineLarge,
                             color = Color.White
                         )
 
@@ -232,7 +230,7 @@ fun ProfileScreen(
                         // Username
                         Text(
                             text = "@${user?.username ?: ""}",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = SapphoIconDefault
                         )
 
@@ -246,9 +244,8 @@ fun ProfileScreen(
                         ) {
                             Text(
                                 text = if (user?.isAdmin == 1) "Administrator" else "User",
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.labelMedium,
                                 color = if (user?.isAdmin == 1) SapphoSuccess else SapphoInfo,
-                                fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                             )
                         }
@@ -264,7 +261,7 @@ fun ProfileScreen(
                             } catch (e: Exception) { createdAt }
                             Text(
                                 text = "Member since $date",
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.labelMedium,
                                 color = SapphoTextMuted
                             )
                         }
@@ -351,7 +348,7 @@ private fun ProfileTab(
                             Text(
                                 text = author.author,
                                 color = Color.White,
-                                fontSize = 14.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
@@ -359,7 +356,7 @@ private fun ProfileTab(
                             Text(
                                 text = "${author.bookCount} books • ${formatListenTime(author.listenTime)}",
                                 color = SapphoIconDefault,
-                                fontSize = 12.sp
+                                style = MaterialTheme.typography.labelMedium
                             )
                         }
                     }
@@ -384,7 +381,7 @@ private fun ProfileTab(
                             Text(
                                 text = genre.genre,
                                 color = Color.White,
-                                fontSize = 14.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
@@ -392,7 +389,7 @@ private fun ProfileTab(
                             Text(
                                 text = "${genre.bookCount} books • ${formatListenTime(genre.listenTime)}",
                                 color = SapphoIconDefault,
-                                fontSize = 12.sp
+                                style = MaterialTheme.typography.labelMedium
                             )
                         }
                     }
@@ -435,8 +432,7 @@ private fun ProfileTab(
                                         Text(
                                             text = item.title.take(1).uppercase(),
                                             color = SapphoIconDefault,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold
+                                            style = MaterialTheme.typography.titleMedium
                                         )
                                     }
                                 }
@@ -446,7 +442,7 @@ private fun ProfileTab(
                                 Text(
                                     text = item.title,
                                     color = Color.White,
-                                    fontSize = 14.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -454,7 +450,7 @@ private fun ProfileTab(
                                     Text(
                                         text = author,
                                         color = SapphoTextMuted,
-                                        fontSize = 12.sp,
+                                        style = MaterialTheme.typography.labelMedium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -473,8 +469,7 @@ private fun ProfileTab(
                                 Text(
                                     text = "${(progress * 100).toInt()}%",
                                     color = SapphoInfo,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
+                                    style = MaterialTheme.typography.labelMedium
                                 )
                             }
                         }
@@ -490,7 +485,7 @@ private fun ProfileTab(
                 Text(
                     text = "No listening stats yet",
                     color = SapphoTextMuted,
-                    fontSize = 14.sp
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
@@ -527,15 +522,14 @@ private fun StatCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = value,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineSmall,
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.labelMedium,
                 color = SapphoIconDefault,
                 textAlign = TextAlign.Center
             )
@@ -573,8 +567,7 @@ private fun SectionCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
                     color = Color.White
                 )
             }
