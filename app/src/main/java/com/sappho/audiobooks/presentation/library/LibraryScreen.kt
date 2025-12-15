@@ -328,14 +328,13 @@ fun CategoriesView(
             Column(modifier = Modifier.padding(bottom = 8.dp)) {
                 Text(
                     text = "Library",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.displaySmall,
                     color = Color.White
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "$totalBooks audiobooks in your collection",
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = SapphoIconDefault
                 )
             }
