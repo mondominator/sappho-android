@@ -1341,80 +1341,24 @@ fun SeriesBooksView(
             .fillMaxSize()
             .background(SapphoBackground)
     ) {
-        // Hero Section with stacked covers
+        // Header with back button
         item {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp)
-            ) {
-                // Gradient background
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF1e3a5f),
-                                    SapphoBackground
-                                )
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF1e3a5f),
+                                SapphoBackground
                             )
                         )
-                )
-
-                // Stacked book covers
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 60.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val displayBooks = books.take(5).reversed()
-                    displayBooks.forEachIndexed { index, book ->
-                        val offset = (displayBooks.size - 1 - index) * 20
-                        val scale = 1f - (displayBooks.size - 1 - index) * 0.05f
-                        Box(
-                            modifier = Modifier
-                                .offset(x = offset.dp)
-                                .size(width = (110 * scale).dp, height = (160 * scale).dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(SapphoProgressTrack)
-                        ) {
-                            if (book.coverImage != null && serverUrl != null) {
-                                AsyncImage(
-                                    model = "$serverUrl/api/audiobooks/${book.id}/cover",
-                                    contentDescription = book.title,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.linearGradient(
-                                                colors = listOf(SapphoInfo, LegacyBlueDark)
-                                            )
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "#${formatSeriesPosition(book.seriesPosition) ?: (index + 1).toString()}",
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Back button
+                    )
+                    .padding(8.dp)
+            ) {
                 IconButton(
                     onClick = onBackClick,
                     modifier = Modifier
-                        .padding(8.dp)
                         .background(Color.Black.copy(alpha = 0.3f), CircleShape)
                 ) {
                     Icon(
@@ -1884,25 +1828,6 @@ fun SeriesBookListItem(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = SapphoIconDefault
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(10.dp))
-
-        // Cover thumbnail
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(SapphoProgressTrack)
-        ) {
-            if (book.coverImage != null && serverUrl != null) {
-                AsyncImage(
-                    model = "$serverUrl/api/audiobooks/${book.id}/cover",
-                    contentDescription = book.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
                 )
             }
         }
@@ -2909,14 +2834,15 @@ fun AllBooksView(
             com.sappho.audiobooks.data.repository.LibrarySortOption.RATING -> compareByDescending { it.userRating ?: it.averageRating ?: 0f }
         }
         val sorted = filteredBooks.sortedWith(comparator)
-        if (sortAscending || sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_ADDED ||
-            sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_LISTENED ||
-            sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.PROGRESS ||
-            sortOption == com.sappho.audiobooks.data.repository.LibrarySortOption.RATING) {
-            sorted
-        } else {
-            sorted.reversed()
-        }
+        // Options with descending comparators need reverse logic
+        val isNaturallyDescending = sortOption in listOf(
+            com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_ADDED,
+            com.sappho.audiobooks.data.repository.LibrarySortOption.RECENTLY_LISTENED,
+            com.sappho.audiobooks.data.repository.LibrarySortOption.PROGRESS,
+            com.sappho.audiobooks.data.repository.LibrarySortOption.RATING
+        )
+        val needsReverse = if (isNaturallyDescending) sortAscending else !sortAscending
+        if (needsReverse) sorted.reversed() else sorted
     }
 
     Scaffold(
@@ -3011,6 +2937,8 @@ fun AllBooksView(
                     SortOptionDropdown(
                         currentOption = sortOption,
                         onOptionSelect = { viewModel.userPreferences.setLibrarySortOption(it) },
+                        isAscending = sortAscending,
+                        onAscendingToggle = { viewModel.userPreferences.setLibrarySortAscending(it) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -3130,6 +3058,8 @@ fun FilterOptionDropdown(
 fun SortOptionDropdown(
     currentOption: com.sappho.audiobooks.data.repository.LibrarySortOption,
     onOptionSelect: (com.sappho.audiobooks.data.repository.LibrarySortOption) -> Unit,
+    isAscending: Boolean = true,
+    onAscendingToggle: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -3141,29 +3071,53 @@ fun SortOptionDropdown(
             color = SapphoIconDefault,
             modifier = Modifier.padding(bottom = 4.dp)
         )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(SapphoSurfaceDark)
-                .clickable { expanded = true }
-                .padding(12.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Sort option dropdown
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(SapphoSurfaceDark)
+                    .clickable { expanded = true }
+                    .padding(12.dp)
             ) {
-                Text(
-                    text = currentOption.displayName,
-                    fontSize = 14.sp,
-                    color = Color.White
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = currentOption.displayName,
+                        fontSize = 14.sp,
+                        color = Color.White
+                    )
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = SapphoIconDefault,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Ascending/Descending toggle button
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(SapphoSurfaceDark)
+                    .clickable { onAscendingToggle(!isAscending) },
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
+                    imageVector = if (isAscending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                    contentDescription = if (isAscending) "Ascending" else "Descending",
                     tint = SapphoIconDefault,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
