@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.foundation.Canvas
@@ -51,7 +52,7 @@ fun ReadingListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0E1A))
+            .background(SapphoBackground)
     ) {
         // Header
         Row(
@@ -77,7 +78,7 @@ fun ReadingListScreen(
                 Text(
                     text = "${books.size} books to read",
                     fontSize = 13.sp,
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
             }
         }
@@ -87,7 +88,7 @@ fun ReadingListScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3B82F6))
+                CircularProgressIndicator(color = SapphoInfo)
             }
         } else if (books.isEmpty()) {
             Box(
@@ -101,7 +102,7 @@ fun ReadingListScreen(
                     Icon(
                         imageVector = Icons.Filled.BookmarkAdded,
                         contentDescription = null,
-                        tint = Color(0xFF3b82f6),
+                        tint = SapphoInfo,
                         modifier = Modifier.size(48.dp)
                     )
                     Text(
@@ -113,7 +114,7 @@ fun ReadingListScreen(
                     Text(
                         text = "Add books to your reading list from the book detail page",
                         fontSize = 14.sp,
-                        color = Color(0xFF9ca3af)
+                        color = SapphoIconDefault
                     )
                 }
             }
@@ -152,7 +153,7 @@ fun ReadingListBookItem(
             modifier = Modifier
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF374151))
+                .background(SapphoProgressTrack)
         ) {
             if (book.coverImage != null && serverUrl != null) {
                 AsyncImage(
@@ -167,7 +168,7 @@ fun ReadingListBookItem(
                         .fillMaxSize()
                         .background(
                             Brush.linearGradient(
-                                colors = listOf(Color(0xFF374151), Color(0xFF1f2937))
+                                colors = listOf(SapphoProgressTrack, SapphoSurfaceDark)
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -206,7 +207,7 @@ fun ReadingListBookItem(
                                 .fillMaxHeight()
                                 .fillMaxWidth(progressPercent)
                                 .background(
-                                    if (progress.completed == 1) Color(0xFF10b981) else Color(0xFF3b82f6)
+                                    if (progress.completed == 1) SapphoSuccess else SapphoInfo
                                 )
                         )
                     }
@@ -229,7 +230,7 @@ fun ReadingListBookItem(
             Text(
                 text = it,
                 fontSize = 10.sp,
-                color = Color(0xFF9ca3af),
+                color = SapphoIconDefault,
                 maxLines = 1
             )
         }
@@ -247,8 +248,8 @@ private fun ReadingListRibbon(
     Canvas(
         modifier = modifier.size(size.dp)
     ) {
-        val ribbonColor = Color(0xFF3b82f6)
-        val shadowColor = Color(0xFF1d4ed8)
+        val ribbonColor = SapphoInfo
+        val shadowColor = LegacyBlueDark
 
         // Main triangle (folded corner)
         val trianglePath = Path().apply {

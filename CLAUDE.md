@@ -212,6 +212,48 @@ For security vulnerabilities, use **GitHub Security Advisories** instead of regu
 2. Click "Advisories" → "New draft security advisory"
 3. This keeps vulnerability details private until a fix is released
 
+## Code Quality Principles
+
+**Focus on quality code, not just the easiest or fastest solution.**
+
+### General Principles
+- **Write clean, readable code**: Prioritize clarity over cleverness. Code is read more than written.
+- **Follow existing patterns**: Look at how similar features are implemented before adding new ones.
+- **Avoid duplication**: Extract common logic into shared functions or composables.
+- **Single responsibility**: Each function/class should do one thing well.
+- **Meaningful names**: Use descriptive names for variables, functions, and classes.
+- **Handle errors gracefully**: Don't swallow exceptions silently. Provide useful feedback to users.
+- **Think about edge cases**: Consider null states, empty lists, network failures, etc.
+
+### Android/Compose Specific
+- **Use the theme system**: Never hardcode colors with `Color(0xFFXXXXXX)`. Use `MaterialTheme.colorScheme`, `MaterialTheme.sapphoColors`, or import from `Color.kt`
+- **Use Typography**: Don't use inline `fontSize` and `fontWeight`. Define text styles in `Type.kt` and use `MaterialTheme.typography`
+- **Consistent spacing**: Use the spacing scale (4, 8, 12, 16, 24, 32dp) consistently
+- **Single source of truth**: Define constants, colors, dimensions in one place and reference them
+- **Reusable composables**: Create reusable composables instead of copy-pasting UI code
+- **State hoisting**: Lift state up to the appropriate level for reusability and testability
+- **Remember performance**: Use `remember`, `derivedStateOf`, and `LaunchedEffect` appropriately
+
+### What to Avoid
+- Don't take shortcuts that create technical debt
+- Don't ignore compiler warnings
+- Don't leave commented-out code
+- Don't hardcode magic numbers or strings
+- Don't create god classes/functions that do everything
+
+Example - using theme colors:
+```kotlin
+// ❌ Bad - hardcoded color
+Text(color = Color(0xFF9CA3AF))
+
+// ✅ Good - theme reference
+Text(color = MaterialTheme.colorScheme.onSurfaceVariant)
+// or
+Text(color = MaterialTheme.sapphoColors.textMuted)
+// or import directly
+Text(color = SapphoTextSecondary)
+```
+
 ## PR Workflow
 
 - Always work on a new branch and merge back in via PR

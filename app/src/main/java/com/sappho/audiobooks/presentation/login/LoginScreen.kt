@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -49,8 +50,8 @@ fun LoginScreen(
             .background(
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color(0xFF0f0f0f),
-                        Color(0xFF1a1a2e)
+                        SapphoBackground,
+                        SapphoSurface
                     )
                 )
             )
@@ -63,12 +64,12 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    color = Color(0xFF1a1a1a),
+                    color = SapphoSurface,
                     shape = RoundedCornerShape(12.dp)
                 )
                 .border(
                     width = 1.dp,
-                    color = Color(0xFF2a2a2a),
+                    color = SapphoSurfaceBorder,
                     shape = RoundedCornerShape(12.dp)
                 )
                 .padding(40.dp)
@@ -88,19 +89,19 @@ fun LoginScreen(
             OutlinedTextField(
                 value = serverUrl,
                 onValueChange = { viewModel.updateServerUrl(it) },
-                label = { Text("Server URL", color = Color(0xFFd1d5db)) },
-                placeholder = { Text("http://192.168.1.100:3002", color = Color(0xFF6b7280)) },
+                label = { Text("Server URL", color = SapphoTextLight) },
+                placeholder = { Text("http://192.168.1.100:3002", color = SapphoTextMuted) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color(0xFFf3f4f6),
-                    unfocusedTextColor = Color(0xFFd1d5db),
-                    focusedBorderColor = Color(0xFF3B82F6),
-                    unfocusedBorderColor = Color(0xFF374151),
-                    focusedLabelColor = Color(0xFF3B82F6),
-                    unfocusedLabelColor = Color(0xFFd1d5db),
-                    cursorColor = Color(0xFF3B82F6)
+                    focusedTextColor = SapphoText,
+                    unfocusedTextColor = SapphoTextLight,
+                    focusedBorderColor = SapphoInfo,
+                    unfocusedBorderColor = SapphoProgressTrack,
+                    focusedLabelColor = SapphoInfo,
+                    unfocusedLabelColor = SapphoTextLight,
+                    cursorColor = SapphoInfo
                 ),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
@@ -115,18 +116,18 @@ fun LoginScreen(
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Username", color = Color(0xFFd1d5db)) },
+                label = { Text("Username", color = SapphoTextLight) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color(0xFFf3f4f6),
-                    unfocusedTextColor = Color(0xFFd1d5db),
-                    focusedBorderColor = Color(0xFF3B82F6),
-                    unfocusedBorderColor = Color(0xFF374151),
-                    focusedLabelColor = Color(0xFF3B82F6),
-                    unfocusedLabelColor = Color(0xFFd1d5db),
-                    cursorColor = Color(0xFF3B82F6)
+                    focusedTextColor = SapphoText,
+                    unfocusedTextColor = SapphoTextLight,
+                    focusedBorderColor = SapphoInfo,
+                    unfocusedBorderColor = SapphoProgressTrack,
+                    focusedLabelColor = SapphoInfo,
+                    unfocusedLabelColor = SapphoTextLight,
+                    cursorColor = SapphoInfo
                 ),
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Next
@@ -140,19 +141,19 @@ fun LoginScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Password", color = Color(0xFFd1d5db)) },
+                label = { Text("Password", color = SapphoTextLight) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color(0xFFf3f4f6),
-                    unfocusedTextColor = Color(0xFFd1d5db),
-                    focusedBorderColor = Color(0xFF3B82F6),
-                    unfocusedBorderColor = Color(0xFF374151),
-                    focusedLabelColor = Color(0xFF3B82F6),
-                    unfocusedLabelColor = Color(0xFFd1d5db),
-                    cursorColor = Color(0xFF3B82F6)
+                    focusedTextColor = SapphoText,
+                    unfocusedTextColor = SapphoTextLight,
+                    focusedBorderColor = SapphoInfo,
+                    unfocusedBorderColor = SapphoProgressTrack,
+                    focusedLabelColor = SapphoInfo,
+                    unfocusedLabelColor = SapphoTextLight,
+                    cursorColor = SapphoInfo
                 ),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -172,19 +173,19 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            color = Color(0xFF7f1d1d),
+                            color = SapphoError,
                             shape = RoundedCornerShape(6.dp)
                         )
                         .border(
                             width = 1.dp,
-                            color = Color(0xFF991b1b),
+                            color = SapphoError,
                             shape = RoundedCornerShape(6.dp)
                         )
                         .padding(12.dp)
                 ) {
                     Text(
                         text = (uiState as LoginUiState.Error).message,
-                        color = Color(0xFFfecaca),
+                        color = LegacyRedLight,
                         fontSize = 14.sp
                     )
                 }
@@ -199,10 +200,10 @@ fun LoginScreen(
                 shape = RoundedCornerShape(8.dp),
                 enabled = uiState !is LoginUiState.Loading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3B82F6),
+                    containerColor = SapphoInfo,
                     contentColor = Color.White,
-                    disabledContainerColor = Color(0xFF374151),
-                    disabledContentColor = Color(0xFF6b7280)
+                    disabledContainerColor = SapphoProgressTrack,
+                    disabledContentColor = SapphoTextMuted
                 )
             ) {
                 if (uiState is LoginUiState.Loading) {

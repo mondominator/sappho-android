@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -72,7 +73,7 @@ fun MinimizedPlayerBar(
                 .fillMaxWidth()
                 .height(72.dp)
                 .clickable(onClick = onExpand),
-            color = Color(0xFF1e293b),
+            color = SapphoSurfaceLight,
             shadowElevation = 8.dp
         ) {
             Row(
@@ -86,7 +87,7 @@ fun MinimizedPlayerBar(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF374151))
+                        .background(SapphoProgressTrack)
                 ) {
                     if (book.coverImage != null && serverUrl != null) {
                         AsyncImage(
@@ -104,7 +105,7 @@ fun MinimizedPlayerBar(
                                 text = book.title.take(1).uppercase(),
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF3b82f6)
+                                color = SapphoInfo
                             )
                         }
                     }
@@ -130,7 +131,7 @@ fun MinimizedPlayerBar(
                         Text(
                             text = author,
                             fontSize = 12.sp,
-                            color = Color(0xFF9ca3af),
+                            color = SapphoIconDefault,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             lineHeight = 14.sp
@@ -140,8 +141,8 @@ fun MinimizedPlayerBar(
                     // Time display with pulsing animation when playing
                     val timePulseTransition = rememberInfiniteTransition(label = "timePulse")
                     val timeColor by timePulseTransition.animateColor(
-                        initialValue = Color(0xFF60a5fa),
-                        targetValue = Color(0xFF93c5fd),
+                        initialValue = LegacyBlueLight,
+                        targetValue = LegacyBluePale,
                         animationSpec = infiniteRepeatable(
                             animation = tween(
                                 durationMillis = 2000,
@@ -155,7 +156,7 @@ fun MinimizedPlayerBar(
                     Text(
                         text = "${formatTime(currentPosition)} / ${formatTime(duration)}",
                         fontSize = 11.sp,
-                        color = if (isPlaying) timeColor else Color(0xFF6b7280),
+                        color = if (isPlaying) timeColor else SapphoTextMuted,
                         lineHeight = 13.sp
                     )
                 }
@@ -177,7 +178,7 @@ fun MinimizedPlayerBar(
                     Icon(
                         imageVector = Icons.Default.Replay10,
                         contentDescription = "Seek back 10 seconds",
-                        tint = Color(0xFF9ca3af),
+                        tint = SapphoIconDefault,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -220,9 +221,9 @@ fun MinimizedPlayerBar(
                 )
 
                 val buttonColor = if (isPlaying) {
-                    Color(0xFF10b981)
+                    SapphoSuccess
                 } else {
-                    Color(0xFF3b82f6)
+                    SapphoInfo
                 }
 
                 Box(
@@ -274,7 +275,7 @@ fun MinimizedPlayerBar(
                     Icon(
                         imageVector = Icons.Default.Forward10,
                         contentDescription = "Skip forward 10 seconds",
-                        tint = Color(0xFF9ca3af),
+                        tint = SapphoIconDefault,
                         modifier = Modifier.size(32.dp)
                     )
                 }
