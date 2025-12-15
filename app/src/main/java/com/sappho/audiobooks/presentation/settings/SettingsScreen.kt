@@ -139,7 +139,7 @@ fun SettingsScreen(
                     Text(
                         text = "Changes take effect on next playback start",
                         color = SapphoTextMuted,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -185,12 +185,12 @@ fun SettingsScreen(
                         Text(
                             text = "App Version",
                             color = Color.White,
-                            fontSize = 15.sp
+                            style = MaterialTheme.typography.titleSmall
                         )
                         Text(
                             text = BuildConfig.VERSION_NAME,
                             color = SapphoIconDefault,
-                            fontSize = 14.sp
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
 
@@ -206,12 +206,12 @@ fun SettingsScreen(
                         Text(
                             text = "Server Version",
                             color = Color.White,
-                            fontSize = 15.sp
+                            style = MaterialTheme.typography.titleSmall
                         )
                         Text(
                             text = serverVersion ?: "Unknown",
                             color = SapphoIconDefault,
-                            fontSize = 14.sp
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
@@ -238,8 +238,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Logout",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        style = MaterialTheme.typography.titleMedium
                     )
                 }
 
@@ -464,8 +463,7 @@ private fun SectionCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
                     color = Color.White
                 )
             }
@@ -500,13 +498,12 @@ private fun SettingsRow(
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
+                style = MaterialTheme.typography.titleSmall
             )
             Text(
                 text = subtitle,
                 color = SapphoTextMuted,
-                fontSize = 13.sp
+                style = MaterialTheme.typography.bodySmall
             )
         }
         Icon(
@@ -538,14 +535,12 @@ private fun SkipIntervalSelector(
             Text(
                 text = label,
                 color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
+                style = MaterialTheme.typography.titleSmall
             )
             Text(
                 text = "${currentValue}s",
                 color = SapphoInfo,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+                style = MaterialTheme.typography.labelLarge
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -565,8 +560,7 @@ private fun SkipIntervalSelector(
                     Text(
                         text = "${seconds}s",
                         color = if (isSelected) Color.White else SapphoIconDefault,
-                        fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                        style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp)
                     )
