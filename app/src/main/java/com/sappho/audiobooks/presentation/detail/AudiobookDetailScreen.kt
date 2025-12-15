@@ -77,6 +77,7 @@ fun AudiobookDetailScreen(
     val chapters by viewModel.chapters.collectAsState()
     val files by viewModel.files.collectAsState()
     val serverUrl by viewModel.serverUrl.collectAsState()
+    val coverVersion by viewModel.coverVersion.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
     val isFavorite by viewModel.isFavorite.collectAsState()
@@ -256,9 +257,14 @@ fun AudiobookDetailScreen(
                                     .background(SapphoProgressTrack)
                             ) {
                                 if (book.coverImage != null && serverUrl != null) {
-                                    // Let Coil try to load - it may have the image cached
+                                    // Let Coil try to load - use coverVersion for cache busting after metadata updates
+                                    val coverUrl = if (coverVersion > 0) {
+                                        "$serverUrl/api/audiobooks/${book.id}/cover?v=$coverVersion"
+                                    } else {
+                                        "$serverUrl/api/audiobooks/${book.id}/cover"
+                                    }
                                     AsyncImage(
-                                        model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                                        model = coverUrl,
                                         contentDescription = book.title,
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop

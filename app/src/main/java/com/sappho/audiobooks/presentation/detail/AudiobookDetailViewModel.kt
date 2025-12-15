@@ -59,6 +59,10 @@ class AudiobookDetailViewModel @Inject constructor(
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl
 
+    // Cover version for cache busting - increment after metadata updates
+    private val _coverVersion = MutableStateFlow(0L)
+    val coverVersion: StateFlow<Long> = _coverVersion
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
@@ -417,6 +421,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     val response = api.updateAudiobook(book.id, request)
                     if (response.isSuccessful) {
                         _metadataSaveResult.value = "Metadata saved successfully"
+                        // Increment cover version to bust image cache
+                        _coverVersion.value = System.currentTimeMillis()
                         // Reload audiobook to get updated data
                         loadAudiobook(book.id)
                         onSuccess()
@@ -484,6 +490,10 @@ class AudiobookDetailViewModel @Inject constructor(
                     val response = api.embedMetadata(book.id)
                     if (response.isSuccessful) {
                         _embedMetadataResult.value = response.body()?.message ?: "Metadata embedded successfully"
+                        // Increment cover version to bust image cache
+                        _coverVersion.value = System.currentTimeMillis()
+                        // Reload audiobook to refresh any updated data
+                        loadAudiobook(book.id)
                     } else {
                         // Try to parse error message from server response
                         val errorBody = response.errorBody()?.string()
