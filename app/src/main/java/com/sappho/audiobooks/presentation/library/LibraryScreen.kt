@@ -347,7 +347,7 @@ fun CategoriesView(
                 title = "Series",
                 count = seriesCount,
                 label = "series",
-                gradientColors = listOf(Color(0xFF3b82f6), Color(0xFF1d4ed8)),
+                gradientColors = listOf(Color(0xFF5BC0DE), Color(0xFF3498DB)),
                 onClick = onSeriesClick
             )
         }
@@ -363,7 +363,7 @@ fun CategoriesView(
                     title = "Authors",
                     count = authorsCount,
                     label = "authors",
-                    gradientColors = listOf(Color(0xFF8b5cf6), Color(0xFF6d28d9)),
+                    gradientColors = listOf(Color(0xFF5BC0DE), Color(0xFF3498DB)),
                     onClick = onAuthorsClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -372,7 +372,7 @@ fun CategoriesView(
                     title = "Genres",
                     count = genresCount,
                     label = "genres",
-                    gradientColors = listOf(Color(0xFF10b981), Color(0xFF059669)),
+                    gradientColors = listOf(Color(0xFF5BC0DE), Color(0xFF3498DB)),
                     onClick = onGenresClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -390,7 +390,7 @@ fun CategoriesView(
                     title = "Collections",
                     count = collectionsCount,
                     label = "collections",
-                    gradientColors = listOf(Color(0xFFf59e0b), Color(0xFFd97706)),
+                    gradientColors = listOf(Color(0xFF26A69A), Color(0xFF00897B)),
                     onClick = onCollectionsClick,
                     modifier = Modifier.weight(1f)
                 )
@@ -399,7 +399,7 @@ fun CategoriesView(
                     title = "Reading List",
                     count = readingListCount,
                     label = "books",
-                    gradientColors = listOf(Color(0xFFec4899), Color(0xFFdb2777)),
+                    gradientColors = listOf(Color(0xFF26A69A), Color(0xFF00897B)),
                     onClick = onReadingListClick,
                     modifier = Modifier.weight(1f)
                 )

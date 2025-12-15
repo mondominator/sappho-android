@@ -853,7 +853,6 @@ fun TopBar(
                 val navItems = listOf(
                     Triple(Screen.Home, Icons.Default.Home, "Home"),
                     Triple(Screen.Library, Icons.Default.MenuBook, "Library"),
-                    Triple(Screen.Collections, Icons.Default.LibraryBooks, "Collections"),
                     Triple(Screen.Search, Icons.Default.Search, "Search")
                 )
 
