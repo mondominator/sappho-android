@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,7 +73,7 @@ fun CollectionDetailScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0E1A))
+            .background(SapphoBackground)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
@@ -99,7 +100,7 @@ fun CollectionDetailScreen(
                         Icon(
                             imageVector = if (isEditMode) Icons.Default.Close else Icons.Default.ArrowBack,
                             contentDescription = if (isEditMode) "Cancel" else "Back",
-                            tint = Color(0xFFE0E7F1)
+                            tint = SapphoText
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -117,7 +118,7 @@ fun CollectionDetailScreen(
                                     Text(
                                         text = desc,
                                         fontSize = 13.sp,
-                                        color = Color(0xFF9ca3af),
+                                        color = SapphoIconDefault,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -136,7 +137,7 @@ fun CollectionDetailScreen(
                                 onClick = { showRemoveDialog = true },
                                 modifier = Modifier
                                     .size(40.dp)
-                                    .background(Color(0xFFef4444), CircleShape)
+                                    .background(SapphoError, CircleShape)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
@@ -151,7 +152,7 @@ fun CollectionDetailScreen(
                             onClick = { showEditDialog = true },
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(Color(0xFF374151), CircleShape)
+                                .background(SapphoProgressTrack, CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
@@ -170,7 +171,7 @@ fun CollectionDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF3B82F6))
+                        CircularProgressIndicator(color = SapphoInfo)
                     }
                 }
                 error != null -> {
@@ -185,12 +186,12 @@ fun CollectionDetailScreen(
                             Text(
                                 text = error ?: "Error loading collection",
                                 fontSize = 16.sp,
-                                color = Color(0xFFef4444)
+                                color = SapphoError
                             )
                             Button(
                                 onClick = { viewModel.refresh(collectionId) },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF3b82f6)
+                                    containerColor = SapphoInfo
                                 )
                             ) {
                                 Text("Retry")
@@ -210,7 +211,7 @@ fun CollectionDetailScreen(
                         Icon(
                             imageVector = Icons.Default.LibraryBooks,
                             contentDescription = null,
-                            tint = Color(0xFF3b82f6),
+                            tint = SapphoInfo,
                             modifier = Modifier.size(64.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -224,7 +225,7 @@ fun CollectionDetailScreen(
                         Text(
                             text = "Add books from the book detail page",
                             fontSize = 14.sp,
-                            color = Color(0xFF9ca3af)
+                            color = SapphoIconDefault
                         )
                     }
                 }
@@ -310,7 +311,7 @@ fun CollectionDetailScreen(
                             isEditMode = false
                         },
                         colors = ButtonDefaults.textButtonColors(
-                            contentColor = Color(0xFFef4444)
+                            contentColor = SapphoError
                         )
                     ) {
                         Text("Remove")
@@ -321,9 +322,9 @@ fun CollectionDetailScreen(
                         Text("Cancel")
                     }
                 },
-                containerColor = Color(0xFF1a1a1a),
+                containerColor = SapphoSurface,
                 titleContentColor = Color.White,
-                textContentColor = Color(0xFFd1d5db)
+                textContentColor = SapphoTextLight
             )
         }
     }
@@ -343,7 +344,7 @@ private fun CollectionBookItem(
         modifier = Modifier
             .then(
                 if (isSelected) {
-                    Modifier.border(2.dp, Color(0xFF3b82f6), RoundedCornerShape(8.dp))
+                    Modifier.border(2.dp, SapphoInfo, RoundedCornerShape(8.dp))
                 } else {
                     Modifier
                 }
@@ -358,7 +359,7 @@ private fun CollectionBookItem(
             modifier = Modifier
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF374151))
+                .background(SapphoProgressTrack)
         ) {
             if (book.coverImage != null && serverUrl != null) {
                 AsyncImage(
@@ -373,7 +374,7 @@ private fun CollectionBookItem(
                         .fillMaxSize()
                         .background(
                             Brush.linearGradient(
-                                colors = listOf(Color(0xFF374151), Color(0xFF1f2937))
+                                colors = listOf(SapphoProgressTrack, SapphoSurfaceDark)
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -395,7 +396,7 @@ private fun CollectionBookItem(
                         .padding(4.dp)
                         .size(22.dp)
                         .background(
-                            if (isSelected) Color(0xFF3b82f6) else Color.Black.copy(alpha = 0.5f),
+                            if (isSelected) SapphoInfo else Color.Black.copy(alpha = 0.5f),
                             CircleShape
                         )
                         .then(
@@ -442,8 +443,8 @@ private fun CollectionBookItem(
                                     .fillMaxHeight()
                                     .fillMaxWidth(progressPercent)
                                     .background(
-                                        if (progress.completed == 1) Color(0xFF22c55e)
-                                        else Color(0xFF3b82f6)
+                                        if (progress.completed == 1) LegacyGreen
+                                        else SapphoInfo
                                     )
                             )
                         }
@@ -474,7 +475,7 @@ private fun CollectionBookItem(
                 Text(
                     text = it,
                     fontSize = 10.sp,
-                    color = Color(0xFF9ca3af),
+                    color = SapphoIconDefault,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -492,7 +493,7 @@ private fun CollectionBookItem(
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = null,
-                        tint = Color(0xFFfbbf24),
+                        tint = SapphoStarFilled,
                         modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(2.dp))
@@ -500,7 +501,7 @@ private fun CollectionBookItem(
                         text = String.format(java.util.Locale.US, "%.1f", displayRating),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color(0xFFfbbf24)
+                        color = SapphoStarFilled
                     )
                 }
             }
@@ -529,7 +530,7 @@ private fun EditCollectionDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF1a1a1a)
+                containerColor = SapphoSurface
             )
         ) {
             Column(
@@ -554,10 +555,10 @@ private fun EditCollectionDialog(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF3b82f6),
-                        unfocusedBorderColor = Color(0xFF374151),
-                        focusedLabelColor = Color(0xFF3b82f6),
-                        unfocusedLabelColor = Color(0xFF9ca3af)
+                        focusedBorderColor = SapphoInfo,
+                        unfocusedBorderColor = SapphoProgressTrack,
+                        focusedLabelColor = SapphoInfo,
+                        unfocusedLabelColor = SapphoIconDefault
                     ),
                     singleLine = true
                 )
@@ -572,10 +573,10 @@ private fun EditCollectionDialog(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF3b82f6),
-                        unfocusedBorderColor = Color(0xFF374151),
-                        focusedLabelColor = Color(0xFF3b82f6),
-                        unfocusedLabelColor = Color(0xFF9ca3af)
+                        focusedBorderColor = SapphoInfo,
+                        unfocusedBorderColor = SapphoProgressTrack,
+                        focusedLabelColor = SapphoInfo,
+                        unfocusedLabelColor = SapphoIconDefault
                     ),
                     maxLines = 3
                 )
@@ -588,7 +589,7 @@ private fun EditCollectionDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF374151).copy(alpha = 0.5f))
+                            .background(SapphoProgressTrack.copy(alpha = 0.5f))
                             .padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -604,7 +605,7 @@ private fun EditCollectionDialog(
                                 text = if (editIsPublic) "Anyone can view and add books"
                                        else "Only you can see this collection",
                                 fontSize = 12.sp,
-                                color = Color(0xFF9ca3af)
+                                color = SapphoIconDefault
                             )
                         }
                         Switch(
@@ -612,9 +613,9 @@ private fun EditCollectionDialog(
                             onCheckedChange = { editIsPublic = it },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
-                                checkedTrackColor = Color(0xFF22c55e),
+                                checkedTrackColor = LegacyGreen,
                                 uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color(0xFF6b7280)
+                                uncheckedTrackColor = SapphoTextMuted
                             )
                         )
                     }
@@ -627,14 +628,14 @@ private fun EditCollectionDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = Color(0xFF9ca3af))
+                        Text("Cancel", color = SapphoIconDefault)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = { onSave(editName, editDescription.ifBlank { null }, editIsPublic) },
                         enabled = editName.isNotBlank() && !isSaving,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3b82f6)
+                            containerColor = SapphoInfo
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {

@@ -39,6 +39,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
 import com.sappho.audiobooks.domain.model.Audiobook
+import com.sappho.audiobooks.presentation.theme.*
 
 @Composable
 fun HomeScreen(
@@ -81,16 +82,16 @@ fun HomeScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0A0E1A)),
+                .background(SapphoBackground),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = Color(0xFF3B82F6))
+            CircularProgressIndicator(color = SapphoInfo)
         }
     } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0A0E1A)),
+                .background(SapphoBackground),
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
@@ -102,7 +103,7 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .background(
-                                Color(0xFFfb923c).copy(alpha = 0.2f),
+                                SapphoWarning.copy(alpha = 0.2f),
                                 RoundedCornerShape(8.dp)
                             )
                             .padding(12.dp),
@@ -112,13 +113,13 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.Default.CloudOff,
                             contentDescription = null,
-                            tint = Color(0xFFfb923c),
+                            tint = SapphoWarning,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
                             text = "Offline mode",
                             fontSize = 14.sp,
-                            color = Color(0xFFfb923c)
+                            color = SapphoWarning
                         )
                     }
                 }
@@ -251,7 +252,7 @@ fun HomeScreen(
                                 "No audiobooks found.\nAdd some to your server to get started!"
                             },
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color(0xFF9ca3af)
+                            color = SapphoIconDefault
                         )
                     }
                 }
@@ -293,7 +294,7 @@ fun AudiobookSection(
             text = title,
             fontSize = titleSize,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFE0E7F1),
+            color = SapphoText,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
@@ -410,7 +411,7 @@ fun AudiobookCard(
                 fontSize = titleFontSize,
                 fontWeight = FontWeight.Medium,
                 maxLines = 2,
-                color = Color(0xFFE0E7F1)
+                color = SapphoText
             )
 
             // Author
@@ -419,7 +420,7 @@ fun AudiobookCard(
                     text = book.author,
                     fontSize = authorFontSize,
                     maxLines = 1,
-                    color = Color(0xFF9ca3af)
+                    color = SapphoIconDefault
                 )
             }
         }
@@ -428,20 +429,20 @@ fun AudiobookCard(
         DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            modifier = Modifier.background(Color(0xFF1a1a1a))
+            modifier = Modifier.background(SapphoSurface)
         ) {
             DropdownMenuItem(
                 text = {
                     Text(
                         text = if (book.isFavorite) "Remove from Reading List" else "Add to Reading List",
-                        color = Color(0xFFE0E7F1)
+                        color = SapphoText
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = if (book.isFavorite) Icons.Filled.BookmarkRemove else Icons.Filled.BookmarkAdd,
                         contentDescription = null,
-                        tint = Color(0xFF3b82f6)
+                        tint = SapphoInfo
                     )
                 },
                 onClick = {
@@ -453,14 +454,14 @@ fun AudiobookCard(
                 text = {
                     Text(
                         text = "Add to Collection",
-                        color = Color(0xFFE0E7F1)
+                        color = SapphoText
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Filled.FolderSpecial,
                         contentDescription = null,
-                        tint = Color(0xFF3b82f6)
+                        tint = SapphoInfo
                     )
                 },
                 onClick = {
@@ -483,8 +484,8 @@ private fun ReadingListRibbon(
     Canvas(
         modifier = modifier.size(size.dp)
     ) {
-        val ribbonColor = Color(0xFF3b82f6)
-        val shadowColor = Color(0xFF1d4ed8)
+        val ribbonColor = SapphoInfo
+        val shadowColor = LegacyBlueDark
 
         // Main triangle (folded corner)
         val trianglePath = Path().apply {
@@ -526,7 +527,7 @@ private fun AddToCollectionDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF1a1a1a)
+                containerColor = SapphoSurface
             )
         ) {
             Column(
@@ -553,7 +554,7 @@ private fun AddToCollectionDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color(0xFF9ca3af)
+                            tint = SapphoIconDefault
                         )
                     }
                 }
@@ -567,7 +568,7 @@ private fun AddToCollectionDialog(
                             .height(200.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF3b82f6))
+                        CircularProgressIndicator(color = SapphoInfo)
                     }
                 } else {
                     // Create new collection form or button
@@ -576,14 +577,14 @@ private fun AddToCollectionDialog(
                             OutlinedTextField(
                                 value = newCollectionName,
                                 onValueChange = { newCollectionName = it },
-                                placeholder = { Text("Collection name", color = Color(0xFF6b7280)) },
+                                placeholder = { Text("Collection name", color = SapphoTextMuted) },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedTextColor = Color.White,
                                     unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color(0xFF3b82f6),
-                                    unfocusedBorderColor = Color(0xFF374151),
-                                    cursorColor = Color(0xFF3b82f6)
+                                    focusedBorderColor = SapphoInfo,
+                                    unfocusedBorderColor = SapphoProgressTrack,
+                                    cursorColor = SapphoInfo
                                 ),
                                 singleLine = true
                             )
@@ -596,7 +597,7 @@ private fun AddToCollectionDialog(
                                     showCreateForm = false
                                     newCollectionName = ""
                                 }) {
-                                    Text("Cancel", color = Color(0xFF9ca3af))
+                                    Text("Cancel", color = SapphoIconDefault)
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Button(
@@ -609,7 +610,7 @@ private fun AddToCollectionDialog(
                                     },
                                     enabled = newCollectionName.isNotBlank(),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF3b82f6)
+                                        containerColor = SapphoInfo
                                     ),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
@@ -622,7 +623,7 @@ private fun AddToCollectionDialog(
                             onClick = { showCreateForm = true },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF374151)
+                                containerColor = SapphoProgressTrack
                             ),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -642,7 +643,7 @@ private fun AddToCollectionDialog(
                     if (collections.isEmpty()) {
                         Text(
                             text = "No collections yet",
-                            color = Color(0xFF9ca3af),
+                            color = SapphoIconDefault,
                             modifier = Modifier.padding(vertical = 16.dp)
                         )
                     } else {
@@ -659,8 +660,8 @@ private fun AddToCollectionDialog(
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(
-                                            if (isInCollection) Color(0xFF3b82f6).copy(alpha = 0.2f)
-                                            else Color(0xFF374151)
+                                            if (isInCollection) SapphoInfo.copy(alpha = 0.2f)
+                                            else SapphoProgressTrack
                                         )
                                         .clickable { onToggleCollection(collection.id) }
                                         .padding(12.dp),
@@ -676,7 +677,7 @@ private fun AddToCollectionDialog(
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = "In collection",
-                                            tint = Color(0xFF3b82f6)
+                                            tint = SapphoInfo
                                         )
                                     }
                                 }

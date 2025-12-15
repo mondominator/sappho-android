@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -69,7 +70,7 @@ fun SettingsScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFF0A0E1A),
+        containerColor = SapphoBackground,
         topBar = {
             TopAppBar(
                 title = {
@@ -89,7 +90,7 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1a1a1a)
+                    containerColor = SapphoSurface
                 )
             )
         }
@@ -101,7 +102,7 @@ fun SettingsScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF3B82F6))
+                CircularProgressIndicator(color = SapphoInfo)
             }
         } else {
             Column(
@@ -124,7 +125,7 @@ fun SettingsScreen(
                         onValueChange = { viewModel.userPreferences.setSkipForwardSeconds(it) }
                     )
 
-                    HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 8.dp))
 
                     // Skip Backward Setting
                     SkipIntervalSelector(
@@ -137,7 +138,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Changes take effect on next playback start",
-                        color = Color(0xFF6b7280),
+                        color = SapphoTextMuted,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -157,7 +158,7 @@ fun SettingsScreen(
                         onClick = { isEditMode = true }
                     )
 
-                    HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 8.dp))
 
                     SettingsRow(
                         icon = Icons.Outlined.Lock,
@@ -188,12 +189,12 @@ fun SettingsScreen(
                         )
                         Text(
                             text = BuildConfig.VERSION_NAME,
-                            color = Color(0xFF9ca3af),
+                            color = SapphoIconDefault,
                             fontSize = 14.sp
                         )
                     }
 
-                    HorizontalDivider(color = Color(0xFF374151), modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
 
                     Row(
                         modifier = Modifier
@@ -209,7 +210,7 @@ fun SettingsScreen(
                         )
                         Text(
                             text = serverVersion ?: "Unknown",
-                            color = Color(0xFF9ca3af),
+                            color = SapphoIconDefault,
                             fontSize = 14.sp
                         )
                     }
@@ -225,7 +226,7 @@ fun SettingsScreen(
                         .height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF374151),
+                        containerColor = SapphoProgressTrack,
                         contentColor = Color.White
                     )
                 ) {
@@ -263,11 +264,11 @@ fun SettingsScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack,
+                            focusedLabelColor = SapphoInfo,
+                            unfocusedLabelColor = SapphoIconDefault,
+                            cursorColor = SapphoInfo
                         )
                     )
 
@@ -280,11 +281,11 @@ fun SettingsScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack,
+                            focusedLabelColor = SapphoInfo,
+                            unfocusedLabelColor = SapphoIconDefault,
+                            cursorColor = SapphoInfo
                         )
                     )
                 }
@@ -300,15 +301,15 @@ fun SettingsScreen(
                     },
                     enabled = !isSaving
                 ) {
-                    Text("Save", color = Color(0xFF3b82f6))
+                    Text("Save", color = SapphoInfo)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { isEditMode = false }) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             },
-            containerColor = Color(0xFF1e293b)
+            containerColor = SapphoSurfaceLight
         )
     }
 
@@ -334,7 +335,7 @@ fun SettingsScreen(
                                 Icon(
                                     imageVector = if (showCurrentPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = "Toggle password visibility",
-                                    tint = Color(0xFF9ca3af)
+                                    tint = SapphoIconDefault
                                 )
                             }
                         },
@@ -342,11 +343,11 @@ fun SettingsScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack,
+                            focusedLabelColor = SapphoInfo,
+                            unfocusedLabelColor = SapphoIconDefault,
+                            cursorColor = SapphoInfo
                         )
                     )
 
@@ -360,7 +361,7 @@ fun SettingsScreen(
                                 Icon(
                                     imageVector = if (showNewPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = "Toggle password visibility",
-                                    tint = Color(0xFF9ca3af)
+                                    tint = SapphoIconDefault
                                 )
                             }
                         },
@@ -368,11 +369,11 @@ fun SettingsScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack,
+                            focusedLabelColor = SapphoInfo,
+                            unfocusedLabelColor = SapphoIconDefault,
+                            cursorColor = SapphoInfo
                         )
                     )
 
@@ -383,19 +384,19 @@ fun SettingsScreen(
                         visualTransformation = PasswordVisualTransformation(),
                         isError = confirmPassword.isNotEmpty() && confirmPassword != newPassword,
                         supportingText = if (confirmPassword.isNotEmpty() && confirmPassword != newPassword) {
-                            { Text("Passwords do not match", color = Color(0xFFef4444)) }
+                            { Text("Passwords do not match", color = SapphoError) }
                         } else null,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF3b82f6),
-                            unfocusedBorderColor = Color(0xFF374151),
-                            focusedLabelColor = Color(0xFF3b82f6),
-                            unfocusedLabelColor = Color(0xFF9ca3af),
-                            cursorColor = Color(0xFF3b82f6),
-                            errorBorderColor = Color(0xFFef4444),
-                            errorLabelColor = Color(0xFFef4444)
+                            focusedBorderColor = SapphoInfo,
+                            unfocusedBorderColor = SapphoProgressTrack,
+                            focusedLabelColor = SapphoInfo,
+                            unfocusedLabelColor = SapphoIconDefault,
+                            cursorColor = SapphoInfo,
+                            errorBorderColor = SapphoError,
+                            errorLabelColor = SapphoError
                         )
                     )
                 }
@@ -413,7 +414,7 @@ fun SettingsScreen(
                     },
                     enabled = currentPassword.isNotBlank() && newPassword.isNotBlank() && newPassword == confirmPassword && !isSaving
                 ) {
-                    Text("Update Password", color = Color(0xFF3b82f6))
+                    Text("Update Password", color = SapphoInfo)
                 }
             },
             dismissButton = {
@@ -425,10 +426,10 @@ fun SettingsScreen(
                         confirmPassword = ""
                     }
                 ) {
-                    Text("Cancel", color = Color(0xFF9ca3af))
+                    Text("Cancel", color = SapphoIconDefault)
                 }
             },
-            containerColor = Color(0xFF1e293b)
+            containerColor = SapphoSurfaceLight
         )
     }
 }
@@ -443,7 +444,7 @@ private fun SectionCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1e293b)
+        color = SapphoSurfaceLight
     ) {
         Column(
             modifier = Modifier
@@ -457,7 +458,7 @@ private fun SectionCard(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = Color(0xFF3b82f6),
+                    tint = SapphoInfo,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -478,7 +479,7 @@ private fun SettingsRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    iconTint: Color = Color(0xFF9ca3af),
+    iconTint: Color = SapphoIconDefault,
     onClick: () -> Unit
 ) {
     Row(
@@ -504,14 +505,14 @@ private fun SettingsRow(
             )
             Text(
                 text = subtitle,
-                color = Color(0xFF6b7280),
+                color = SapphoTextMuted,
                 fontSize = 13.sp
             )
         }
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF6b7280),
+            tint = SapphoTextMuted,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -542,7 +543,7 @@ private fun SkipIntervalSelector(
             )
             Text(
                 text = "${currentValue}s",
-                color = Color(0xFF3b82f6),
+                color = SapphoInfo,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -559,11 +560,11 @@ private fun SkipIntervalSelector(
                         .weight(1f)
                         .clickable { onValueChange(seconds) },
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) Color(0xFF3b82f6) else Color(0xFF374151)
+                    color = if (isSelected) SapphoInfo else SapphoProgressTrack
                 ) {
                     Text(
                         text = "${seconds}s",
-                        color = if (isSelected) Color.White else Color(0xFF9ca3af),
+                        color = if (isSelected) Color.White else SapphoIconDefault,
                         fontSize = 13.sp,
                         fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
                         textAlign = TextAlign.Center,

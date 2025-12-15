@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -51,7 +52,7 @@ fun SearchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0E1A))
+            .background(SapphoBackground)
     ) {
         // Search Bar
         Box(
@@ -59,7 +60,7 @@ fun SearchScreen(
                 .fillMaxWidth()
                 .padding(16.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF1e293b))
+                .background(SapphoSurfaceLight)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Row(
@@ -69,7 +70,7 @@ fun SearchScreen(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search",
-                    tint = Color(0xFF9ca3af),
+                    tint = SapphoIconDefault,
                     modifier = Modifier.size(20.dp)
                 )
 
@@ -79,7 +80,7 @@ fun SearchScreen(
                     if (searchQuery.isEmpty()) {
                         Text(
                             text = "Search books, series, authors...",
-                            color = Color(0xFF6b7280),
+                            color = SapphoTextMuted,
                             fontSize = 16.sp
                         )
                     }
@@ -90,11 +91,11 @@ fun SearchScreen(
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
                         textStyle = TextStyle(
-                            color = Color(0xFFf3f4f6),
+                            color = SapphoText,
                             fontSize = 16.sp
                         ),
                         singleLine = true,
-                        cursorBrush = SolidColor(Color(0xFF3B82F6))
+                        cursorBrush = SolidColor(SapphoInfo)
                     )
                 }
 
@@ -107,7 +108,7 @@ fun SearchScreen(
                         Icon(
                             imageVector = Icons.Default.Clear,
                             contentDescription = "Clear",
-                            tint = Color(0xFF9ca3af),
+                            tint = SapphoIconDefault,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -122,7 +123,7 @@ fun SearchScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color(0xFF3B82F6))
+                    CircularProgressIndicator(color = SapphoInfo)
                 }
             }
             searchQuery.isEmpty() -> {
@@ -137,13 +138,13 @@ fun SearchScreen(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
-                            tint = Color(0xFF374151),
+                            tint = SapphoProgressTrack,
                             modifier = Modifier.size(64.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "Search for books, series, or authors",
-                            color = Color(0xFF6b7280),
+                            color = SapphoTextMuted,
                             fontSize = 16.sp
                         )
                     }
@@ -156,7 +157,7 @@ fun SearchScreen(
                 ) {
                     Text(
                         text = "No results found",
-                        color = Color(0xFF6b7280),
+                        color = SapphoTextMuted,
                         fontSize = 16.sp
                     )
                 }
@@ -174,7 +175,7 @@ fun SearchScreen(
                                 text = "Books",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF9ca3af),
+                                color = SapphoIconDefault,
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                         }
@@ -194,7 +195,7 @@ fun SearchScreen(
                                 text = "Series",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF9ca3af),
+                                color = SapphoIconDefault,
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
                         }
@@ -213,7 +214,7 @@ fun SearchScreen(
                                 text = "Authors",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF9ca3af),
+                                color = SapphoIconDefault,
                                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                             )
                         }
@@ -254,7 +255,7 @@ private fun SearchResultItem(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .background(Color(0xFF374151))
+                .background(SapphoProgressTrack)
         ) {
             if (book.coverImage != null && serverUrl != null) {
                 AsyncImage(
@@ -272,7 +273,7 @@ private fun SearchResultItem(
                         text = book.title.take(1).uppercase(),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF3b82f6)
+                        color = SapphoInfo
                     )
                 }
             }
@@ -285,7 +286,7 @@ private fun SearchResultItem(
                 text = book.title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFFE0E7F1),
+                color = SapphoText,
                 maxLines = 1
             )
             val subtitle = buildString {
@@ -295,7 +296,7 @@ private fun SearchResultItem(
             Text(
                 text = subtitle,
                 fontSize = 13.sp,
-                color = Color(0xFF9ca3af),
+                color = SapphoIconDefault,
                 maxLines = 1
             )
         }
@@ -319,13 +320,13 @@ private fun SeriesResultItem(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .background(Color(0xFF374151)),
+                .background(SapphoProgressTrack),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = null,
-                tint = Color(0xFF9ca3af),
+                tint = SapphoIconDefault,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -336,7 +337,7 @@ private fun SeriesResultItem(
             text = series,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFFE0E7F1)
+            color = SapphoText
         )
     }
 }
@@ -358,13 +359,13 @@ private fun AuthorResultItem(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .background(Color(0xFF374151)),
+                .background(SapphoProgressTrack),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = null,
-                tint = Color(0xFF9ca3af),
+                tint = SapphoIconDefault,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -375,7 +376,7 @@ private fun AuthorResultItem(
             text = author,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFFE0E7F1)
+            color = SapphoText
         )
     }
 }
