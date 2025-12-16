@@ -138,37 +138,23 @@ fun HomeScreen(
 
             // Only show server content when online
             if (!isOffline) {
-                // Continue Listening Section - Most prominent section
+                // Continue Listening Section - Larger cards to highlight importance
                 if (inProgress.isNotEmpty()) {
                     item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            SapphoInfo.copy(alpha = 0.1f),
-                                            Color.Transparent
-                                        )
-                                    )
-                                )
-                                .padding(vertical = 8.dp)
-                        ) {
-                            AudiobookSection(
-                                title = "Continue Listening",
-                                books = inProgress,
-                                serverUrl = serverUrl,
-                                onAudiobookClick = onAudiobookClick,
-                                onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
-                                onAddToCollection = { id ->
-                                    selectedBookId = id
-                                    viewModel.loadCollectionsForBook(id)
-                                    showCollectionDialog = true
-                                },
-                                cardSize = 200.dp,
-                                titleSize = 22.sp
-                            )
-                        }
+                        AudiobookSection(
+                            title = "Continue Listening",
+                            books = inProgress,
+                            serverUrl = serverUrl,
+                            onAudiobookClick = onAudiobookClick,
+                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
+                            onAddToCollection = { id ->
+                                selectedBookId = id
+                                viewModel.loadCollectionsForBook(id)
+                                showCollectionDialog = true
+                            },
+                            cardSize = 180.dp,
+                            titleSize = 20.sp
+                        )
                     }
                 }
 
@@ -762,13 +748,13 @@ fun SkeletonHomeScreen() {
     ) {
         // Skeleton for Continue Listening (large cards)
         item {
-            Column(modifier = Modifier.padding(bottom = 8.dp)) {
+            Column {
                 // Section title skeleton
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .width(160.dp)
-                        .height(22.dp)
+                        .height(20.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .background(shimmerBrush)
                 )
@@ -778,7 +764,7 @@ fun SkeletonHomeScreen() {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(3) {
-                        SkeletonCard(size = 200.dp, brush = shimmerBrush)
+                        SkeletonCard(size = 180.dp, brush = shimmerBrush)
                     }
                 }
             }
