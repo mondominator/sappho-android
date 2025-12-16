@@ -1130,8 +1130,7 @@ private fun UsersTab(viewModel: AdminViewModel) {
                     Text(
                         "User Management",
                         color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge
                     )
                     Button(
                         onClick = { showCreateDialog = true },
@@ -1487,8 +1486,7 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
                     Text(
                         "API Key Management",
                         color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge
                     )
                     Button(
                         onClick = { showCreateDialog = true },
@@ -1961,8 +1959,7 @@ private fun BackupTab(viewModel: AdminViewModel) {
                     Text(
                         "Backups",
                         color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge
                     )
                     Button(
                         onClick = { viewModel.createBackup() },
@@ -2397,8 +2394,7 @@ private fun LogsTab(viewModel: AdminViewModel) {
             Text(
                 "Server Logs",
                 color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge
             )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -2957,8 +2953,7 @@ private fun StatCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = value,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineSmall,
                 color = Color.White
             )
             Spacer(modifier = Modifier.height(2.dp))
