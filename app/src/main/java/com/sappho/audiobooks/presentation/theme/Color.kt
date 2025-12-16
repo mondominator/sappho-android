@@ -28,7 +28,7 @@ val SapphoSurfaceDark = Color(0xFF1F2937)  // Darker surface variant
 // -----------------------------------------------------------------------------
 val SapphoText = Color(0xFFE0E7F1)  // Primary text
 val SapphoTextSecondary = Color(0xFFB0B7BF)  // Secondary text (5.5:1 contrast)
-val SapphoTextMuted = Color(0xFF6B7280)  // Muted/disabled text
+val SapphoTextMuted = Color(0xFF9CA3AF)  // Muted/disabled text (4.5:1 contrast)
 val SapphoTextLight = Color(0xFFD1D5DB)  // Light gray text
 
 // -----------------------------------------------------------------------------

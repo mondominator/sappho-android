@@ -833,7 +833,6 @@ fun TopBar(
                 .fillMaxWidth()
                 .background(SapphoSurface)
                 .statusBarsPadding()
-                .border(width = 1.dp, color = SapphoSurfaceBorder)
         ) {
         Row(
             modifier = Modifier
