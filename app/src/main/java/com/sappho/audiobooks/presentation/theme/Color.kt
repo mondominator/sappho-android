@@ -35,9 +35,15 @@ val SapphoTextLight = Color(0xFFD1D5DB)  // Light gray text
 // Semantic Colors
 // -----------------------------------------------------------------------------
 val SapphoError = Color(0xFFEF4444)  // Error red
+val SapphoErrorLight = Color(0xFFFCA5A5)  // Light error red (for text on error backgrounds)
 val SapphoWarning = Color(0xFFFB923C)  // Warning orange
 val SapphoSuccess = Color(0xFF10B981)  // Success emerald
 val SapphoInfo = Color(0xFF3B82F6)  // Info blue
+val SapphoInfoLight = Color(0xFFA5B4FC)  // Light info (indigo-ish, for loading states)
+
+// Feature accent (used for AI features, recaps, etc.)
+val SapphoAccent = Color(0xFF6366F1)  // Indigo accent
+val SapphoAccentLight = Color(0xFFA5B4FC)  // Light indigo
 
 // -----------------------------------------------------------------------------
 // Icon Colors
@@ -61,6 +67,75 @@ object CategoryColors {
     // Neutral (gray)
     val neutralLight = Color(0xFF374151)
     val neutralDark = Color(0xFF1F2937)
+}
+
+// -----------------------------------------------------------------------------
+// Library Gradient Palette
+// Standardized gradients for genres, authors, collections, etc.
+// Each gradient is a pair: [lighter, darker] for gradient effects
+// -----------------------------------------------------------------------------
+object LibraryGradients {
+    // Blue - Primary brand color
+    val blue = listOf(Color(0xFF3B82F6), Color(0xFF2563EB))
+
+    // Indigo - Mystery, Thriller
+    val indigo = listOf(Color(0xFF6366F1), Color(0xFF4338CA))
+
+    // Purple - Fantasy, Paranormal
+    val purple = listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9))
+
+    // Pink - Romance
+    val pink = listOf(Color(0xFFEC4899), Color(0xFFDB2777))
+
+    // Rose - Drama, Emotional
+    val rose = listOf(Color(0xFFF43F5E), Color(0xFFE11D48))
+
+    // Orange - Adventure, Action
+    val orange = listOf(Color(0xFFF97316), Color(0xFFEA580C))
+
+    // Amber - Historical, Western
+    val amber = listOf(Color(0xFFF59E0B), Color(0xFFD97706))
+
+    // Emerald - Nature, Environment
+    val emerald = listOf(Color(0xFF10B981), Color(0xFF059669))
+
+    // Teal - Self-Help, Psychology
+    val teal = listOf(Color(0xFF14B8A6), Color(0xFF0D9488))
+
+    // Cyan - Science Fiction, Technology
+    val cyan = listOf(Color(0xFF06B6D4), Color(0xFF0891B2))
+
+    // Slate - Non-Fiction, Biography
+    val slate = listOf(Color(0xFF64748B), Color(0xFF475569))
+
+    // Stone - Classic, Literary
+    val stone = listOf(Color(0xFF78716C), Color(0xFF57534E))
+
+    // All gradients for random/hash-based selection
+    val all = listOf(
+        blue, indigo, purple, pink, rose,
+        orange, amber, emerald, teal, cyan,
+        slate, stone
+    )
+
+    // Subset for avatars (more vibrant colors, no grays)
+    val avatars = listOf(
+        blue, indigo, purple, pink,
+        orange, emerald, teal, cyan
+    )
+
+    /**
+     * Get a gradient based on a string hash (for consistent color per item)
+     */
+    fun forString(text: String, palette: List<List<Color>> = all): List<Color> {
+        val index = kotlin.math.abs(text.hashCode()) % palette.size
+        return palette[index]
+    }
+
+    /**
+     * Get an avatar gradient based on name
+     */
+    fun forAvatar(name: String): List<Color> = forString(name, avatars)
 }
 
 // -----------------------------------------------------------------------------
