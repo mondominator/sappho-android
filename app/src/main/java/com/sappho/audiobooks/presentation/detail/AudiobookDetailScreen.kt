@@ -733,8 +733,7 @@ fun AudiobookDetailScreen(
                             ) {
                                 Text(
                                     text = "Progress",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.headlineSmall,
                                     color = Color.White,
                                     modifier = Modifier.padding(bottom = 12.dp)
                                 )
@@ -783,8 +782,7 @@ fun AudiobookDetailScreen(
                                             if (prog.completed != 1) {
                                                 Text(
                                                     text = "$percentage%",
-                                                    fontSize = 20.sp,
-                                                    fontWeight = FontWeight.Bold,
+                                                    style = MaterialTheme.typography.headlineSmall,
                                                     color = SapphoInfo
                                                 )
                                             }
@@ -879,8 +877,7 @@ fun AudiobookDetailScreen(
                             ) {
                                 Text(
                                     text = "About",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.headlineSmall,
                                     color = Color.White
                                 )
 
@@ -1174,8 +1171,7 @@ fun AudiobookDetailScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = "Catch Up",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.headlineSmall,
                                     color = Color.White
                                 )
                             }
@@ -3356,8 +3352,7 @@ private fun AddToCollectionDialog(
                 ) {
                     Text(
                         text = "Add to Collection",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = Color.White
                     )
                     IconButton(
