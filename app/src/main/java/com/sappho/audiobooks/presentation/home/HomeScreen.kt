@@ -1,10 +1,12 @@
 package com.sappho.audiobooks.presentation.home
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -25,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -79,14 +82,7 @@ fun HomeScreen(
     }
 
     if (isLoading) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(SapphoBackground),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(color = SapphoInfo)
-        }
+        SkeletonHomeScreen()
     } else {
         LazyColumn(
             modifier = Modifier
@@ -142,23 +138,37 @@ fun HomeScreen(
 
             // Only show server content when online
             if (!isOffline) {
-                // Continue Listening Section - Larger cards to highlight importance
+                // Continue Listening Section - Most prominent section
                 if (inProgress.isNotEmpty()) {
                     item {
-                        AudiobookSection(
-                            title = "Continue Listening",
-                            books = inProgress,
-                            serverUrl = serverUrl,
-                            onAudiobookClick = onAudiobookClick,
-                            onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
-                            onAddToCollection = { id ->
-                                selectedBookId = id
-                                viewModel.loadCollectionsForBook(id)
-                                showCollectionDialog = true
-                            },
-                            cardSize = 180.dp,
-                            titleSize = 18.sp
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            SapphoInfo.copy(alpha = 0.1f),
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                                .padding(vertical = 8.dp)
+                        ) {
+                            AudiobookSection(
+                                title = "Continue Listening",
+                                books = inProgress,
+                                serverUrl = serverUrl,
+                                onAudiobookClick = onAudiobookClick,
+                                onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
+                                onAddToCollection = { id ->
+                                    selectedBookId = id
+                                    viewModel.loadCollectionsForBook(id)
+                                    showCollectionDialog = true
+                                },
+                                cardSize = 200.dp,
+                                titleSize = 22.sp
+                            )
+                        }
                     }
                 }
 
@@ -198,7 +208,7 @@ fun HomeScreen(
                     }
                 }
 
-                // Listen Again Section
+                // Listen Again Section - De-emphasized with smaller cards
                 if (finished.isNotEmpty()) {
                     item {
                         AudiobookSection(
@@ -211,7 +221,9 @@ fun HomeScreen(
                                 selectedBookId = id
                                 viewModel.loadCollectionsForBook(id)
                                 showCollectionDialog = true
-                            }
+                            },
+                            cardSize = 120.dp,
+                            titleSize = 14.sp
                         )
                     }
                 }
@@ -378,18 +390,45 @@ fun AudiobookCard(
                 // Progress Bar
                 if (book.progress != null && book.duration != null) {
                     val progressPercent = (book.progress.position.toFloat() / book.duration) * 100
+                    val isCompleted = book.progress.completed == 1
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(4.dp)
+                            .height(6.dp)
                             .align(Alignment.BottomCenter)
-                            .background(Color.Black.copy(alpha = 0.3f))
+                            .background(Color.Black.copy(alpha = 0.5f))
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(progressPercent / 100f)
+                                .fillMaxWidth(if (isCompleted) 1f else progressPercent / 100f)
                                 .fillMaxHeight()
-                                .background(MaterialTheme.colorScheme.primary)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        if (isCompleted)
+                                            listOf(SapphoSuccess, LegacyGreenLight)
+                                        else
+                                            listOf(SapphoInfo, LegacyBlueLight)
+                                    )
+                                )
+                        )
+                    }
+                }
+
+                // Completed checkmark overlay
+                if (book.progress?.completed == 1) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .size(24.dp)
+                            .background(SapphoSuccess, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Completed",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -686,5 +725,147 @@ private fun AddToCollectionDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SkeletonHomeScreen() {
+    val shimmerColors = listOf(
+        SapphoSurface.copy(alpha = 0.6f),
+        SapphoSurface.copy(alpha = 0.2f),
+        SapphoSurface.copy(alpha = 0.6f)
+    )
+
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnimation = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer"
+    )
+
+    val shimmerBrush = Brush.linearGradient(
+        colors = shimmerColors,
+        start = androidx.compose.ui.geometry.Offset(translateAnimation.value - 200f, 0f),
+        end = androidx.compose.ui.geometry.Offset(translateAnimation.value, 0f)
+    )
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SapphoBackground),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // Skeleton for Continue Listening (large cards)
+        item {
+            Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                // Section title skeleton
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .width(160.dp)
+                        .height(22.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(shimmerBrush)
+                )
+
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(3) {
+                        SkeletonCard(size = 200.dp, brush = shimmerBrush)
+                    }
+                }
+            }
+        }
+
+        // Skeleton for Up Next section
+        item {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .width(80.dp)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(shimmerBrush)
+                )
+
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(4) {
+                        SkeletonCard(size = 140.dp, brush = shimmerBrush)
+                    }
+                }
+            }
+        }
+
+        // Skeleton for Recently Added section
+        item {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .width(120.dp)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(shimmerBrush)
+                )
+
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(4) {
+                        SkeletonCard(size = 140.dp, brush = shimmerBrush)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkeletonCard(
+    size: Dp,
+    brush: Brush
+) {
+    Column(modifier = Modifier.width(size)) {
+        // Cover placeholder
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(RoundedCornerShape(12.dp))
+                .background(brush)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Title placeholder
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(brush)
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Author placeholder
+        Box(
+            modifier = Modifier
+                .width((size.value * 0.7f).dp)
+                .height(12.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(brush)
+        )
     }
 }

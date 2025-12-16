@@ -380,7 +380,7 @@ fun AudiobookDetailScreen(
 
                                     Box(
                                         modifier = Modifier
-                                            .size(36.dp)
+                                            .size(44.dp)
                                             .clickable(enabled = !isUpdatingRating) {
                                                 if (userRating == starIndex) {
                                                     viewModel.clearRating()
@@ -394,7 +394,7 @@ fun AudiobookDetailScreen(
                                             imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
                                             contentDescription = "Rate $starIndex stars",
                                             tint = if (isSelected) SapphoStarFilled else LegacyGrayDark,
-                                            modifier = Modifier.size(28.dp)
+                                            modifier = Modifier.size(32.dp)
                                         )
                                     }
                                 }
@@ -1638,7 +1638,7 @@ private fun CompactStarRating(
 
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(40.dp)
                     .clickable(enabled = !isLoading) {
                         if (rating == starIndex) {
                             onRatingChanged(null)
@@ -1652,7 +1652,7 @@ private fun CompactStarRating(
                     imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
                     contentDescription = "Star $starIndex",
                     tint = if (isSelected) SapphoStarFilled else SapphoTextMuted,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
