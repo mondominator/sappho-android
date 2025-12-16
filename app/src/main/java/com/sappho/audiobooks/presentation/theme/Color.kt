@@ -56,9 +56,9 @@ val SapphoIconMuted = Color(0xFF6B7280)  // Muted icon
 // Category Colors (Library)
 // -----------------------------------------------------------------------------
 object CategoryColors {
-    // Content categories (sky blue)
-    val contentLight = Color(0xFF5BC0DE)
-    val contentDark = Color(0xFF3498DB)
+    // Content categories (blue)
+    val contentLight = Color(0xFF3B82F6)  // blue-500
+    val contentDark = Color(0xFF2563EB)   // blue-600
 
     // Personal categories (teal)
     val personalLight = Color(0xFF26A69A)
