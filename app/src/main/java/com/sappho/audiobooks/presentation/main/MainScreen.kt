@@ -207,6 +207,14 @@ fun MainScreen(
                                 R.anim.stay
                             )
                         }
+                    },
+                    onRestartPlayback = { audiobookId, position ->
+                        // Service was killed (e.g., after vehicle disconnect)
+                        // Start PlayerActivity which will restart playback
+                        val intent = android.content.Intent(context, com.sappho.audiobooks.presentation.player.PlayerActivity::class.java)
+                        intent.putExtra("AUDIOBOOK_ID", audiobookId)
+                        intent.putExtra("START_POSITION", position)
+                        context.startActivity(intent)
                     }
                 )
             }
