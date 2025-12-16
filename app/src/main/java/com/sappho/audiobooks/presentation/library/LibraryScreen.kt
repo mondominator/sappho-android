@@ -811,15 +811,7 @@ fun AuthorsListView(
     onBackClick: () -> Unit,
     onAuthorClick: (String) -> Unit
 ) {
-    val avatarColors = listOf(
-        listOf(Color(0xFF8b5cf6), Color(0xFF6d28d9)),
-        listOf(SapphoInfo, LegacyBlueDark),
-        listOf(SapphoSuccess, Color(0xFF059669)),
-        listOf(SapphoWarning, Color(0xFFd97706)),
-        listOf(SapphoError, Color(0xFFdc2626)),
-        listOf(Color(0xFF06b6d4), Color(0xFF0891b2)),
-        listOf(Color(0xFFec4899), Color(0xFFdb2777))
-    )
+    val avatarColors = LibraryGradients.avatars
 
     Column(
         modifier = Modifier
@@ -1348,7 +1340,7 @@ fun SeriesBooksView(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0xFF1e3a5f),
+                                SapphoSurfaceLight,
                                 SapphoBackground
                             )
                         )
@@ -1503,7 +1495,7 @@ fun SeriesBooksView(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF6366f1)
+                                containerColor = SapphoAccent
                             ),
                             shape = RoundedCornerShape(12.dp)
                         ) {
@@ -1526,20 +1518,20 @@ fun SeriesBooksView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF6366f1).copy(alpha = 0.1f))
+                                .background(SapphoAccent.copy(alpha = 0.1f))
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = Color(0xFFa5b4fc),
+                                color = SapphoAccentLight,
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Generating your personalized recap...",
-                                color = Color(0xFFa5b4fc),
+                                color = SapphoAccentLight,
                                 fontSize = 14.sp
                             )
                         }
@@ -1558,13 +1550,13 @@ fun SeriesBooksView(
                             Icon(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = null,
-                                tint = Color(0xFFf87171),
+                                tint = LegacyRedLight,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = recapError!!,
-                                color = Color(0xFFfca5a5),
+                                color = SapphoErrorLight,
                                 fontSize = 14.sp,
                                 textAlign = TextAlign.Center
                             )
@@ -1585,7 +1577,7 @@ fun SeriesBooksView(
                                     }
                                 },
                                 colors = ButtonDefaults.textButtonColors(
-                                    contentColor = Color(0xFFfca5a5)
+                                    contentColor = SapphoErrorLight
                                 )
                             ) {
                                 Text("Try Again")
@@ -1612,7 +1604,7 @@ fun SeriesBooksView(
                                 Icon(
                                     imageVector = Icons.Default.AutoStories,
                                     contentDescription = null,
-                                    tint = Color(0xFFa5b4fc),
+                                    tint = SapphoAccentLight,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -1626,10 +1618,10 @@ fun SeriesBooksView(
                                     Text(
                                         text = "Cached",
                                         fontSize = 10.sp,
-                                        color = Color(0xFFa5b4fc),
+                                        color = SapphoAccentLight,
                                         modifier = Modifier
                                             .background(
-                                                Color(0xFF6366f1).copy(alpha = 0.2f),
+                                                SapphoAccent.copy(alpha = 0.2f),
                                                 RoundedCornerShape(4.dp)
                                             )
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -1930,13 +1922,7 @@ fun AuthorBooksView(
         .take(2)
         .mapNotNull { it.firstOrNull()?.uppercaseChar() }
         .joinToString("")
-    val avatarColors = listOf(
-        listOf(Color(0xFF8b5cf6), Color(0xFF6d28d9)),
-        listOf(SapphoInfo, LegacyBlueDark),
-        listOf(SapphoSuccess, Color(0xFF059669)),
-        listOf(SapphoWarning, Color(0xFFd97706)),
-        listOf(SapphoError, Color(0xFFdc2626))
-    )
+    val avatarColors = LibraryGradients.avatars
     val colorIndex = authorName.hashCode().let { kotlin.math.abs(it) % avatarColors.size }
 
     LazyColumn(
