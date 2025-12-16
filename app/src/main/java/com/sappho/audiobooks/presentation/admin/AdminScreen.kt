@@ -2669,14 +2669,14 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                             value = formatDuration(totals.duration),
                             label = "Total Duration",
                             icon = Icons.Outlined.Timer,
-                            color = Color(0xFFec4899)
+                            color = LibraryGradients.pink[0]
                         )
                         StatCard(
                             modifier = Modifier.weight(1f),
                             value = formatDuration(totals.avgDuration?.toLong() ?: 0),
                             label = "Avg Duration",
                             icon = Icons.Outlined.AvTimer,
-                            color = Color(0xFF06b6d4)
+                            color = LibraryGradients.cyan[0]
                         )
                     }
                 }

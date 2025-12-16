@@ -348,7 +348,7 @@ private fun CollectionCard(
                             Brush.linearGradient(
                                 colors = listOf(
                                     SapphoInfo.copy(alpha = 0.3f),
-                                    Color(0xFF1e40af).copy(alpha = 0.3f)
+                                    LegacyBlueDark.copy(alpha = 0.3f)
                                 )
                             )
                         ),
