@@ -521,7 +521,15 @@ fun PlayerScreen(
                                         }
                                     } else {
                                         // Control local playback
-                                        AudioPlaybackService.instance?.togglePlayPause()
+                                        val service = AudioPlaybackService.instance
+                                        if (service != null) {
+                                            service.togglePlayPause()
+                                        } else {
+                                            // Service was killed (e.g., after vehicle disconnect)
+                                            // Restart playback from current position
+                                            android.util.Log.d("PlayerActivity", "Service is null, restarting playback")
+                                            viewModel.loadAndStartPlayback(audiobookId, currentPosition.toInt())
+                                        }
                                     }
                                 },
                             contentAlignment = Alignment.Center

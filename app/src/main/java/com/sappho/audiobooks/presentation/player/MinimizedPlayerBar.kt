@@ -43,7 +43,8 @@ fun MinimizedPlayerBar(
     playerState: PlayerState,
     serverUrl: String?,
     castHelper: CastHelper,
-    onExpand: () -> Unit
+    onExpand: () -> Unit,
+    onRestartPlayback: (audiobookId: Int, position: Int) -> Unit = { _, _ -> }
 ) {
     val audiobook by playerState.currentAudiobook.collectAsState()
     val localIsPlaying by playerState.isPlaying.collectAsState()
@@ -244,7 +245,16 @@ fun MinimizedPlayerBar(
                                     castHelper.play()
                                 }
                             } else {
-                                AudioPlaybackService.instance?.togglePlayPause()
+                                val service = AudioPlaybackService.instance
+                                if (service != null) {
+                                    service.togglePlayPause()
+                                } else {
+                                    // Service is null (killed after vehicle disconnect, etc.)
+                                    // Restart playback from current position
+                                    book.id.let { id ->
+                                        onRestartPlayback(id, currentPosition.toInt())
+                                    }
+                                }
                             }
                         },
                     contentAlignment = Alignment.Center
