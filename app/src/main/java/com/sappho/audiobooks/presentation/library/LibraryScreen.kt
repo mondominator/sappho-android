@@ -447,16 +447,14 @@ fun CategoryCardLarge(
             Column {
                 Text(
                     text = title,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = Color.White
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = "$count",
-                        fontSize = 40.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.displayMedium,
                         color = Color.White
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -579,8 +577,7 @@ fun CategoryCardWide(
                 Column {
                     Text(
                         text = title,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleLarge,
                         color = Color.White
                     )
                     Text(
@@ -630,8 +627,7 @@ fun SeriesListView(
             Column {
                 Text(
                     text = "Series",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = Color.White
                 )
                 Text(
@@ -835,8 +831,7 @@ fun AuthorsListView(
             Column {
                 Text(
                     text = "Authors",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = Color.White
                 )
                 Text(
@@ -1072,8 +1067,7 @@ fun GenresListView(
             Column {
                 Text(
                     text = "Genres",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = Color.White
                 )
                 Text(
@@ -1166,8 +1160,7 @@ fun GenreListCard(
             ) {
                 Text(
                     text = genreName,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1372,8 +1365,7 @@ fun SeriesBooksView(
             ) {
                 Text(
                     text = seriesName,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = Color.White,
                     textAlign = TextAlign.Center
                 )
@@ -1718,8 +1710,7 @@ fun SeriesBooksView(
             ) {
                 Text(
                     text = "Books in Series",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleLarge,
                     color = Color.White
                 )
             }
@@ -1761,8 +1752,7 @@ fun StatCard(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleLarge,
             color = Color.White
         )
         Text(
@@ -2207,8 +2197,7 @@ fun AuthorBookCard(
                 ) {
                     Text(
                         text = book.title.take(2).uppercase(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineLarge,
                         color = Color.White
                     )
                 }
@@ -2545,8 +2534,7 @@ fun GenreStatCard(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleLarge,
             color = Color.White
         )
         Text(
@@ -2704,8 +2692,7 @@ fun BookGridItem(
             ) {
                 Text(
                     text = book.title.take(2).uppercase(),
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = Color.White
                 )
             }
@@ -3166,8 +3153,7 @@ fun SelectableBookGridItem(
             ) {
                 Text(
                     text = book.title.take(2).uppercase(),
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineLarge,
                     color = Color.White
                 )
             }
