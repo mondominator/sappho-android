@@ -23,7 +23,7 @@ class AuthRepository @Inject constructor(
 
     private val securePrefs: SharedPreferences = createEncryptedPrefs()
 
-    private val _isAuthenticated = MutableStateFlow(getTokenSync() != null)
+    private val _isAuthenticated = MutableStateFlow(getTokenSync() != null && getServerUrlSync() != null)
     val isAuthenticated: StateFlow<Boolean> = _isAuthenticated
 
     // Triggered when server returns 401 Unauthorized
@@ -41,7 +41,7 @@ class AuthRepository @Inject constructor(
 
     fun saveToken(token: String) {
         securePrefs.edit().putString(KEY_TOKEN, token).apply()
-        _isAuthenticated.value = true
+        _isAuthenticated.value = getTokenSync() != null && getServerUrlSync() != null
     }
 
     fun getTokenSync(): String? {
@@ -55,6 +55,7 @@ class AuthRepository @Inject constructor(
 
     fun saveServerUrl(url: String) {
         securePrefs.edit().putString(KEY_SERVER_URL, url).apply()
+        _isAuthenticated.value = getTokenSync() != null && getServerUrlSync() != null
     }
 
     fun getServerUrlSync(): String? {
