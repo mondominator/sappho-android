@@ -112,11 +112,12 @@ object NetworkModule {
                     chain.proceed(request)
                 }
             }
-            // Interceptor to detect 401 Unauthorized responses
+            // Interceptor to detect auth errors (401 Unauthorized or 403 Forbidden with token error)
             .addInterceptor { chain ->
                 val response = chain.proceed(chain.request())
-                if (response.code == 401) {
+                if (response.code == 401 || response.code == 403) {
                     // Token expired or invalid - trigger auth error
+                    android.util.Log.d("NetworkModule", "Auth error detected: ${response.code}")
                     authRepository.triggerAuthError()
                 }
                 response
