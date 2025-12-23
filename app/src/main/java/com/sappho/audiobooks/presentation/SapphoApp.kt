@@ -39,6 +39,19 @@ fun SapphoApp(
         }
     }
 
+    // Redirect to login if auth state becomes invalid while on main screen
+    LaunchedEffect(isAuthenticated) {
+        if (!isAuthenticated) {
+            val currentRoute = navController.currentDestination?.route
+            if (currentRoute == "main") {
+                android.util.Log.d("SapphoApp", "Auth state invalid on main screen - redirecting to login")
+                navController.navigate("login") {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
