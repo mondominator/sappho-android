@@ -261,6 +261,37 @@ Text(color = SapphoTextSecondary)
 - Wait for user testing before shipping/merging
 - Never bypass merge rules
 
+## Remote Server Access (Unraid)
+
+The production Sappho server runs on an Unraid server accessible via `ssh root@192.168.86.151`.
+
+**IMPORTANT: Observe only, do not modify.**
+- You may SSH into unraid to **read logs** and **check container status**
+- **DO NOT** stop, start, restart, or remove containers
+- **DO NOT** run docker commands that modify state (stop, rm, run, etc.)
+- **DO NOT** modify files on the server
+- Container configuration is managed through Unraid's web UI, not CLI
+
+Allowed commands:
+```bash
+# Check logs
+ssh root@192.168.86.151 "docker logs sappho --tail 100"
+
+# Check container status
+ssh root@192.168.86.151 "docker ps | grep sappho"
+
+# Check files (read-only)
+ssh root@192.168.86.151 "docker exec sappho find /app/data/audiobooks -type d -empty"
+```
+
+Forbidden commands:
+```bash
+# DO NOT run these
+docker stop/start/restart/rm/run
+docker compose up/down
+docker pull (user will pull via Unraid UI)
+```
+
 ## Screenshots
 
 - **Do NOT take screenshots** of the app using adb screencap or similar tools
