@@ -324,6 +324,20 @@ interface SapphoApi {
     @POST("api/maintenance/jobs/{jobId}/trigger")
     suspend fun triggerJob(@Path("jobId") jobId: String): Response<TriggerJobResponse>
 
+    // Orphan Directories
+    @GET("api/maintenance/orphan-directories")
+    suspend fun getOrphanDirectories(): Response<OrphanDirectoriesResponse>
+
+    @HTTP(method = "DELETE", path = "api/maintenance/orphan-directories", hasBody = true)
+    suspend fun deleteOrphanDirectories(@Body request: DeleteOrphansRequest): Response<DeleteOrphansResult>
+
+    // Library Organization
+    @GET("api/maintenance/organize/preview")
+    suspend fun getOrganizePreview(): Response<OrganizePreviewResponse>
+
+    @POST("api/maintenance/organize")
+    suspend fun organizeLibrary(): Response<OrganizeResult>
+
     // Collections Endpoints
     @GET("api/collections")
     suspend fun getCollections(): Response<List<Collection>>
@@ -802,6 +816,60 @@ data class JobInfo(
 data class TriggerJobResponse(
     val success: Boolean,
     val message: String?
+)
+
+// Orphan Directories Data Classes
+data class OrphanDirectoriesResponse(
+    val orphanDirectories: List<OrphanDirectory>?,
+    val totalCount: Int?,
+    val totalSize: Long?
+)
+
+data class OrphanDirectory(
+    val path: String,
+    val relativePath: String?,
+    val totalSize: Long,
+    val audioFiles: List<String>?,
+    val otherFiles: List<String>?,
+    val audioFileCount: Int?,
+    val otherFileCount: Int?,
+    val orphanType: String?
+)
+
+data class DeleteOrphansRequest(
+    val paths: List<String>
+)
+
+data class DeleteOrphansResult(
+    val success: Boolean,
+    val deleted: Int?,
+    val failed: Int?,
+    val errors: List<String>?
+)
+
+// Library Organization Data Classes
+data class OrganizePreviewResponse(
+    val books: List<OrganizePreviewBook>?
+)
+
+data class OrganizePreviewBook(
+    val id: Int,
+    val title: String,
+    val author: String?,
+    val currentPath: String?,
+    val targetPath: String?
+)
+
+data class OrganizeResult(
+    val success: Boolean,
+    val message: String?,
+    val stats: OrganizeStats?
+)
+
+data class OrganizeStats(
+    val moved: Int?,
+    val skipped: Int?,
+    val errors: Int?
 )
 
 // Collections Data Classes

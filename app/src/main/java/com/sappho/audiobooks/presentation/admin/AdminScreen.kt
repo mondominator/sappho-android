@@ -164,16 +164,21 @@ private fun LibraryTab(viewModel: AdminViewModel) {
     val serverSettings by viewModel.serverSettings.collectAsState()
     val duplicates by viewModel.duplicates.collectAsState()
     val jobs by viewModel.jobs.collectAsState()
+    val orphanDirectories by viewModel.orphanDirectories.collectAsState()
+    val organizePreview by viewModel.organizePreview.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
     val isLoading = loadingSection == "serverSettings" || loadingSection == "library"
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedDuplicateGroup by remember { mutableStateOf<DuplicateGroup?>(null) }
+    var showOrganizePreview by remember { mutableStateOf(false) }
+    var selectedOrphans by remember { mutableStateOf<Set<String>>(emptySet()) }
     var isRefreshing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadServerSettings()
         viewModel.loadDuplicates()
         viewModel.loadJobs()
+        viewModel.loadOrphanDirectories()
     }
 
     LaunchedEffect(loadingSection) {
@@ -218,6 +223,15 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                 icon = Icons.Outlined.Refresh,
                 onClick = { viewModel.forceRescan() }
             )
+            ActionButton(
+                text = "Reorganize Library",
+                description = "Move files to Author/Series/Book structure",
+                icon = Icons.Outlined.DriveFileMove,
+                onClick = {
+                    viewModel.loadOrganizePreview()
+                    showOrganizePreview = true
+                }
+            )
         }
 
         if (isLoading) {
@@ -261,8 +275,17 @@ private fun LibraryTab(viewModel: AdminViewModel) {
         }
 
         // Duplicates section
-        if (duplicates.isNotEmpty()) {
-            AdminSectionCard(title = "Duplicates (${duplicates.size} groups)", icon = Icons.Outlined.ContentCopy) {
+        AdminSectionCard(
+            title = if (duplicates.isEmpty()) "Duplicates" else "Duplicates (${duplicates.size} groups)",
+            icon = Icons.Outlined.ContentCopy
+        ) {
+            if (duplicates.isEmpty()) {
+                Text(
+                    "No duplicate audiobooks detected",
+                    color = SapphoTextMuted,
+                    fontSize = 13.sp
+                )
+            } else {
                 duplicates.forEach { group ->
                     DuplicateGroupCard(
                         group = group,
@@ -356,6 +379,57 @@ private fun LibraryTab(viewModel: AdminViewModel) {
                 }
             }
         }
+
+        // Orphan Directories section
+        AdminSectionCard(
+            title = if (orphanDirectories.isEmpty()) "Orphan Directories" else "Orphan Directories (${orphanDirectories.size})",
+            icon = Icons.Outlined.FolderOff,
+            action = {
+                if (selectedOrphans.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            viewModel.deleteOrphanDirectories(selectedOrphans.toList())
+                            selectedOrphans = emptySet()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = SapphoError),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Delete (${selectedOrphans.size})", fontSize = 12.sp)
+                    }
+                }
+            }
+        ) {
+            if (orphanDirectories.isEmpty()) {
+                Text(
+                    "No orphan directories found",
+                    color = SapphoTextMuted,
+                    fontSize = 13.sp
+                )
+            } else {
+                Text(
+                    "Directories containing files not tracked in the library",
+                    color = SapphoTextMuted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                orphanDirectories.forEach { orphan ->
+                    OrphanDirectoryCard(
+                        orphan = orphan,
+                        isSelected = orphan.path in selectedOrphans,
+                        onToggleSelect = {
+                            selectedOrphans = if (orphan.path in selectedOrphans) {
+                                selectedOrphans - orphan.path
+                            } else {
+                                selectedOrphans + orphan.path
+                            }
+                        }
+                    )
+                }
+            }
+        }
         }
     }
 
@@ -385,6 +459,155 @@ private fun LibraryTab(viewModel: AdminViewModel) {
             }
         )
     }
+
+    // Organize Preview Dialog
+    if (showOrganizePreview) {
+        OrganizePreviewDialog(
+            books = organizePreview,
+            isLoading = loadingSection == "organize",
+            onDismiss = { showOrganizePreview = false },
+            onConfirm = {
+                viewModel.organizeLibrary()
+                showOrganizePreview = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun OrphanDirectoryCard(
+    orphan: OrphanDirectory,
+    isSelected: Boolean,
+    onToggleSelect: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable(onClick = onToggleSelect),
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) SapphoError.copy(alpha = 0.2f) else SapphoProgressTrack.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggleSelect() },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = SapphoError,
+                    uncheckedColor = SapphoIconDefault
+                )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    orphan.relativePath ?: orphan.path,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row(
+                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    orphan.audioFileCount?.let { count ->
+                        Text("$count audio files", color = SapphoIconDefault, fontSize = 11.sp)
+                    }
+                    Text(formatFileSize(orphan.totalSize), color = SapphoTextMuted, fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OrganizePreviewDialog(
+    books: List<OrganizePreviewBook>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Reorganize Library", color = Color.White) },
+        text = {
+            Column {
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
+                    }
+                } else if (books.isEmpty()) {
+                    Text(
+                        "All audiobooks are already in their correct locations.",
+                        color = SapphoIconDefault
+                    )
+                } else {
+                    Text(
+                        "${books.size} audiobook(s) will be moved:",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 300.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(books) { book ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = SapphoProgressTrack.copy(alpha = 0.5f)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(book.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    book.author?.let {
+                                        Text(it, color = SapphoIconDefault, fontSize = 12.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("From:", color = SapphoTextMuted, fontSize = 10.sp)
+                                    Text(
+                                        book.currentPath ?: "Unknown",
+                                        color = SapphoIconDefault,
+                                        fontSize = 11.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("To:", color = SapphoTextMuted, fontSize = 10.sp)
+                                    Text(
+                                        book.targetPath ?: "Unknown",
+                                        color = SapphoInfo,
+                                        fontSize = 11.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (!isLoading && books.isNotEmpty()) {
+                TextButton(onClick = onConfirm) {
+                    Text("Reorganize", color = SapphoInfo)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = SapphoIconDefault)
+            }
+        },
+        containerColor = SapphoSurfaceLight
+    )
 }
 
 @Composable
