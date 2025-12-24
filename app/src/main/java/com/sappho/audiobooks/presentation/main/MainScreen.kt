@@ -900,8 +900,10 @@ fun TopBar(
                 contentAlignment = Alignment.Center
             ) {
                 if (user?.avatar != null && serverUrl != null) {
+                    // Use avatar path as cache-buster to force refresh when avatar changes
+                    val avatarUrl = "$serverUrl/api/profile/avatar?v=${user.avatar.hashCode()}"
                     AsyncImage(
-                        model = "$serverUrl/api/profile/avatar",
+                        model = avatarUrl,
                         contentDescription = "User Avatar",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop

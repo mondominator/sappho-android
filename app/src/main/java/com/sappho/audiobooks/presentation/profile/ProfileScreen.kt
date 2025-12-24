@@ -144,8 +144,11 @@ fun ProfileScreen(
                                     )
                                 }
                                 user?.avatar != null && serverUrl != null -> {
+                                    // Use avatar path as cache-buster to force refresh when avatar changes
+                                    val avatarPath = user?.avatar ?: ""
+                                    val avatarUrl = "$serverUrl/api/profile/avatar?v=${avatarPath.hashCode()}"
                                     AsyncImage(
-                                        model = "$serverUrl/api/profile/avatar",
+                                        model = avatarUrl,
                                         contentDescription = "Avatar",
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
