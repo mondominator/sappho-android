@@ -20,12 +20,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sappho.audiobooks.BuildConfig
-import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,8 +36,6 @@ fun SettingsScreen(
     val isSaving by viewModel.isSaving.collectAsState()
     val message by viewModel.message.collectAsState()
     val serverVersion by viewModel.serverVersion.collectAsState()
-    val skipForward by viewModel.userPreferences.skipForwardSeconds.collectAsState()
-    val skipBackward by viewModel.userPreferences.skipBackwardSeconds.collectAsState()
 
     // Edit mode state
     var isEditMode by remember { mutableStateOf(false) }
@@ -112,40 +107,6 @@ fun SettingsScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
-                // Playback Section
-                SectionCard(
-                    title = "Playback",
-                    icon = Icons.Outlined.PlayCircle
-                ) {
-                    // Skip Forward Setting
-                    SkipIntervalSelector(
-                        label = "Skip Forward",
-                        currentValue = skipForward,
-                        options = UserPreferencesRepository.SKIP_FORWARD_OPTIONS,
-                        onValueChange = { viewModel.userPreferences.setSkipForwardSeconds(it) }
-                    )
-
-                    HorizontalDivider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 8.dp))
-
-                    // Skip Backward Setting
-                    SkipIntervalSelector(
-                        label = "Skip Back",
-                        currentValue = skipBackward,
-                        options = UserPreferencesRepository.SKIP_BACKWARD_OPTIONS,
-                        onValueChange = { viewModel.userPreferences.setSkipBackwardSeconds(it) }
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Changes take effect on next playback start",
-                        color = SapphoTextMuted,
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 // Account Section
                 SectionCard(
                     title = "Account",
@@ -512,60 +473,5 @@ private fun SettingsRow(
             tint = SapphoTextMuted,
             modifier = Modifier.size(20.dp)
         )
-    }
-}
-
-@Composable
-private fun SkipIntervalSelector(
-    label: String,
-    currentValue: Int,
-    options: List<Int>,
-    onValueChange: (Int) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                color = Color.White,
-                style = MaterialTheme.typography.titleSmall
-            )
-            Text(
-                text = "${currentValue}s",
-                color = SapphoInfo,
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            options.forEach { seconds ->
-                val isSelected = seconds == currentValue
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onValueChange(seconds) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) SapphoInfo else SapphoProgressTrack
-                ) {
-                    Text(
-                        text = "${seconds}s",
-                        color = if (isSelected) Color.White else SapphoIconDefault,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp)
-                    )
-                }
-            }
-        }
     }
 }

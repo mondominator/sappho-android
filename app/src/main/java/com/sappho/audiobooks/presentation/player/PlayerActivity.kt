@@ -465,7 +465,7 @@ fun PlayerScreen(
                             )
                         }
 
-                        // Skip Backward 15s
+                        // Skip Backward 10s
                         val skipBackSource = remember { MutableInteractionSource() }
                         val isSkipBackPressed by skipBackSource.collectIsPressedAsState()
                         val skipBackScale by animateFloatAsState(
@@ -481,7 +481,7 @@ fun PlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Replay10,
-                                contentDescription = "Skip backward 15s",
+                                contentDescription = "Skip backward 10s",
                                 tint = Color.White,
                                 modifier = Modifier
                                     .size(36.dp)
@@ -549,7 +549,7 @@ fun PlayerScreen(
                             }
                         }
 
-                        // Skip Forward 15s
+                        // Skip Forward 10s
                         val skipForwardSource = remember { MutableInteractionSource() }
                         val isSkipForwardPressed by skipForwardSource.collectIsPressedAsState()
                         val skipForwardScale by animateFloatAsState(
@@ -565,7 +565,7 @@ fun PlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Forward10,
-                                contentDescription = "Skip forward 15s",
+                                contentDescription = "Skip forward 10s",
                                 tint = Color.White,
                                 modifier = Modifier
                                     .size(36.dp)
