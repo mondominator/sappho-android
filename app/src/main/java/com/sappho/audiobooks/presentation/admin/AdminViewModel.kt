@@ -56,6 +56,14 @@ class AdminViewModel @Inject constructor(
     private val _jobs = MutableStateFlow<List<JobInfo>>(emptyList())
     val jobs: StateFlow<List<JobInfo>> = _jobs
 
+    // Orphan Directories
+    private val _orphanDirectories = MutableStateFlow<List<OrphanDirectory>>(emptyList())
+    val orphanDirectories: StateFlow<List<OrphanDirectory>> = _orphanDirectories
+
+    // Organization Preview
+    private val _organizePreview = MutableStateFlow<List<OrganizePreviewBook>>(emptyList())
+    val organizePreview: StateFlow<List<OrganizePreviewBook>> = _organizePreview
+
     // API Keys
     private val _apiKeys = MutableStateFlow<List<ApiKey>>(emptyList())
     val apiKeys: StateFlow<List<ApiKey>> = _apiKeys
@@ -587,6 +595,12 @@ class AdminViewModel @Inject constructor(
                     val jobsMap = jobsResponse.body()?.jobs ?: emptyMap()
                     _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
                 }
+
+                // Refresh orphan directories
+                val orphansResponse = api.getOrphanDirectories()
+                if (orphansResponse.isSuccessful) {
+                    _orphanDirectories.value = orphansResponse.body()?.orphanDirectories ?: emptyList()
+                }
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Library tab refresh exception", e)
             } finally {
@@ -706,6 +720,108 @@ class AdminViewModel @Inject constructor(
                     refreshJobs()
                 } else {
                     _message.value = "Failed to trigger job"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Orphan Directories
+    fun loadOrphanDirectories() {
+        if ("orphans" in loadedSections) return
+        loadedSections.add("orphans")
+
+        viewModelScope.launch {
+            _loadingSection.value = "orphans"
+            try {
+                val response = api.getOrphanDirectories()
+                if (response.isSuccessful) {
+                    _orphanDirectories.value = response.body()?.orphanDirectories ?: emptyList()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Orphans error: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminViewModel", "Orphans exception", e)
+                _message.value = "Failed to load orphan directories"
+            } finally {
+                _loadingSection.value = null
+            }
+        }
+    }
+
+    fun refreshOrphanDirectories() {
+        viewModelScope.launch {
+            _loadingSection.value = "orphans"
+            try {
+                val response = api.getOrphanDirectories()
+                if (response.isSuccessful) {
+                    _orphanDirectories.value = response.body()?.orphanDirectories ?: emptyList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Failed to refresh orphan directories"
+            } finally {
+                _loadingSection.value = null
+            }
+        }
+    }
+
+    fun deleteOrphanDirectories(paths: List<String>) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.deleteOrphanDirectories(DeleteOrphansRequest(paths))
+                if (response.isSuccessful) {
+                    val result = response.body()
+                    _message.value = "Deleted ${result?.deleted ?: 0} directories"
+                    refreshOrphanDirectories()
+                } else {
+                    _message.value = "Failed to delete orphan directories"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _message.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Library Organization
+    fun loadOrganizePreview() {
+        viewModelScope.launch {
+            _loadingSection.value = "organize"
+            try {
+                val response = api.getOrganizePreview()
+                if (response.isSuccessful) {
+                    _organizePreview.value = response.body()?.books ?: emptyList()
+                } else {
+                    android.util.Log.e("AdminViewModel", "Organize preview error: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminViewModel", "Organize preview exception", e)
+                _message.value = "Failed to load organization preview"
+            } finally {
+                _loadingSection.value = null
+            }
+        }
+    }
+
+    fun organizeLibrary() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = api.organizeLibrary()
+                if (response.isSuccessful) {
+                    val stats = response.body()?.stats
+                    _message.value = "Organized: ${stats?.moved ?: 0} moved, ${stats?.skipped ?: 0} skipped, ${stats?.errors ?: 0} errors"
+                    _organizePreview.value = emptyList()
+                } else {
+                    _message.value = "Failed to organize library"
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

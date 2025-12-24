@@ -39,7 +39,6 @@ import com.sappho.audiobooks.R
 import com.sappho.audiobooks.data.remote.ProgressUpdateRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
-import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.download.DownloadManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -68,9 +67,6 @@ class AudioPlaybackService : MediaLibraryService() {
     @Inject
     lateinit var downloadManager: DownloadManager
 
-    @Inject
-    lateinit var userPreferences: UserPreferencesRepository
-
     private var player: ExoPlayer? = null
     private var mediaLibrarySession: MediaLibrarySession? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -90,6 +86,9 @@ class AudioPlaybackService : MediaLibraryService() {
         private const val ALL_BOOKS_ID = "__ALL_BOOKS__"
         private const val CONTINUE_LISTENING_ID = "__CONTINUE_LISTENING__"
         private const val CHAPTERS_PREFIX = "__CHAPTERS__"
+
+        // Skip duration in seconds (hardcoded to 10 seconds)
+        const val SKIP_SECONDS = 10L
 
         // Custom command actions
         const val ACTION_SKIP_FORWARD = "com.sappho.audiobooks.SKIP_FORWARD"
@@ -291,12 +290,11 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private fun initializePlayer() {
-        val skipBackMs = userPreferences.getSkipBackwardSecondsSync() * 1000L
-        val skipForwardMs = userPreferences.getSkipForwardSecondsSync() * 1000L
+        val skipMs = SKIP_SECONDS * 1000L
 
         player = ExoPlayer.Builder(this)
-            .setSeekBackIncrementMs(skipBackMs)
-            .setSeekForwardIncrementMs(skipForwardMs)
+            .setSeekBackIncrementMs(skipMs)
+            .setSeekForwardIncrementMs(skipMs)
             .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -345,11 +343,8 @@ class AudioPlaybackService : MediaLibraryService() {
 
         // Create command buttons for notification using standard player commands
         // This helps the notification provider recognize them as seek buttons
-        val skipBackSec = userPreferences.getSkipBackwardSecondsSync()
-        val skipForwardSec = userPreferences.getSkipForwardSecondsSync()
-
         val seekBackButton = CommandButton.Builder()
-            .setDisplayName("Rewind ${skipBackSec}s")
+            .setDisplayName("Rewind ${SKIP_SECONDS}s")
             .setIconResId(R.drawable.ic_replay_15)
             .setPlayerCommand(Player.COMMAND_SEEK_BACK)
             .build()
@@ -361,7 +356,7 @@ class AudioPlaybackService : MediaLibraryService() {
             .build()
 
         val seekForwardButton = CommandButton.Builder()
-            .setDisplayName("Forward ${skipForwardSec}s")
+            .setDisplayName("Forward ${SKIP_SECONDS}s")
             .setIconResId(R.drawable.ic_forward_15)
             .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
             .build()
@@ -999,16 +994,14 @@ class AudioPlaybackService : MediaLibraryService() {
 
     fun skipForward() {
         player?.let {
-            val skipSec = userPreferences.getSkipForwardSecondsSync()
-            val newPosition = (it.currentPosition / 1000 + skipSec).coerceAtMost(playerState.duration.value)
+            val newPosition = (it.currentPosition / 1000 + SKIP_SECONDS).coerceAtMost(playerState.duration.value)
             seekTo(newPosition)
         }
     }
 
     fun skipBackward() {
         player?.let {
-            val skipSec = userPreferences.getSkipBackwardSecondsSync()
-            val newPosition = (it.currentPosition / 1000 - skipSec).coerceAtLeast(0)
+            val newPosition = (it.currentPosition / 1000 - SKIP_SECONDS).coerceAtLeast(0)
             seekTo(newPosition)
         }
     }
