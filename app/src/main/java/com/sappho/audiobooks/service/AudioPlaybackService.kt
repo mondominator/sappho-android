@@ -1240,6 +1240,7 @@ class AudioPlaybackService : MediaLibraryService() {
         abandonAudioFocus()
         unregisterNoisyReceiver()
         unregisterNotificationActionReceiver()
+        playerState.clear()
         super.onDestroy()
     }
 }

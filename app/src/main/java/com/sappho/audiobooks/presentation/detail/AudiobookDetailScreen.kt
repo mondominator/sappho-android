@@ -465,11 +465,12 @@ fun AudiobookDetailScreen(
                     // Play/Pause Button (mobile style)
                     Button(
                         onClick = {
-                            if (isThisBookLoaded) {
-                                // Book is already loaded, just toggle play/pause
-                                AudioPlaybackService.instance?.togglePlayPause()
+                            val service = AudioPlaybackService.instance
+                            if (isThisBookLoaded && service != null) {
+                                // Book is already loaded and service is alive, just toggle play/pause
+                                service.togglePlayPause()
                             } else {
-                                // Start playing a new book
+                                // Start playing a new book (or restart if service was killed)
                                 onPlayClick(book.id, progress?.position)
                             }
                         },
@@ -1085,8 +1086,9 @@ fun AudiobookDetailScreen(
                 fetchChaptersResult = fetchChaptersResult,
                 onChapterClick = { chapter ->
                     audiobook?.let { book ->
-                        if (currentAudiobook?.id == book.id) {
-                            AudioPlaybackService.instance?.seekToAndPlay(chapter.startTime.toLong())
+                        val service = AudioPlaybackService.instance
+                        if (currentAudiobook?.id == book.id && service != null) {
+                            service.seekToAndPlay(chapter.startTime.toLong())
                         } else {
                             onPlayClick(book.id, chapter.startTime.toInt())
                         }
