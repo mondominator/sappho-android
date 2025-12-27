@@ -1,115 +1,179 @@
 import 'package:flutter/material.dart';
+import 'colors.dart';
+import 'typography.dart';
 
-// Sappho color palette - matching Android app
-class SapphoColors {
-  // Backgrounds
-  static const Color background = Color(0xFF0A0E1A);
-  static const Color surface = Color(0xFF1a1a1a);
-  static const Color surfaceLight = Color(0xFF262626);
-  static const Color surfaceBorder = Color(0xFF333333);
+// Re-export colors and typography for convenience
+export 'colors.dart';
+export 'typography.dart';
 
-  // Primary
-  static const Color primary = Color(0xFF3B82F6);
-  static const Color primaryDark = Color(0xFF2563EB);
-
-  // Text
-  static const Color textPrimary = Color(0xFFE0E7F1);
-  static const Color textSecondary = Color(0xFF9ca3af);
-  static const Color textMuted = Color(0xFF6b7280);
-
-  // Status colors
-  static const Color success = Color(0xFF22c55e);
-  static const Color warning = Color(0xFFf59e0b);
-  static const Color error = Color(0xFFef4444);
-  static const Color info = Color(0xFF3B82F6);
-
-  // Progress
-  static const Color progressTrack = Color(0xFF374151);
-  static const Color starFilled = Color(0xFFfbbf24);
-
-  // Legacy colors for compatibility
-  static const Color blueLight = Color(0xFF60a5fa);
-  static const Color purpleLight = Color(0xFFa78bfa);
-}
-
+/// Sappho app theme - matches Android app exactly
 ThemeData sapphoTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.dark,
-  scaffoldBackgroundColor: SapphoColors.background,
+  scaffoldBackgroundColor: sapphoBackground,
+
+  // Color scheme
   colorScheme: const ColorScheme.dark(
-    primary: SapphoColors.primary,
-    secondary: SapphoColors.blueLight,
-    surface: SapphoColors.surface,
-    error: SapphoColors.error,
+    primary: sapphoInfo,
+    secondary: legacyBlueLight,
+    surface: sapphoSurface,
+    error: sapphoError,
     onPrimary: Colors.white,
     onSecondary: Colors.white,
-    onSurface: SapphoColors.textPrimary,
+    onSurface: sapphoText,
     onError: Colors.white,
   ),
-  appBarTheme: const AppBarTheme(
-    backgroundColor: SapphoColors.surface,
-    foregroundColor: SapphoColors.textPrimary,
-    elevation: 0,
+
+  // Typography
+  textTheme: sapphoTextTheme.apply(
+    bodyColor: sapphoText,
+    displayColor: sapphoText,
   ),
+
+  // AppBar
+  appBarTheme: const AppBarTheme(
+    backgroundColor: sapphoSurface,
+    foregroundColor: sapphoText,
+    elevation: 0,
+    surfaceTintColor: Colors.transparent,
+  ),
+
+  // Cards
   cardTheme: CardThemeData(
-    color: SapphoColors.surfaceLight,
+    color: sapphoSurfaceLight,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
     ),
+    elevation: 0,
   ),
+
+  // Elevated buttons
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
-      backgroundColor: SapphoColors.primary,
+      backgroundColor: sapphoInfo,
       foregroundColor: Colors.white,
+      disabledBackgroundColor: sapphoProgressTrack,
+      disabledForegroundColor: sapphoTextMuted,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
     ),
   ),
+
+  // Text buttons
+  textButtonTheme: TextButtonThemeData(
+    style: TextButton.styleFrom(
+      foregroundColor: sapphoInfo,
+    ),
+  ),
+
+  // Outlined text fields
   inputDecorationTheme: InputDecorationTheme(
-    filled: true,
-    fillColor: SapphoColors.surfaceLight,
+    filled: false,
+    fillColor: Colors.transparent,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: SapphoColors.surfaceBorder),
+      borderSide: const BorderSide(color: sapphoProgressTrack),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: SapphoColors.surfaceBorder),
+      borderSide: const BorderSide(color: sapphoProgressTrack),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: SapphoColors.primary),
+      borderSide: const BorderSide(color: sapphoInfo),
     ),
-    labelStyle: const TextStyle(color: SapphoColors.textSecondary),
-    hintStyle: const TextStyle(color: SapphoColors.textMuted),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: sapphoError),
+    ),
+    labelStyle: const TextStyle(color: sapphoTextLight),
+    hintStyle: const TextStyle(color: sapphoTextMuted),
+    prefixIconColor: sapphoIconDefault,
+    suffixIconColor: sapphoIconDefault,
   ),
-  textTheme: const TextTheme(
-    displayLarge: TextStyle(color: SapphoColors.textPrimary, fontWeight: FontWeight.bold),
-    displayMedium: TextStyle(color: SapphoColors.textPrimary, fontWeight: FontWeight.bold),
-    displaySmall: TextStyle(color: SapphoColors.textPrimary, fontWeight: FontWeight.bold),
-    headlineLarge: TextStyle(color: SapphoColors.textPrimary, fontWeight: FontWeight.w600),
-    headlineMedium: TextStyle(color: SapphoColors.textPrimary, fontWeight: FontWeight.w600),
-    headlineSmall: TextStyle(color: SapphoColors.textPrimary, fontWeight: FontWeight.w600),
-    titleLarge: TextStyle(color: SapphoColors.textPrimary, fontWeight: FontWeight.w500),
-    titleMedium: TextStyle(color: SapphoColors.textPrimary, fontWeight: FontWeight.w500),
-    titleSmall: TextStyle(color: SapphoColors.textSecondary),
-    bodyLarge: TextStyle(color: SapphoColors.textPrimary),
-    bodyMedium: TextStyle(color: SapphoColors.textPrimary),
-    bodySmall: TextStyle(color: SapphoColors.textSecondary),
-    labelLarge: TextStyle(color: SapphoColors.textPrimary),
-    labelMedium: TextStyle(color: SapphoColors.textSecondary),
-    labelSmall: TextStyle(color: SapphoColors.textMuted),
-  ),
+
+  // Bottom navigation
   bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-    backgroundColor: SapphoColors.surface,
-    selectedItemColor: SapphoColors.primary,
-    unselectedItemColor: SapphoColors.textMuted,
+    backgroundColor: sapphoSurface,
+    selectedItemColor: sapphoInfo,
+    unselectedItemColor: sapphoTextMuted,
   ),
+
+  // Navigation bar (Material 3)
+  navigationBarTheme: NavigationBarThemeData(
+    backgroundColor: sapphoSurface,
+    indicatorColor: sapphoInfo.withValues(alpha: 0.2),
+    iconTheme: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return const IconThemeData(color: sapphoInfo);
+      }
+      return const IconThemeData(color: sapphoIconDefault);
+    }),
+    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return const TextStyle(color: sapphoInfo, fontSize: 12);
+      }
+      return const TextStyle(color: sapphoIconDefault, fontSize: 12);
+    }),
+  ),
+
+  // Slider
   sliderTheme: const SliderThemeData(
-    activeTrackColor: SapphoColors.primary,
-    inactiveTrackColor: SapphoColors.progressTrack,
-    thumbColor: SapphoColors.primary,
+    activeTrackColor: sapphoInfo,
+    inactiveTrackColor: sapphoProgressTrack,
+    thumbColor: sapphoInfo,
     overlayColor: Color(0x293B82F6),
+    trackHeight: 4,
+  ),
+
+  // Progress indicator
+  progressIndicatorTheme: const ProgressIndicatorThemeData(
+    color: sapphoInfo,
+    linearTrackColor: sapphoProgressTrack,
+  ),
+
+  // Dialogs
+  dialogTheme: DialogThemeData(
+    backgroundColor: sapphoSurface,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+  ),
+
+  // Dropdown menu
+  dropdownMenuTheme: DropdownMenuThemeData(
+    menuStyle: MenuStyle(
+      backgroundColor: WidgetStateProperty.all(sapphoSurface),
+      shape: WidgetStateProperty.all(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: sapphoSurfaceBorder),
+        ),
+      ),
+    ),
+  ),
+
+  // Icon theme
+  iconTheme: const IconThemeData(
+    color: sapphoIconDefault,
+  ),
+
+  // Divider
+  dividerTheme: const DividerThemeData(
+    color: sapphoSurfaceBorder,
+    thickness: 1,
+  ),
+
+  // Snackbar
+  snackBarTheme: SnackBarThemeData(
+    backgroundColor: sapphoSurfaceLight,
+    contentTextStyle: const TextStyle(color: sapphoText),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+    ),
+    behavior: SnackBarBehavior.floating,
   ),
 );

@@ -86,8 +86,8 @@ class _MainScaffoldState extends State<MainScaffold> {
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
         },
-        backgroundColor: SapphoColors.surface,
-        indicatorColor: SapphoColors.primary.withValues(alpha: 0.2),
+        backgroundColor: sapphoSurface,
+        indicatorColor: sapphoInfo.withValues(alpha: 0.2),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -129,11 +129,11 @@ class _PlaceholderScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 64, color: SapphoColors.textMuted),
+            Icon(icon, size: 64, color: sapphoTextMuted),
             const SizedBox(height: 16),
             Text(
               '$title coming soon',
-              style: const TextStyle(color: SapphoColors.textSecondary),
+              style: const TextStyle(color: sapphoTextSecondary),
             ),
           ],
         ),
