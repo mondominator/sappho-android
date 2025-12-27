@@ -67,10 +67,11 @@ class AuthRepository @Inject constructor(
     }
 
     // Cache user info for offline display
-    fun saveUserInfo(username: String, displayName: String?) {
+    fun saveUserInfo(username: String, displayName: String?, avatar: String?) {
         securePrefs.edit()
             .putString(KEY_USERNAME, username)
             .putString(KEY_DISPLAY_NAME, displayName)
+            .putString(KEY_AVATAR, avatar)
             .apply()
     }
 
@@ -82,11 +83,42 @@ class AuthRepository @Inject constructor(
         return securePrefs.getString(KEY_DISPLAY_NAME, null)
     }
 
+    fun getCachedAvatar(): String? {
+        return securePrefs.getString(KEY_AVATAR, null)
+    }
+
+    /**
+     * Get the local file path for the cached avatar image
+     */
+    fun getCachedAvatarFile(): File {
+        return File(context.filesDir, "cached_avatar.jpg")
+    }
+
+    /**
+     * Check if we have a locally cached avatar image
+     */
+    fun hasCachedAvatarImage(): Boolean {
+        return getCachedAvatarFile().exists()
+    }
+
+    /**
+     * Delete the cached avatar image file
+     */
+    fun clearCachedAvatarImage() {
+        try {
+            getCachedAvatarFile().delete()
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Failed to delete cached avatar", e)
+        }
+    }
+
     fun clearUserInfo() {
         securePrefs.edit()
             .remove(KEY_USERNAME)
             .remove(KEY_DISPLAY_NAME)
+            .remove(KEY_AVATAR)
             .apply()
+        clearCachedAvatarImage()
     }
 
     private fun createEncryptedPrefs(): SharedPreferences {
@@ -155,5 +187,6 @@ class AuthRepository @Inject constructor(
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_USERNAME = "cached_username"
         private const val KEY_DISPLAY_NAME = "cached_display_name"
+        private const val KEY_AVATAR = "cached_avatar"
     }
 }
