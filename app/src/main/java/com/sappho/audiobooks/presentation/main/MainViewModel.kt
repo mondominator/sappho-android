@@ -7,11 +7,15 @@ import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.domain.model.User
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
@@ -33,6 +37,7 @@ data class UploadResultData(
 class MainViewModel @Inject constructor(
     private val api: SapphoApi,
     private val authRepository: com.sappho.audiobooks.data.repository.AuthRepository,
+    private val okHttpClient: OkHttpClient,
     val playerState: com.sappho.audiobooks.service.PlayerState,
     val castHelper: com.sappho.audiobooks.cast.CastHelper,
     val downloadManager: com.sappho.audiobooks.download.DownloadManager
@@ -47,6 +52,10 @@ class MainViewModel @Inject constructor(
     private val _serverVersion = MutableStateFlow<String?>(null)
     val serverVersion: StateFlow<String?> = _serverVersion
 
+    // Cached avatar file for offline display
+    private val _cachedAvatarFile = MutableStateFlow<File?>(null)
+    val cachedAvatarFile: StateFlow<File?> = _cachedAvatarFile
+
     // Upload state
     private val _uploadState = MutableStateFlow(UploadState.IDLE)
     val uploadState: StateFlow<UploadState> = _uploadState
@@ -60,8 +69,15 @@ class MainViewModel @Inject constructor(
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
         loadCachedUser() // Load cached user first for immediate display
+        loadCachedAvatarFile() // Check for locally cached avatar image
         loadUser()
         loadServerVersion()
+    }
+
+    private fun loadCachedAvatarFile() {
+        if (authRepository.hasCachedAvatarImage()) {
+            _cachedAvatarFile.value = authRepository.getCachedAvatarFile()
+        }
     }
 
     private fun loadCachedUser() {
@@ -74,7 +90,7 @@ class MainViewModel @Inject constructor(
                 email = null,
                 displayName = authRepository.getCachedDisplayName(),
                 isAdmin = 0,
-                avatar = null
+                avatar = authRepository.getCachedAvatar()
             )
         }
     }
@@ -90,7 +106,11 @@ class MainViewModel @Inject constructor(
                     _user.value = loadedUser
                     // Cache user info for offline use
                     loadedUser?.let {
-                        authRepository.saveUserInfo(it.username, it.displayName)
+                        authRepository.saveUserInfo(it.username, it.displayName, it.avatar)
+                        // Download and cache avatar image if user has one
+                        if (it.avatar != null) {
+                            cacheAvatarImage()
+                        }
                     }
                     android.util.Log.d("MainViewModel", "User set: ${_user.value}")
                 } else {
@@ -99,6 +119,41 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 // Offline - keep using cached user
                 android.util.Log.e("MainViewModel", "Exception loading user (offline?)", e)
+            }
+        }
+    }
+
+    private fun cacheAvatarImage() {
+        val serverUrl = _serverUrl.value ?: return
+        val avatarHash = _user.value?.avatar?.hashCode() ?: return
+
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val avatarUrl = "$serverUrl/api/profile/avatar?v=$avatarHash"
+                    android.util.Log.d("MainViewModel", "Caching avatar from: $avatarUrl")
+
+                    val request = Request.Builder()
+                        .url(avatarUrl)
+                        .build()
+
+                    okHttpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val avatarFile = authRepository.getCachedAvatarFile()
+                            response.body?.byteStream()?.use { input ->
+                                avatarFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                            android.util.Log.d("MainViewModel", "Avatar cached to: ${avatarFile.absolutePath}")
+                            _cachedAvatarFile.value = avatarFile
+                        } else {
+                            android.util.Log.e("MainViewModel", "Failed to cache avatar: ${response.code}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainViewModel", "Error caching avatar", e)
             }
         }
     }

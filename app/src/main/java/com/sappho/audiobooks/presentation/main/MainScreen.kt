@@ -71,6 +71,7 @@ import com.sappho.audiobooks.presentation.player.MinimizedPlayerBar
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.service.PlayerState
 import com.sappho.audiobooks.cast.CastHelper
+import java.io.File
 import javax.inject.Inject
 
 sealed class Screen(val route: String, val title: String) {
@@ -127,6 +128,7 @@ fun MainScreen(
     val user by viewModel.user.collectAsState()
     val serverUrl by viewModel.serverUrl.collectAsState()
     val serverVersion by viewModel.serverVersion.collectAsState()
+    val cachedAvatarFile by viewModel.cachedAvatarFile.collectAsState()
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -145,6 +147,7 @@ fun MainScreen(
                 user = user,
                 serverUrl = serverUrl,
                 serverVersion = serverVersion,
+                cachedAvatarFile = cachedAvatarFile,
                 showUserMenu = showUserMenu,
                 onUserMenuToggle = { showUserMenu = !showUserMenu },
                 onProfileClick = {
@@ -811,6 +814,7 @@ fun TopBar(
     user: User?,
     serverUrl: String?,
     serverVersion: String?,
+    cachedAvatarFile: File?,
     showUserMenu: Boolean,
     onUserMenuToggle: () -> Unit,
     onProfileClick: () -> Unit,
@@ -899,21 +903,34 @@ fun TopBar(
                     .clickable(onClick = onUserMenuToggle),
                 contentAlignment = Alignment.Center
             ) {
-                if (user?.avatar != null && serverUrl != null) {
-                    // Use avatar path as cache-buster to force refresh when avatar changes
-                    val avatarUrl = "$serverUrl/api/profile/avatar?v=${user.avatar.hashCode()}"
-                    AsyncImage(
-                        model = avatarUrl,
-                        contentDescription = "User Avatar",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text(
-                        text = user?.username?.first()?.uppercaseChar()?.toString() ?: "U",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                when {
+                    // Prefer locally cached avatar file for offline support
+                    cachedAvatarFile != null && cachedAvatarFile.exists() -> {
+                        AsyncImage(
+                            model = cachedAvatarFile,
+                            contentDescription = "User Avatar",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    // Fall back to network URL if no cached file
+                    user?.avatar != null && serverUrl != null -> {
+                        val avatarUrl = "$serverUrl/api/profile/avatar?v=${user.avatar.hashCode()}"
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = "User Avatar",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    // Show initial letter if no avatar
+                    else -> {
+                        Text(
+                            text = user?.username?.first()?.uppercaseChar()?.toString() ?: "U",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    }
                 }
             }
         }

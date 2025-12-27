@@ -716,37 +716,27 @@ fun PlayerScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Chapters button - modern pill style
+                        // Chapters button
+                        val chaptersInteractionSource = remember { MutableInteractionSource() }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(SapphoSurfaceLight, SapphoSurfaceDark)
-                                    )
-                                )
-                                .clickable { showChapters = !showChapters }
+                                .clickable(
+                                    interactionSource = chaptersInteractionSource,
+                                    indication = null
+                                ) { showChapters = !showChapters }
                                 .padding(vertical = 12.dp, horizontal = 12.dp)
                         ) {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(SapphoInfo.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.List,
-                                        contentDescription = "Chapters",
-                                        modifier = Modifier.size(18.dp),
-                                        tint = LegacyBlueLight
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.List,
+                                    contentDescription = "Chapters",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = LegacyBlueLight
+                                )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = currentChapter?.title ?: "—",
@@ -758,37 +748,27 @@ fun PlayerScreen(
                             }
                         }
 
-                        // Speed button - modern pill style
+                        // Speed button
+                        val speedInteractionSource = remember { MutableInteractionSource() }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(SapphoSurfaceLight, SapphoSurfaceDark)
-                                    )
-                                )
-                                .clickable { showPlaybackSpeed = !showPlaybackSpeed }
+                                .clickable(
+                                    interactionSource = speedInteractionSource,
+                                    indication = null
+                                ) { showPlaybackSpeed = !showPlaybackSpeed }
                                 .padding(vertical = 12.dp, horizontal = 12.dp)
                         ) {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(LegacyPurple.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Speed,
-                                        contentDescription = "Speed",
-                                        modifier = Modifier.size(18.dp),
-                                        tint = LegacyPurpleLight
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Speed,
+                                    contentDescription = "Speed",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = LegacyPurpleLight
+                                )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = "${playbackSpeed}x",
@@ -798,47 +778,28 @@ fun PlayerScreen(
                             }
                         }
 
-                        // Sleep Timer button - modern pill style
+                        // Sleep Timer button
                         val hasSleepTimer = sleepTimerRemaining != null && sleepTimerRemaining > 0
+                        val sleepInteractionSource = remember { MutableInteractionSource() }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(
-                                    if (hasSleepTimer) {
-                                        Brush.horizontalGradient(
-                                            listOf(SapphoWarning.copy(alpha = 0.2f), SapphoStarFilled.copy(alpha = 0.2f))
-                                        )
-                                    } else {
-                                        Brush.horizontalGradient(
-                                            listOf(SapphoSurfaceLight, SapphoSurfaceDark)
-                                        )
-                                    }
-                                )
-                                .clickable { showSleepTimer = !showSleepTimer }
+                                .clickable(
+                                    interactionSource = sleepInteractionSource,
+                                    indication = null
+                                ) { showSleepTimer = !showSleepTimer }
                                 .padding(vertical = 12.dp, horizontal = 12.dp)
                         ) {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (hasSleepTimer) SapphoWarning.copy(alpha = 0.3f)
-                                            else SapphoWarning.copy(alpha = 0.15f)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Bedtime,
-                                        contentDescription = "Sleep Timer",
-                                        modifier = Modifier.size(18.dp),
-                                        tint = SapphoStarFilled
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Bedtime,
+                                    contentDescription = "Sleep Timer",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = if (hasSleepTimer) SapphoStarFilled else SapphoWarning
+                                )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = if (hasSleepTimer && sleepTimerRemaining != null) {

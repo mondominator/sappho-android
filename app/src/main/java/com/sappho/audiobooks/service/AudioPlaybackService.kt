@@ -67,7 +67,11 @@ class AudioPlaybackService : MediaLibraryService() {
     @Inject
     lateinit var downloadManager: DownloadManager
 
+    @Inject
+    lateinit var okHttpClient: okhttp3.OkHttpClient
+
     private var player: ExoPlayer? = null
+    private var currentCoverBitmap: android.graphics.Bitmap? = null
     private var mediaLibrarySession: MediaLibrarySession? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var progressSyncJob: Job? = null
@@ -903,6 +907,9 @@ class AudioPlaybackService : MediaLibraryService() {
             playerState.updateAudiobook(audiobook)
             playerState.updateLoadingState(true)
 
+            // Load cover bitmap for notification
+            loadCoverBitmap(audiobook)
+
             // Get server URL and token
             val serverUrl = authRepository.getServerUrlSync()
             val token = authRepository.getTokenSync()
@@ -1178,7 +1185,7 @@ class AudioPlaybackService : MediaLibraryService() {
         val playPauseIcon = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
         val playPauseText = if (isPlaying) "Pause" else "Play"
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(audiobook?.title ?: "Sappho Audiobooks")
             .setContentText(audiobook?.author ?: "")
             .setSubText(audiobook?.series)
@@ -1197,12 +1204,50 @@ class AudioPlaybackService : MediaLibraryService() {
                     .setMediaSession(session.sessionCompatToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
-            .build()
+
+        // Add cover art if available
+        currentCoverBitmap?.let { bitmap ->
+            builder.setLargeIcon(bitmap)
+        }
+
+        return builder.build()
     }
 
     private fun updateNotification() {
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.notify(NOTIFICATION_ID, createNotification())
+    }
+
+    private fun loadCoverBitmap(audiobook: Audiobook) {
+        val serverUrl = authRepository.getServerUrlSync() ?: return
+        val token = authRepository.getTokenSync() ?: return
+        if (audiobook.coverImage == null) {
+            currentCoverBitmap = null
+            return
+        }
+
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val coverUrl = "$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token"
+                val request = okhttp3.Request.Builder()
+                    .url(coverUrl)
+                    .build()
+
+                okHttpClient.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        response.body?.byteStream()?.use { inputStream ->
+                            currentCoverBitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                            // Update notification with the new bitmap
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                updateNotification()
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AudioPlaybackService", "Failed to load cover bitmap", e)
+            }
+        }
     }
 
     fun stopPlayback() {
