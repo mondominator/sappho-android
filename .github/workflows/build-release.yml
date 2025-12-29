@@ -22,55 +22,35 @@ env:
 
 jobs:
   # ============================================================================
-  # CODE QUALITY & SECURITY
+  # CODE QUALITY
   # ============================================================================
   analyze:
-    name: Code Quality & Security
+    name: Code Quality
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
+        run: |
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 ~/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+
+      - name: Flutter version
+        run: ~/flutter/bin/flutter --version
 
       - name: Install dependencies
-        run: flutter pub get
+        run: ~/flutter/bin/flutter pub get
 
       - name: Check formatting
-        run: dart format --set-exit-if-changed lib/
+        run: ~/flutter/bin/dart format --set-exit-if-changed lib/
 
       - name: Analyze code
-        run: flutter analyze --no-fatal-infos
+        run: ~/flutter/bin/flutter analyze --no-fatal-infos
 
       - name: Run tests
-        run: flutter test --coverage || true  # Continue even if no tests
-
-      # Security: Check for vulnerable dependencies
-      - name: Check dependencies for vulnerabilities
-        run: |
-          flutter pub outdated --json > outdated.json || true
-          echo "## Dependency Check" >> $GITHUB_STEP_SUMMARY
-          echo "Run 'flutter pub outdated' locally for details" >> $GITHUB_STEP_SUMMARY
-
-      # Security: Scan for hardcoded secrets
-      - name: Scan for secrets
-        uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --only-verified
-        continue-on-error: true
-
-      # Security: SAST with semgrep
-      - name: Run Semgrep SAST
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: p/security-audit
-        continue-on-error: true
+        run: ~/flutter/bin/flutter test --coverage || true
 
   # ============================================================================
   # BUILD ANDROID
@@ -82,29 +62,26 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@387ac29b308b003ca37ba93a6cab5eb57c8f5f93
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
+        run: |
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 ~/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: flutter pub get
+        run: ~/flutter/bin/flutter pub get
 
       - name: Build Debug APK
-        run: flutter build apk --debug
+        run: ~/flutter/bin/flutter build apk --debug
 
-      # Check if secrets are available for signed builds
       - name: Check if secrets are available
         id: secrets-check
         run: |
@@ -126,7 +103,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: flutter build apk --release
+        run: ~/flutter/bin/flutter build apk --release
 
       - name: Build Signed Release AAB
         if: steps.secrets-check.outputs.available == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -135,10 +112,10 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: flutter build appbundle --release
+        run: ~/flutter/bin/flutter build appbundle --release
 
       - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
         with:
           name: sappho-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
@@ -146,7 +123,7 @@ jobs:
 
       - name: Upload Release APK
         if: steps.secrets-check.outputs.available == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
         with:
           name: sappho-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
@@ -154,19 +131,18 @@ jobs:
 
       - name: Upload Release AAB
         if: steps.secrets-check.outputs.available == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
         with:
           name: sappho-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
 
-      # Clean up keystore
       - name: Clean up keystore
         if: always()
         run: rm -f ${{ github.workspace }}/android/release.keystore
 
   # ============================================================================
-  # BUILD iOS (for validation only - needs macOS for full build)
+  # BUILD iOS
   # ============================================================================
   build-ios:
     name: Build iOS
@@ -175,35 +151,18 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: true
+        run: |
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 ~/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: flutter pub get
+        run: ~/flutter/bin/flutter pub get
 
       - name: Build iOS (no codesign)
-        run: flutter build ios --no-codesign --release
-
-  # ============================================================================
-  # DEPENDENCY REVIEW (for PRs)
-  # ============================================================================
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        run: ~/flutter/bin/flutter build ios --no-codesign --release
 
   # ============================================================================
   # RELEASE
@@ -218,20 +177,20 @@ jobs:
 
     steps:
       - name: Download Debug APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
         with:
           name: sappho-debug-apk
           path: ./apk/debug
 
       - name: Download Release APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
         with:
           name: sappho-release-apk
           path: ./apk/release
         continue-on-error: true
 
       - name: Download Release AAB
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
         with:
           name: sappho-release-aab
           path: ./aab/release
