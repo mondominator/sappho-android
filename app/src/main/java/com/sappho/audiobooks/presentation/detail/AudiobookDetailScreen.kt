@@ -115,6 +115,7 @@ fun AudiobookDetailScreen(
     val recapError by viewModel.recapError.collectAsState()
     val previousBookCompleted by viewModel.previousBookCompleted.collectAsState()
     var showRecapDialog by remember { mutableStateOf(false) }
+    var isDescriptionExpanded by remember { mutableStateOf(false) }
 
     // Check if this audiobook is currently playing or loaded
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
@@ -916,8 +917,26 @@ fun AudiobookDetailScreen(
                                 text = description,
                                 fontSize = 16.sp,
                                 color = SapphoTextLight,
-                                lineHeight = 28.8.sp
+                                lineHeight = 28.8.sp,
+                                maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
+                                overflow = TextOverflow.Ellipsis
                             )
+
+                            // Show More/Less button if text is long enough
+                            if (description.length > 200) {
+                                TextButton(
+                                    onClick = { isDescriptionExpanded = !isDescriptionExpanded },
+                                    modifier = Modifier.padding(top = 4.dp),
+                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isDescriptionExpanded) "Less" else "More",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = SapphoInfo
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -3338,7 +3357,7 @@ private fun AddToCollectionDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = SapphoSurface
+                containerColor = SapphoSurfaceLight
             )
         ) {
             Column(

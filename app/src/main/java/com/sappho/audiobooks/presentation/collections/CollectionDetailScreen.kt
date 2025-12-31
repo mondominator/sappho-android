@@ -524,7 +524,7 @@ private fun EditCollectionDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = SapphoSurface
+                containerColor = SapphoSurfaceLight
             )
         ) {
             Column(
