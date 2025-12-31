@@ -20,6 +20,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import com.sappho.audiobooks.presentation.theme.*
+import com.sappho.audiobooks.presentation.theme.IconSize
+import com.sappho.audiobooks.presentation.theme.Spacing
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -136,9 +138,9 @@ fun SearchScreen(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
                             tint = SapphoProgressTrack,
-                            modifier = Modifier.size(64.dp)
+                            modifier = Modifier.size(IconSize.XLarge)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(Spacing.M))
                         Text(
                             text = "Search for books, series, or authors",
                             color = SapphoTextMuted,
@@ -152,11 +154,28 @@ fun SearchScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "No results found",
-                        color = SapphoTextMuted,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = SapphoProgressTrack,
+                            modifier = Modifier.size(IconSize.XLarge)
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.M))
+                        Text(
+                            text = "No Results Found",
+                            color = SapphoText,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.XS))
+                        Text(
+                            text = "Try a different search term",
+                            color = SapphoTextMuted,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
             else -> {

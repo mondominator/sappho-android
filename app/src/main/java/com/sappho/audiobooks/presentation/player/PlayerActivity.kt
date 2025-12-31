@@ -58,6 +58,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.cast.CastHelper
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -112,6 +114,7 @@ fun PlayerScreen(
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val audiobook by viewModel.audiobook.collectAsState()
     val chapters by viewModel.chapters.collectAsState()
     val playerState by viewModel.playerState.collectAsState()
@@ -508,6 +511,7 @@ fun PlayerScreen(
                                     interactionSource = playSource,
                                     indication = null
                                 ) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     // Check if we're currently casting
                                     android.util.Log.d("PlayerActivity", "Play/Pause tapped: isCastConnected=$isCastConnected, isPlaying=$isPlaying, castIsPlaying=$castIsPlaying, localIsPlaying=$localIsPlaying")
                                     if (isCastConnected) {

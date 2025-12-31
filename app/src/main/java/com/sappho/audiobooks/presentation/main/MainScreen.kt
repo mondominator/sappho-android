@@ -298,7 +298,7 @@ fun MainScreen(
                 )
             }
             composable(Screen.Profile.route) {
-                ProfileScreen()
+                ProfileScreen(onLogout = onLogout)
             }
             composable(Screen.Settings.route) {
                 com.sappho.audiobooks.presentation.settings.SettingsScreen(

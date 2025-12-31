@@ -13,6 +13,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.LibraryBooks
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.BookmarkAdded
@@ -41,8 +44,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.presentation.theme.*
+import com.sappho.audiobooks.presentation.theme.IconSize
+import com.sappho.audiobooks.presentation.theme.Spacing
 
 @Composable
 fun HomeScreen(
@@ -84,44 +94,59 @@ fun HomeScreen(
     if (isLoading) {
         SkeletonHomeScreen()
     } else {
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SapphoBackground),
-            contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .background(SapphoBackground)
         ) {
-            // Offline Banner
+            // Sticky Offline Banner
             if (isOffline) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .background(
-                                SapphoWarning.copy(alpha = 0.2f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudOff,
-                            contentDescription = null,
-                            tint = SapphoWarning,
-                            modifier = Modifier.size(20.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.M, vertical = Spacing.XS)
+                        .background(
+                            SapphoWarning.copy(alpha = 0.2f),
+                            RoundedCornerShape(8.dp)
                         )
+                        .padding(Spacing.S),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudOff,
+                        contentDescription = null,
+                        tint = SapphoWarning,
+                        modifier = Modifier.size(IconSize.Medium)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.XS))
+                    Text(
+                        text = "You're offline",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SapphoWarning,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = { viewModel.refresh() },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = SapphoWarning
+                        ),
+                        contentPadding = PaddingValues(horizontal = Spacing.S, vertical = Spacing.XXS)
+                    ) {
                         Text(
-                            text = "Offline mode",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = SapphoWarning
+                            text = "Retry",
+                            style = MaterialTheme.typography.labelMedium
                         )
                     }
                 }
             }
 
-            // When offline - show Downloaded section prominently at top
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(vertical = Spacing.M),
+                verticalArrangement = Arrangement.spacedBy(Spacing.L)
+            ) {
+                // When offline - show Downloaded section prominently at top
             if (isOffline && downloadedBooks.isNotEmpty()) {
                 item {
                     AudiobookSection(
@@ -194,7 +219,7 @@ fun HomeScreen(
                     }
                 }
 
-                // Listen Again Section - De-emphasized with smaller cards
+                // Listen Again Section - De-emphasized with smaller cards, no checkmarks (redundant)
                 if (finished.isNotEmpty()) {
                     item {
                         AudiobookSection(
@@ -209,7 +234,8 @@ fun HomeScreen(
                                 showCollectionDialog = true
                             },
                             cardSize = 120.dp,
-                            titleSize = 14.sp
+                            titleSize = 14.sp,
+                            showCompletedCheckmark = false
                         )
                     }
                 }
@@ -237,23 +263,37 @@ fun HomeScreen(
             val hasContent = downloadedBooks.isNotEmpty() || (!isOffline && (inProgress.isNotEmpty() || upNext.isNotEmpty() || recentlyAdded.isNotEmpty() || finished.isNotEmpty()))
             if (!hasContent) {
                 item {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(Spacing.XXL),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.M)
                     ) {
+                        Icon(
+                            imageVector = if (isOffline) Icons.Outlined.CloudOff else Icons.Outlined.LibraryBooks,
+                            contentDescription = null,
+                            modifier = Modifier.size(IconSize.XLarge),
+                            tint = SapphoIconDefault
+                        )
+                        Text(
+                            text = if (isOffline) "You're Offline" else "No Audiobooks Yet",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = SapphoText
+                        )
                         Text(
                             text = if (isOffline) {
-                                "No downloaded books available.\nConnect to the internet to browse your library."
+                                "Download books while online to listen offline."
                             } else {
-                                "No audiobooks found.\nAdd some to your server to get started!"
+                                "Add audiobooks to your server to get started!"
                             },
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = SapphoIconDefault
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SapphoIconDefault,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
+            }
             }
         }
     }
@@ -285,7 +325,8 @@ fun AudiobookSection(
     onToggleFavorite: (Int) -> Unit = {},
     onAddToCollection: (Int) -> Unit = {},
     cardSize: androidx.compose.ui.unit.Dp = 140.dp,
-    titleSize: androidx.compose.ui.unit.TextUnit = 16.sp
+    titleSize: androidx.compose.ui.unit.TextUnit = 16.sp,
+    showCompletedCheckmark: Boolean = true
 ) {
     Column(modifier = modifier) {
         Text(
@@ -307,7 +348,8 @@ fun AudiobookSection(
                     onClick = { onAudiobookClick(book.id) },
                     onToggleFavorite = { onToggleFavorite(book.id) },
                     onAddToCollection = { onAddToCollection(book.id) },
-                    cardSize = cardSize
+                    cardSize = cardSize,
+                    showCompletedCheckmark = showCompletedCheckmark
                 )
             }
         }
@@ -323,15 +365,16 @@ fun AudiobookCard(
     onClick: () -> Unit = {},
     onToggleFavorite: () -> Unit = {},
     onAddToCollection: () -> Unit = {},
-    cardSize: androidx.compose.ui.unit.Dp = 140.dp
+    cardSize: androidx.compose.ui.unit.Dp = 140.dp,
+    showCompletedCheckmark: Boolean = true
 ) {
-    android.util.Log.d("AudiobookCard", "Book: ${book.title}, coverImage: ${book.coverImage}, serverUrl: $serverUrl")
     val textScale = cardSize.value / 140f
     val titleFontSize = (14 * textScale).sp
     val authorFontSize = (12 * textScale).sp
     val placeholderFontSize = (32 * textScale).sp
 
     var showMenu by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
 
     Box(modifier = modifier) {
         Column(
@@ -339,7 +382,10 @@ fun AudiobookCard(
                 .width(cardSize)
                 .combinedClickable(
                     onClick = onClick,
-                    onLongClick = { showMenu = true }
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showMenu = true
+                    }
                 )
         ) {
             // Cover Image
@@ -350,27 +396,35 @@ fun AudiobookCard(
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                if (book.coverImage != null && serverUrl != null) {
-                    val imageUrl = "$serverUrl/api/audiobooks/${book.id}/cover"
-                    android.util.Log.d("AudiobookCard", "Loading cover from: $imageUrl")
+                val context = LocalContext.current
+                val imageUrl = if (book.coverImage != null && serverUrl != null) {
+                    "$serverUrl/api/audiobooks/${book.id}/cover"
+                } else null
+
+                // Placeholder/fallback content (initials)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = book.title.take(2).uppercase(),
+                        fontSize = placeholderFontSize,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // Cover image with crossfade (overlays placeholder when loaded)
+                if (imageUrl != null) {
                     AsyncImage(
-                        model = imageUrl,
+                        model = ImageRequest.Builder(context)
+                            .data(imageUrl)
+                            .crossfade(300)
+                            .build(),
                         contentDescription = book.title,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
-                } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = book.title.take(2),
-                            fontSize = placeholderFontSize,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 }
 
                 // Progress Bar
@@ -401,7 +455,7 @@ fun AudiobookCard(
                 }
 
                 // Completed checkmark overlay
-                if (book.progress?.completed == 1) {
+                if (showCompletedCheckmark && book.progress?.completed == 1) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -472,6 +526,7 @@ fun AudiobookCard(
                 },
                 onClick = {
                     showMenu = false
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onToggleFavorite()
                 }
             )
@@ -552,7 +607,7 @@ private fun AddToCollectionDialog(
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = SapphoSurface
+                containerColor = SapphoSurfaceLight
             )
         ) {
             Column(

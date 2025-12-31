@@ -22,6 +22,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.sappho.audiobooks.presentation.theme.*
+import com.sappho.audiobooks.presentation.theme.IconSize
+import com.sappho.audiobooks.presentation.theme.Spacing
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -38,10 +40,12 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import com.sappho.audiobooks.BuildConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
+    onLogout: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -52,6 +56,7 @@ fun ProfileScreen(
     val saveMessage by viewModel.saveMessage.collectAsState()
     val serverUrl by viewModel.serverUrl.collectAsState()
     val avatarUri by viewModel.avatarUri.collectAsState()
+    val serverVersion by viewModel.serverVersion.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     // Avatar picker
@@ -272,7 +277,12 @@ fun ProfileScreen(
                 }
 
                 // Profile content (scrollable)
-                ProfileTab(stats, serverUrl)
+                ProfileTab(
+                    stats = stats,
+                    serverUrl = serverUrl,
+                    serverVersion = serverVersion,
+                    onLogout = onLogout
+                )
             }
         }
     }
@@ -281,7 +291,9 @@ fun ProfileScreen(
 @Composable
 private fun ProfileTab(
     stats: com.sappho.audiobooks.domain.model.UserStats?,
-    serverUrl: String?
+    serverUrl: String?,
+    serverVersion: String?,
+    onLogout: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -330,6 +342,28 @@ private fun ProfileTab(
                     label = "Streak",
                     icon = Icons.Outlined.LocalFireDepartment,
                     color = SapphoError
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    value = userStats.booksStarted.toString(),
+                    label = "Started",
+                    icon = Icons.Outlined.MenuBook,
+                    color = SapphoInfo
+                )
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    value = "${userStats.activeDaysLast30}",
+                    label = "Active Days",
+                    icon = Icons.Outlined.CalendarMonth,
+                    color = SapphoIconDefault
                 )
             }
 
@@ -490,6 +524,77 @@ private fun ProfileTab(
                     color = SapphoTextMuted,
                     style = MaterialTheme.typography.bodyMedium
                 )
+            }
+        }
+
+        // About section
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SectionCard(
+            title = "About",
+            icon = Icons.Outlined.Info
+        ) {
+            // App Version
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "App Version",
+                    color = SapphoTextMuted,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = BuildConfig.VERSION_NAME,
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            // Server Version
+            serverVersion?.let { version ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Server Version",
+                        color = SapphoTextMuted,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = version,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Logout button
+            Button(
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SapphoError.copy(alpha = 0.15f),
+                    contentColor = SapphoError
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Logout,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Logout")
             }
         }
 
