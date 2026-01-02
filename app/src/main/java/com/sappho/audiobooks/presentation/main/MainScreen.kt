@@ -591,12 +591,22 @@ private fun UploadDialog(
     var title by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
     var narrator by remember { mutableStateOf("") }
+    var uploadAsSingleBook by remember { mutableStateOf(true) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
         selectedFiles = uris
     }
+
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        focusedBorderColor = SapphoInfo,
+        unfocusedBorderColor = SapphoProgressTrack,
+        focusedLabelColor = SapphoInfo,
+        unfocusedLabelColor = SapphoIconDefault
+    )
 
     AlertDialog(
         onDismissRequest = {
@@ -656,6 +666,54 @@ private fun UploadDialog(
                         Text("Clear selection", color = SapphoError, style = MaterialTheme.typography.labelMedium)
                     }
 
+                    // Upload mode toggle (only show when multiple files selected)
+                    if (selectedFiles.size > 1) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            color = SapphoSurface
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "Upload Mode",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = SapphoTextMuted
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = if (uploadAsSingleBook) "Single audiobook" else "Separate audiobooks",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = if (uploadAsSingleBook)
+                                                "Files are chapters of one book"
+                                            else
+                                                "Each file is a separate book",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SapphoIconDefault
+                                        )
+                                    }
+                                    Switch(
+                                        checked = uploadAsSingleBook,
+                                        onCheckedChange = { uploadAsSingleBook = it },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = SapphoSuccess,
+                                            uncheckedThumbColor = Color.White,
+                                            uncheckedTrackColor = SapphoIconDefault
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     // Optional metadata
                     Text("Optional metadata (leave blank to auto-detect)", color = SapphoTextMuted, style = MaterialTheme.typography.labelSmall)
 
@@ -665,14 +723,7 @@ private fun UploadDialog(
                         label = { Text("Title") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = SapphoInfo,
-                            unfocusedBorderColor = SapphoProgressTrack,
-                            focusedLabelColor = SapphoInfo,
-                            unfocusedLabelColor = SapphoIconDefault
-                        )
+                        colors = textFieldColors
                     )
 
                     OutlinedTextField(
@@ -681,31 +732,20 @@ private fun UploadDialog(
                         label = { Text("Author") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = SapphoInfo,
-                            unfocusedBorderColor = SapphoProgressTrack,
-                            focusedLabelColor = SapphoInfo,
-                            unfocusedLabelColor = SapphoIconDefault
-                        )
+                        colors = textFieldColors
                     )
 
-                    OutlinedTextField(
-                        value = narrator,
-                        onValueChange = { narrator = it },
-                        label = { Text("Narrator") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = SapphoInfo,
-                            unfocusedBorderColor = SapphoProgressTrack,
-                            focusedLabelColor = SapphoInfo,
-                            unfocusedLabelColor = SapphoIconDefault
+                    // Narrator field only for separate books mode
+                    if (!uploadAsSingleBook || selectedFiles.size == 1) {
+                        OutlinedTextField(
+                            value = narrator,
+                            onValueChange = { narrator = it },
+                            label = { Text("Narrator") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = textFieldColors
                         )
-                    )
+                    }
                 }
 
                 // Upload progress
@@ -754,13 +794,22 @@ private fun UploadDialog(
             if (selectedFiles.isNotEmpty() && uploadResult == null) {
                 Button(
                     onClick = {
-                        viewModel.uploadAudiobooks(
-                            context = context,
-                            uris = selectedFiles,
-                            title = title.ifBlank { null },
-                            author = author.ifBlank { null },
-                            narrator = narrator.ifBlank { null }
-                        )
+                        if (uploadAsSingleBook && selectedFiles.size > 1) {
+                            viewModel.uploadAsSingleBook(
+                                context = context,
+                                uris = selectedFiles,
+                                title = title.ifBlank { null },
+                                author = author.ifBlank { null }
+                            )
+                        } else {
+                            viewModel.uploadAsSeparateBooks(
+                                context = context,
+                                uris = selectedFiles,
+                                title = title.ifBlank { null },
+                                author = author.ifBlank { null },
+                                narrator = narrator.ifBlank { null }
+                            )
+                        }
                     },
                     enabled = uploadState != UploadState.UPLOADING,
                     colors = ButtonDefaults.buttonColors(containerColor = SapphoSuccess)
