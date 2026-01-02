@@ -352,7 +352,7 @@ fun CategoriesView(
                 icon = Icons.Filled.MenuBook,
                 title = "Series",
                 count = seriesCount,
-                label = "series",
+                label = "",
                 gradientColors = listOf(CategoryColors.contentLight, CategoryColors.contentDark),
                 onClick = onSeriesClick
             )
@@ -667,6 +667,7 @@ fun SeriesListView(
                 val totalDuration = seriesBooks.sumOf { it.duration ?: 0 }
                 val authors = seriesBooks.mapNotNull { it.author }.distinct()
                 val completedCount = seriesBooks.count { it.progress?.completed == 1 }
+                val gradientColors = LibraryGradients.forString(seriesItem.series)
 
                 SeriesListCard(
                     seriesName = seriesItem.series,
@@ -676,6 +677,7 @@ fun SeriesListView(
                     completedCount = completedCount,
                     books = seriesBooks.take(4),
                     serverUrl = serverUrl,
+                    gradientColors = gradientColors,
                     onClick = { onSeriesClick(seriesItem.series) }
                 )
             }
@@ -693,13 +695,18 @@ fun SeriesListCard(
     completedCount: Int,
     books: List<com.sappho.audiobooks.domain.model.Audiobook>,
     serverUrl: String?,
+    gradientColors: List<Color>,
     onClick: () -> Unit
 ) {
+    // Darken the gradient colors for better text readability
+    val darkenedColors = gradientColors.map { it.copy(alpha = 0.35f) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(SapphoSurfaceLight)
+            .background(Brush.horizontalGradient(darkenedColors))
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -826,8 +833,6 @@ fun AuthorsListView(
     onBackClick: () -> Unit,
     onAuthorClick: (String) -> Unit
 ) {
-    val avatarColors = LibraryGradients.avatars
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -874,7 +879,7 @@ fun AuthorsListView(
                     .take(2)
                     .mapNotNull { it.firstOrNull()?.uppercaseChar() }
                     .joinToString("")
-                val colorIndex = author.author.hashCode().let { kotlin.math.abs(it) % avatarColors.size }
+                val gradientColors = LibraryGradients.forString(author.author)
 
                 AuthorListCard(
                     authorName = author.author,
@@ -883,7 +888,7 @@ fun AuthorsListView(
                     seriesCount = seriesCount,
                     totalDuration = totalDuration,
                     genres = genres,
-                    gradientColors = avatarColors[colorIndex],
+                    gradientColors = gradientColors,
                     recentBooks = authorBooks.take(3),
                     serverUrl = serverUrl,
                     onClick = { onAuthorClick(author.author) }
@@ -907,11 +912,15 @@ fun AuthorListCard(
     serverUrl: String?,
     onClick: () -> Unit
 ) {
+    // Darken the gradient colors for better text readability
+    val darkenedColors = gradientColors.map { it.copy(alpha = 0.35f) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(SapphoSurfaceLight)
+            .background(Brush.horizontalGradient(darkenedColors))
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -921,7 +930,7 @@ fun AuthorListCard(
             modifier = Modifier
                 .size(56.dp)
                 .background(
-                    Brush.linearGradient(gradientColors),
+                    Color.White.copy(alpha = 0.2f),
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -1139,15 +1148,15 @@ fun GenreListCard(
     serverUrl: String?,
     onClick: () -> Unit
 ) {
+    // Darken the gradient colors for better text readability
+    val darkenedColors = gradientColors.map { it.copy(alpha = 0.35f) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(
-                Brush.horizontalGradient(
-                    colors = gradientColors
-                )
-            )
+            .background(SapphoSurfaceLight)
+            .background(Brush.horizontalGradient(darkenedColors))
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
