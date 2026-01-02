@@ -133,7 +133,7 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun updateProfileWithAvatar(displayName: String?, email: String?, avatarFile: File?) {
+    fun updateProfileWithAvatar(displayName: String?, email: String?, avatarFile: File?, mimeType: String = "image/jpeg") {
         viewModelScope.launch {
             _isSaving.value = true
             _saveMessage.value = null
@@ -142,17 +142,19 @@ class ProfileViewModel @Inject constructor(
                 val emailBody = email?.toRequestBody("text/plain".toMediaTypeOrNull())
 
                 val avatarPart = avatarFile?.let { file ->
-                    val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+                    val requestFile = file.asRequestBody(mimeType.toMediaTypeOrNull())
                     MultipartBody.Part.createFormData("avatar", file.name, requestFile)
                 }
 
                 val response = api.updateProfileWithAvatar(displayNameBody, emailBody, avatarPart)
                 if (response.isSuccessful) {
-                    _user.value = response.body()
+                    // Reload profile to get updated avatar path
+                    loadProfile()
                     _avatarUri.value = null // Clear the local preview
-                    _saveMessage.value = "Profile updated successfully"
+                    _saveMessage.value = "Avatar updated"
                 } else {
-                    _saveMessage.value = "Failed to update profile"
+                    val errorBody = response.errorBody()?.string()
+                    _saveMessage.value = errorBody ?: "Failed to update profile"
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
