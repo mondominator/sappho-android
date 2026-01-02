@@ -12,40 +12,36 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.sappho.audiobooks.presentation.theme.*
-import com.sappho.audiobooks.presentation.theme.IconSize
-import com.sappho.audiobooks.presentation.theme.Spacing
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import kotlinx.coroutines.launch
+import coil.request.CachePolicy
+import coil.request.ImageRequest
+import com.sappho.audiobooks.BuildConfig
+import com.sappho.audiobooks.presentation.theme.*
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-import com.sappho.audiobooks.BuildConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit = {},
+    onAvatarChanged: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -68,15 +64,23 @@ fun ProfileScreen(
             viewModel.setAvatarUri(it)
             try {
                 val inputStream = context.contentResolver.openInputStream(it)
-                val tempFile = File(context.cacheDir, "avatar_temp.jpg")
+                // Get the actual MIME type and determine extension
+                val mimeType = context.contentResolver.getType(it) ?: "image/jpeg"
+                val extension = when {
+                    mimeType.contains("png") -> ".png"
+                    mimeType.contains("gif") -> ".gif"
+                    mimeType.contains("webp") -> ".webp"
+                    else -> ".jpg"
+                }
+                val tempFile = File(context.cacheDir, "avatar_temp$extension")
                 inputStream?.use { input ->
                     tempFile.outputStream().use { output ->
                         input.copyTo(output)
                     }
                 }
                 selectedAvatarFile = tempFile
-                // Auto-save avatar
-                viewModel.updateProfileWithAvatar(null, null, tempFile)
+                // Auto-save avatar with correct MIME type
+                viewModel.updateProfileWithAvatar(null, null, tempFile, mimeType)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -87,8 +91,12 @@ fun ProfileScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(saveMessage) {
-        saveMessage?.let {
-            snackbarHostState.showSnackbar(it)
+        saveMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            // Notify MainScreen to refresh navbar avatar when avatar changes
+            if (message.contains("Avatar", ignoreCase = true)) {
+                onAvatarChanged()
+            }
             viewModel.clearMessage()
         }
     }
@@ -97,191 +105,161 @@ fun ProfileScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = SapphoBackground
     ) { paddingValues ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = SapphoInfo)
-            }
-        } else {
+        var showEditDialog by remember { mutableStateOf(false) }
+
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
             ) {
-                // Header with gradient background
-                Box(
+                // Hero section - avatar left, info right
+                val avatarGradient = LibraryGradients.forAvatar(user?.username ?: "U")
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    SapphoSurfaceLight,
-                                    SapphoBackground
-                                )
-                            )
-                        )
-                        .padding(24.dp)
+                        .background(SapphoSurfaceLight)
+                        .padding(Spacing.M),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    // Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(Brush.verticalGradient(avatarGradient))
+                            .clickable { imagePickerLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
                     ) {
-                        // Avatar
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .clip(CircleShape)
-                                .background(SapphoInfo)
-                                .clickable { imagePickerLauncher.launch("image/*") },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            when {
-                                avatarUri != null -> {
-                                    AsyncImage(
-                                        model = avatarUri,
-                                        contentDescription = "Avatar Preview",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                                user?.avatar != null && serverUrl != null -> {
-                                    // Use avatar path as cache-buster to force refresh when avatar changes
-                                    val avatarPath = user?.avatar ?: ""
-                                    val avatarUrl = "$serverUrl/api/profile/avatar?v=${avatarPath.hashCode()}"
-                                    AsyncImage(
-                                        model = avatarUrl,
-                                        contentDescription = "Avatar",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                                else -> {
-                                    Text(
-                                        text = (user?.displayName ?: user?.username)?.firstOrNull()?.uppercaseChar()?.toString() ?: "U",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.displayMedium
-                                    )
-                                }
+                        when {
+                            avatarUri != null -> {
+                                AsyncImage(
+                                    model = avatarUri,
+                                    contentDescription = "Avatar Preview",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
                             }
-                            // Edit overlay
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.3f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = "Change Avatar",
-                                    tint = Color.White.copy(alpha = 0.9f),
-                                    modifier = Modifier.size(28.dp)
+                            user?.avatar != null && serverUrl != null -> {
+                                val avatarPath = user?.avatar ?: ""
+                                val avatarUrl = "$serverUrl/api/profile/avatar?v=${avatarPath.hashCode()}&t=${System.currentTimeMillis() / 60000}"
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(avatarUrl)
+                                        .diskCachePolicy(CachePolicy.DISABLED)
+                                        .memoryCachePolicy(CachePolicy.DISABLED)
+                                        .build(),
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            else -> {
+                                Text(
+                                    text = (user?.displayName ?: user?.username)?.firstOrNull()?.uppercaseChar()?.toString() ?: "U",
+                                    color = SapphoText,
+                                    style = MaterialTheme.typography.headlineMedium
                                 )
                             }
                         }
+                    }
 
-                        // Avatar controls
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(top = 8.dp)
-                        ) {
-                            TextButton(
-                                onClick = { imagePickerLauncher.launch("image/*") },
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Upload,
-                                    contentDescription = null,
-                                    tint = SapphoInfo,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Upload", style = MaterialTheme.typography.bodySmall, color = SapphoInfo)
-                            }
-                            if (user?.avatar != null || avatarUri != null) {
-                                TextButton(
-                                    onClick = {
-                                        selectedAvatarFile = null
-                                        viewModel.setAvatarUri(null)
-                                        if (user?.avatar != null) {
-                                            viewModel.deleteAvatar()
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Delete,
-                                        contentDescription = null,
-                                        tint = SapphoError,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Remove", style = MaterialTheme.typography.bodySmall, color = SapphoError)
-                                }
-                            }
-                        }
+                    Spacer(modifier = Modifier.width(Spacing.M))
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Name
+                    // User info
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = user?.displayName ?: user?.username ?: "User",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = Color.White
+                            style = MaterialTheme.typography.titleLarge,
+                            color = SapphoText
                         )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Username
                         Text(
                             text = "@${user?.username ?: ""}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = SapphoIconDefault
                         )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Role badge
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (user?.isAdmin == 1) SapphoSuccess.copy(alpha = 0.15f)
-                            else SapphoInfo.copy(alpha = 0.15f)
+                        Spacer(modifier = Modifier.height(Spacing.XXS))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.XS)
                         ) {
-                            Text(
-                                text = if (user?.isAdmin == 1) "Administrator" else "User",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (user?.isAdmin == 1) SapphoSuccess else SapphoInfo,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                            )
+                            Surface(
+                                shape = RoundedCornerShape(Spacing.S),
+                                color = if (user?.isAdmin == 1) SapphoSuccess.copy(alpha = 0.15f)
+                                else SapphoInfo.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = if (user?.isAdmin == 1) "Admin" else "User",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (user?.isAdmin == 1) SapphoSuccess else SapphoInfo,
+                                    modifier = Modifier.padding(horizontal = Spacing.XS, vertical = 2.dp)
+                                )
+                            }
+                            user?.createdAt?.let { createdAt ->
+                                val dateText = try {
+                                    val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                                    val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+                                    val parsed = inputFormat.parse(createdAt.split(".")[0])
+                                    "Joined ${outputFormat.format(parsed ?: Date())}"
+                                } catch (e: Exception) { "" }
+                                if (dateText.isNotEmpty()) {
+                                    Text(
+                                        text = dateText,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = SapphoTextMuted
+                                    )
+                                }
+                            }
                         }
+                    }
 
-                        // Member since
-                        user?.createdAt?.let { createdAt ->
-                            Spacer(modifier = Modifier.height(8.dp))
-                            val date = try {
-                                val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-                                val outputFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
-                                val parsed = inputFormat.parse(createdAt.split(".")[0])
-                                outputFormat.format(parsed ?: Date())
-                            } catch (e: Exception) { createdAt }
-                            Text(
-                                text = "Member since $date",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = SapphoTextMuted
-                            )
-                        }
+                    // Edit button
+                    IconButton(onClick = { showEditDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = "Edit Profile",
+                            tint = SapphoIconDefault
+                        )
                     }
                 }
 
-                // Profile content (scrollable)
+                // Profile content
                 ProfileTab(
                     stats = stats,
                     serverUrl = serverUrl,
                     serverVersion = serverVersion,
                     onLogout = onLogout
+                )
+            }
+
+            // Edit Profile Dialog
+            if (showEditDialog) {
+                EditProfileDialog(
+                    user = user,
+                    avatarUri = avatarUri,
+                    serverUrl = serverUrl,
+                    onDismiss = { showEditDialog = false },
+                    onPickImage = { imagePickerLauncher.launch("image/*") },
+                    onRemoveAvatar = {
+                        selectedAvatarFile = null
+                        viewModel.setAvatarUri(null)
+                        if (user?.avatar != null) {
+                            viewModel.deleteAvatar()
+                        }
+                    },
+                    onSave = { displayName, email ->
+                        viewModel.updateProfileWithAvatar(displayName, email, null)
+                        showEditDialog = false
+                    },
+                    onUpdatePassword = { currentPassword, newPassword ->
+                        viewModel.updatePassword(currentPassword, newPassword)
+                    }
                 )
             }
         }
@@ -297,15 +275,14 @@ private fun ProfileTab(
 ) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .fillMaxWidth()
+            .padding(Spacing.M)
     ) {
         stats?.let { userStats ->
             // Main stats row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.S)
             ) {
                 StatCard(
                     modifier = Modifier.weight(1f),
@@ -323,11 +300,11 @@ private fun ProfileTab(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.S))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.S)
             ) {
                 StatCard(
                     modifier = Modifier.weight(1f),
@@ -345,11 +322,11 @@ private fun ProfileTab(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.S))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.S)
             ) {
                 StatCard(
                     modifier = Modifier.weight(1f),
@@ -369,7 +346,7 @@ private fun ProfileTab(
 
             // Top authors
             if (userStats.topAuthors.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.L))
                 SectionCard(
                     title = "Top Authors",
                     icon = Icons.Outlined.Person
@@ -378,13 +355,13 @@ private fun ProfileTab(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = Spacing.XS),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = author.author,
-                                color = Color.White,
+                                color = SapphoText,
                                 style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -402,7 +379,7 @@ private fun ProfileTab(
 
             // Top genres
             if (userStats.topGenres.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.S))
                 SectionCard(
                     title = "Top Genres",
                     icon = Icons.Outlined.Category
@@ -411,13 +388,13 @@ private fun ProfileTab(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = Spacing.XS),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = genre.genre,
-                                color = Color.White,
+                                color = SapphoText,
                                 style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -435,7 +412,7 @@ private fun ProfileTab(
 
             // Recent Activity
             if (userStats.recentActivity.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(Spacing.S))
                 SectionCard(
                     title = "Recent Activity",
                     icon = Icons.Outlined.History
@@ -444,7 +421,7 @@ private fun ProfileTab(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = Spacing.XS),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Cover image
@@ -474,11 +451,11 @@ private fun ProfileTab(
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(Spacing.S))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = item.title,
-                                    color = Color.White,
+                                    color = SapphoText,
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -499,7 +476,7 @@ private fun ProfileTab(
                                     imageVector = Icons.Outlined.CheckCircle,
                                     contentDescription = "Completed",
                                     tint = SapphoSuccess,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(IconSize.Medium)
                                 )
                             } else if (item.duration != null && item.duration > 0) {
                                 val progress = (item.position.toFloat() / item.duration).coerceIn(0f, 1f)
@@ -514,21 +491,36 @@ private fun ProfileTab(
                 }
             }
         } ?: run {
-            // No stats available
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            // No stats available - improved empty state
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = Spacing.XL),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Icon(
+                    imageVector = Icons.Outlined.Headphones,
+                    contentDescription = null,
+                    tint = SapphoIconMuted,
+                    modifier = Modifier.size(IconSize.Hero)
+                )
+                Spacer(modifier = Modifier.height(Spacing.M))
                 Text(
                     text = "No listening stats yet",
                     color = SapphoTextMuted,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(modifier = Modifier.height(Spacing.XS))
+                Text(
+                    text = "Start listening to see your stats!",
+                    color = SapphoIconMuted,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
 
         // About section
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.L))
 
         SectionCard(
             title = "About",
@@ -538,7 +530,7 @@ private fun ProfileTab(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = Spacing.XS),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -549,7 +541,7 @@ private fun ProfileTab(
                 )
                 Text(
                     text = BuildConfig.VERSION_NAME,
-                    color = Color.White,
+                    color = SapphoText,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -559,7 +551,7 @@ private fun ProfileTab(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = Spacing.XS),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -570,13 +562,13 @@ private fun ProfileTab(
                     )
                     Text(
                         text = version,
-                        color = Color.White,
+                        color = SapphoText,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.XS))
 
             // Logout button
             Button(
@@ -586,19 +578,19 @@ private fun ProfileTab(
                     containerColor = SapphoError.copy(alpha = 0.15f),
                     contentColor = SapphoError
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(Spacing.S)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Logout,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(IconSize.Small + 2.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.XS))
                 Text("Logout")
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(Spacing.L))
     }
 }
 
@@ -612,12 +604,12 @@ private fun StatCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Spacing.M),
         color = SapphoSurfaceLight
     ) {
         Column(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(Spacing.M)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -625,13 +617,13 @@ private fun StatCard(
                 imageVector = icon,
                 contentDescription = null,
                 tint = color,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(IconSize.Standard)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.XS))
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineSmall,
-                color = Color.White,
+                color = SapphoText,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(2.dp))
@@ -654,29 +646,29 @@ private fun SectionCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Spacing.M),
         color = SapphoSurfaceLight
     ) {
         Column(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(Spacing.M)
                 .animateContentSize()
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 12.dp)
+                modifier = Modifier.padding(bottom = Spacing.S)
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = SapphoInfo,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(IconSize.Medium)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.XS))
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White
+                    color = SapphoText
                 )
             }
             content()

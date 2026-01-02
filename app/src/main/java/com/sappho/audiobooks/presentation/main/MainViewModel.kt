@@ -171,6 +171,22 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Refresh user profile and avatar cache.
+     * Called when avatar is changed in ProfileScreen.
+     */
+    fun refreshProfile() {
+        // Clear existing cached avatar file
+        val existingFile = _cachedAvatarFile.value
+        if (existingFile != null && existingFile.exists()) {
+            existingFile.delete()
+        }
+        _cachedAvatarFile.value = null
+
+        // Reload user data which will re-cache avatar if present
+        loadUser()
+    }
+
     fun clearUploadResult() {
         _uploadResult.value = null
         _uploadState.value = UploadState.IDLE

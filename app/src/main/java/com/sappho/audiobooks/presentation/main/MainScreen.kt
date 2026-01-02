@@ -156,12 +156,6 @@ fun MainScreen(
                         launchSingleTop = true
                     }
                 },
-                onSettingsClick = {
-                    showUserMenu = false
-                    navController.navigate(Screen.Settings.route) {
-                        launchSingleTop = true
-                    }
-                },
                 onAdminClick = {
                     showUserMenu = false
                     navController.navigate(Screen.Admin.route) {
@@ -184,10 +178,6 @@ fun MainScreen(
                 onDownloadsClick = {
                     showUserMenu = false
                     showDownloadsDialog = true
-                },
-                onUploadClick = {
-                    showUserMenu = false
-                    showUploadDialog = true
                 },
                 downloadCount = downloadedBooks.size
             )
@@ -272,6 +262,8 @@ fun MainScreen(
                             launchSingleTop = true
                         }
                     },
+                    onUploadClick = { showUploadDialog = true },
+                    isAdmin = user?.isAdmin == 1,
                     initialAuthor = author,
                     initialSeries = series
                 )
@@ -298,7 +290,10 @@ fun MainScreen(
                 )
             }
             composable(Screen.Profile.route) {
-                ProfileScreen(onLogout = onLogout)
+                ProfileScreen(
+                    onLogout = onLogout,
+                    onAvatarChanged = { viewModel.refreshProfile() }
+                )
             }
             composable(Screen.Settings.route) {
                 com.sappho.audiobooks.presentation.settings.SettingsScreen(
@@ -818,13 +813,11 @@ fun TopBar(
     showUserMenu: Boolean,
     onUserMenuToggle: () -> Unit,
     onProfileClick: () -> Unit,
-    onSettingsClick: () -> Unit,
     onAdminClick: () -> Unit,
     onLogout: () -> Unit,
     onDismissMenu: () -> Unit,
     onLogoClick: () -> Unit,
     onDownloadsClick: () -> Unit,
-    onUploadClick: () -> Unit,
     downloadCount: Int
 ) {
     val appVersion = BuildConfig.VERSION_NAME
@@ -961,21 +954,11 @@ fun TopBar(
                         onClick = onProfileClick
                     )
                     UserMenuItem(
-                        icon = Icons.Default.Settings,
-                        text = "Settings",
-                        onClick = onSettingsClick
-                    )
-                    UserMenuItem(
                         icon = Icons.Default.Download,
                         text = if (downloadCount > 0) "Downloads ($downloadCount)" else "Downloads",
                         onClick = onDownloadsClick
                     )
                     if (user?.isAdmin == 1) {
-                        UserMenuItem(
-                            icon = Icons.Default.Upload,
-                            text = "Upload",
-                            onClick = onUploadClick
-                        )
                         UserMenuItem(
                             icon = Icons.Default.AdminPanelSettings,
                             text = "Admin",

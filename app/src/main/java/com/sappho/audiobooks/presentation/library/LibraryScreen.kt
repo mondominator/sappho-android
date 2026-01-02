@@ -139,6 +139,8 @@ fun LibraryScreen(
     onAudiobookClick: (Int) -> Unit = {},
     onCollectionsClick: () -> Unit = {},
     onReadingListClick: () -> Unit = {},
+    onUploadClick: () -> Unit = {},
+    isAdmin: Boolean = false,
     initialAuthor: String? = null,
     initialSeries: String? = null,
     viewModel: LibraryViewModel = hiltViewModel()
@@ -204,7 +206,9 @@ fun LibraryScreen(
                     onGenresClick = { currentViewName = LibraryView.GENRES.name },
                     onAllBooksClick = { currentViewName = LibraryView.ALL_BOOKS.name },
                     onCollectionsClick = onCollectionsClick,
-                    onReadingListClick = onReadingListClick
+                    onReadingListClick = onReadingListClick,
+                    onUploadClick = onUploadClick,
+                    isAdmin = isAdmin
                 )
             }
             LibraryView.SERIES -> {
@@ -313,7 +317,9 @@ fun CategoriesView(
     onGenresClick: () -> Unit,
     onAllBooksClick: () -> Unit,
     onCollectionsClick: () -> Unit,
-    onReadingListClick: () -> Unit
+    onReadingListClick: () -> Unit,
+    onUploadClick: () -> Unit = {},
+    isAdmin: Boolean = false
 ) {
     LazyColumn(
         modifier = Modifier
@@ -415,6 +421,19 @@ fun CategoriesView(
                 gradientColors = listOf(CategoryColors.neutralLight, CategoryColors.neutralDark),
                 onClick = onAllBooksClick
             )
+        }
+
+        // Upload Card - Admin only
+        if (isAdmin) {
+            item {
+                CategoryCardWide(
+                    icon = Icons.Default.Upload,
+                    title = "Upload",
+                    subtitle = "Add new audiobooks to your library",
+                    gradientColors = listOf(SapphoSuccess, SapphoSuccess.copy(alpha = 0.7f)),
+                    onClick = onUploadClick
+                )
+            }
         }
 
         item { Spacer(modifier = Modifier.height(16.dp)) }

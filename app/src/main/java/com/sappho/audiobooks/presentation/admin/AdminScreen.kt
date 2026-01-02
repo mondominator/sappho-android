@@ -20,6 +20,7 @@ import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -1170,6 +1171,7 @@ private fun EditAiProviderDialog(
                                 )
                             }
                         },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = adminTextFieldColors()
                     )
@@ -1177,6 +1179,7 @@ private fun EditAiProviderDialog(
                         value = openaiModel,
                         onValueChange = { openaiModel = it },
                         label = { Text("Model") },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = adminTextFieldColors()
                     )
@@ -1195,6 +1198,7 @@ private fun EditAiProviderDialog(
                                 )
                             }
                         },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = adminTextFieldColors()
                     )
@@ -1202,6 +1206,7 @@ private fun EditAiProviderDialog(
                         value = geminiModel,
                         onValueChange = { geminiModel = it },
                         label = { Text("Model") },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = adminTextFieldColors()
                     )
@@ -1828,7 +1833,7 @@ private fun ApiKeyCard(
     onDelete: () -> Unit
 ) {
     val isActive = apiKey.isActive == 1
-    val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("MMM d", Locale.getDefault()) }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1838,111 +1843,80 @@ private fun ApiKeyCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(12.dp)
         ) {
+            // Header row: Name + Status badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = apiKey.name,
                         color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = if (isActive) SapphoSuccess.copy(alpha = 0.2f) else SapphoError.copy(alpha = 0.2f)
-                    ) {
-                        Text(
-                            if (isActive) "Active" else "Inactive",
-                            color = if (isActive) SapphoSuccess else SapphoError,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                    Text(
+                        text = "${apiKey.keyPrefix}... • ${apiKey.permissions.replaceFirstChar { it.uppercase() }}",
+                        color = SapphoIconDefault,
+                        fontSize = 12.sp
+                    )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = onToggleActive) {
-                        Icon(
-                            if (isActive) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
-                            contentDescription = if (isActive) "Deactivate" else "Activate",
-                            tint = if (isActive) SapphoSuccess else SapphoTextMuted
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = SapphoError)
-                    }
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = if (isActive) SapphoSuccess.copy(alpha = 0.2f) else SapphoError.copy(alpha = 0.2f)
+                ) {
+                    Text(
+                        if (isActive) "Active" else "Off",
+                        color = if (isActive) SapphoSuccess else SapphoError,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Actions row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("Key", color = SapphoTextMuted, fontSize = 11.sp)
-                    Text(
-                        "${apiKey.keyPrefix}...",
-                        color = SapphoIconDefault,
-                        fontSize = 13.sp,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                    )
-                }
-                Column {
-                    Text("Permissions", color = SapphoTextMuted, fontSize = 11.sp)
-                    Text(
-                        apiKey.permissions.replaceFirstChar { it.uppercase() },
-                        color = SapphoIconDefault,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column {
-                    Text("Created", color = SapphoTextMuted, fontSize = 11.sp)
-                    Text(
-                        try {
-                            dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(apiKey.createdAt) ?: Date())
-                        } catch (e: Exception) { apiKey.createdAt },
-                        color = SapphoIconDefault,
-                        fontSize = 13.sp
-                    )
-                }
-                apiKey.lastUsedAt?.let { lastUsed ->
-                    Column {
-                        Text("Last Used", color = SapphoTextMuted, fontSize = 11.sp)
-                        Text(
-                            try {
-                                dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(lastUsed) ?: Date())
-                            } catch (e: Exception) { lastUsed },
-                            color = SapphoIconDefault,
-                            fontSize = 13.sp
+                // Date info
+                Text(
+                    text = try {
+                        "Created ${dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(apiKey.createdAt) ?: Date())}"
+                    } catch (e: Exception) { "" },
+                    color = SapphoTextMuted,
+                    fontSize = 11.sp
+                )
+                // Action buttons
+                Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                    IconButton(
+                        onClick = onToggleActive,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            if (isActive) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
+                            contentDescription = if (isActive) "Deactivate" else "Activate",
+                            tint = if (isActive) SapphoSuccess else SapphoTextMuted,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                }
-                apiKey.expiresAt?.let { expires ->
-                    Column {
-                        Text("Expires", color = SapphoTextMuted, fontSize = 11.sp)
-                        Text(
-                            try {
-                                dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(expires) ?: Date())
-                            } catch (e: Exception) { expires },
-                            color = SapphoIconDefault,
-                            fontSize = 13.sp
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = "Delete",
+                            tint = SapphoError,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -2957,24 +2931,70 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                 // Storage by Format
                 stats.byFormat?.let { formats ->
                     if (formats.isNotEmpty()) {
+                        val totalSize = formats.sumOf { it.size }
                         AdminSectionCard(title = "Storage by Format", icon = Icons.Outlined.PieChart) {
-                            formats.forEach { format ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        format.format?.uppercase() ?: "Unknown",
-                                        color = Color.White,
-                                        fontSize = 14.sp
-                                    )
-                                    Text(
-                                        "${format.count} (${formatFileSize(format.size)})",
-                                        color = SapphoIconDefault,
-                                        fontSize = 14.sp
-                                    )
+                            formats.forEachIndexed { index, format ->
+                                if (index > 0) {
+                                    Spacer(modifier = Modifier.height(8.dp))
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
+                                val percentage = if (totalSize > 0) (format.size * 100 / totalSize).toInt() else 0
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = SapphoBackground.copy(alpha = 0.5f)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Text(
+                                                    format.format?.uppercase() ?: "Unknown",
+                                                    color = Color.White,
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = SapphoInfo.copy(alpha = 0.2f)
+                                                ) {
+                                                    Text(
+                                                        "${format.count} books",
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        color = SapphoInfo,
+                                                        fontSize = 11.sp
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                formatFileSize(format.size),
+                                                color = SapphoIconDefault,
+                                                fontSize = 13.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        // Progress bar showing percentage of total
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(4.dp)
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(SapphoProgressTrack)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(percentage / 100f)
+                                                    .height(4.dp)
+                                                    .background(SapphoInfo)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -2984,31 +3004,82 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                 stats.userStats?.let { users ->
                     if (users.isNotEmpty()) {
                         AdminSectionCard(title = "User Activity", icon = Icons.Outlined.People) {
-                            users.forEach { user ->
-                                Row(
+                            users.forEachIndexed { index, user ->
+                                if (index > 0) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                                Surface(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = SapphoBackground.copy(alpha = 0.5f)
                                 ) {
-                                    Text(
-                                        user.username ?: "Unknown",
-                                        color = Color.White,
-                                        fontSize = 14.sp,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(
-                                            "${user.booksCompleted ?: 0}/${user.booksStarted ?: 0} finished",
-                                            color = SapphoIconDefault,
-                                            fontSize = 12.sp
-                                        )
-                                        Text(
-                                            formatDuration(user.totalListenTime ?: 0),
-                                            color = SapphoIconDefault,
-                                            fontSize = 12.sp
-                                        )
+                                    Column(
+                                        modifier = Modifier.padding(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Outlined.Person,
+                                                    contentDescription = null,
+                                                    tint = SapphoInfo,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Text(
+                                                    user.username ?: "Unknown",
+                                                    color = Color.White,
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                            Text(
+                                                formatDuration(user.totalListenTime ?: 0),
+                                                color = SapphoInfo,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            Column {
+                                                Text("Started", color = SapphoTextMuted, fontSize = 11.sp)
+                                                Text(
+                                                    "${user.booksStarted ?: 0}",
+                                                    color = SapphoIconDefault,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                            Column {
+                                                Text("Finished", color = SapphoTextMuted, fontSize = 11.sp)
+                                                Text(
+                                                    "${user.booksCompleted ?: 0}",
+                                                    color = SapphoSuccess,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                            val completion = if ((user.booksStarted ?: 0) > 0) {
+                                                ((user.booksCompleted ?: 0) * 100) / (user.booksStarted ?: 1)
+                                            } else 0
+                                            Column {
+                                                Text("Completion", color = SapphoTextMuted, fontSize = 11.sp)
+                                                Text(
+                                                    "$completion%",
+                                                    color = if (completion >= 50) SapphoSuccess else SapphoWarning,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                        }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
                     }
