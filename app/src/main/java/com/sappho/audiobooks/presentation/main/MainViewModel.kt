@@ -19,7 +19,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 enum class UploadState {
     IDLE,
@@ -192,7 +194,10 @@ class MainViewModel @Inject constructor(
         _uploadState.value = UploadState.IDLE
     }
 
-    fun uploadAudiobooks(
+    /**
+     * Upload files as separate audiobooks (one book per file)
+     */
+    fun uploadAsSeparateBooks(
         context: Context,
         uris: List<Uri>,
         title: String?,
@@ -212,13 +217,17 @@ class MainViewModel @Inject constructor(
                 var failCount = 0
 
                 uris.forEachIndexed { index, uri ->
+                    val fileName = getFileNameFromUri(context, uri) ?: "audiobook_${System.currentTimeMillis()}.mp3"
+                    var tempFile: File? = null
+
                     try {
                         // Copy file from URI to temp file for uploading
                         val inputStream = context.contentResolver.openInputStream(uri)
-                        val fileName = getFileNameFromUri(context, uri) ?: "audiobook_${System.currentTimeMillis()}.mp3"
-                        val tempFile = File(context.cacheDir, fileName)
+                            ?: throw IOException("Cannot read file: $fileName")
 
-                        inputStream?.use { input ->
+                        tempFile = File(context.cacheDir, fileName)
+
+                        inputStream.use { input ->
                             tempFile.outputStream().use { output ->
                                 input.copyTo(output)
                             }
@@ -236,18 +245,26 @@ class MainViewModel @Inject constructor(
                             narrator = narrator?.toRequestBody("text/plain".toMediaTypeOrNull())
                         )
 
-                        // Clean up temp file
-                        tempFile.delete()
-
                         if (response.isSuccessful) {
                             successCount++
                         } else {
                             failCount++
                             android.util.Log.e("MainViewModel", "Upload failed: ${response.code()}")
                         }
+                    } catch (e: CancellationException) {
+                        throw e // Respect coroutine cancellation
                     } catch (e: Exception) {
                         failCount++
-                        android.util.Log.e("MainViewModel", "Upload error for file", e)
+                        android.util.Log.e("MainViewModel", "Upload error for file: $fileName", e)
+                    } finally {
+                        // Always clean up temp file
+                        tempFile?.let { file ->
+                            try {
+                                if (file.exists()) file.delete()
+                            } catch (e: Exception) {
+                                android.util.Log.w("MainViewModel", "Failed to delete temp file: ${file.name}")
+                            }
+                        }
                     }
 
                     _uploadProgress.value = (index + 1).toFloat() / totalFiles
@@ -258,12 +275,14 @@ class MainViewModel @Inject constructor(
                 _uploadResult.value = UploadResultData(
                     success = failCount == 0,
                     message = if (failCount == 0) {
-                        "Successfully uploaded $successCount file(s)"
+                        "Successfully uploaded $successCount audiobook(s)"
                     } else {
-                        "Uploaded $successCount file(s), $failCount failed"
+                        "Uploaded $successCount audiobook(s), $failCount failed"
                     }
                 )
 
+            } catch (e: CancellationException) {
+                throw e // Respect coroutine cancellation
             } catch (e: Exception) {
                 android.util.Log.e("MainViewModel", "Upload error", e)
                 _uploadState.value = UploadState.ERROR
@@ -271,6 +290,101 @@ class MainViewModel @Inject constructor(
                     success = false,
                     message = "Upload failed: ${e.message}"
                 )
+            }
+        }
+    }
+
+    /**
+     * Upload multiple files as a single audiobook (chapters of one book)
+     */
+    fun uploadAsSingleBook(
+        context: Context,
+        uris: List<Uri>,
+        title: String?,
+        author: String?
+    ) {
+        if (uris.isEmpty()) return
+
+        viewModelScope.launch {
+            _uploadState.value = UploadState.UPLOADING
+            _uploadProgress.value = 0f
+            _uploadResult.value = null
+
+            val tempFiles = mutableListOf<File>()
+
+            try {
+                val fileParts = mutableListOf<MultipartBody.Part>()
+
+                // Prepare all files
+                uris.forEachIndexed { index, uri ->
+                    val fileName = getFileNameFromUri(context, uri) ?: "chapter_${index + 1}.mp3"
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                        ?: throw IOException("Cannot read file: $fileName")
+
+                    val tempFile = File(context.cacheDir, fileName)
+                    tempFiles.add(tempFile)
+
+                    inputStream.use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    val requestFile = tempFile.asRequestBody("audio/*".toMediaTypeOrNull())
+                    val filePart = MultipartBody.Part.createFormData("files", fileName, requestFile)
+                    fileParts.add(filePart)
+
+                    _uploadProgress.value = (index + 1).toFloat() / (uris.size * 2) // First half is prep
+                }
+
+                // Upload all files as single book
+                val response = api.uploadMultiFile(
+                    files = fileParts,
+                    title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    author = author?.toRequestBody("text/plain".toMediaTypeOrNull())
+                )
+
+                _uploadProgress.value = 1f
+
+                if (response.isSuccessful) {
+                    _uploadState.value = UploadState.SUCCESS
+                    _uploadResult.value = UploadResultData(
+                        success = true,
+                        message = "Successfully uploaded audiobook with ${uris.size} file(s)"
+                    )
+                } else {
+                    _uploadState.value = UploadState.ERROR
+                    _uploadResult.value = UploadResultData(
+                        success = false,
+                        message = "Upload failed: ${response.code()}"
+                    )
+                }
+
+            } catch (e: CancellationException) {
+                throw e // Respect coroutine cancellation
+            } catch (e: IOException) {
+                android.util.Log.e("MainViewModel", "File read error", e)
+                _uploadState.value = UploadState.ERROR
+                _uploadResult.value = UploadResultData(
+                    success = false,
+                    message = "Failed to read file: ${e.message}"
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("MainViewModel", "Upload error", e)
+                _uploadState.value = UploadState.ERROR
+                _uploadResult.value = UploadResultData(
+                    success = false,
+                    message = "Upload failed: ${e.message}"
+                )
+            } finally {
+                // Always clean up temp files
+                tempFiles.forEach { file ->
+                    try {
+                        if (file.exists()) file.delete()
+                    } catch (e: Exception) {
+                        android.util.Log.w("MainViewModel", "Failed to delete temp file: ${file.name}")
+                    }
+                }
             }
         }
     }
