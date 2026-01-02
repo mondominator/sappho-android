@@ -19,7 +19,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 enum class UploadState {
     IDLE,
@@ -215,13 +217,17 @@ class MainViewModel @Inject constructor(
                 var failCount = 0
 
                 uris.forEachIndexed { index, uri ->
+                    val fileName = getFileNameFromUri(context, uri) ?: "audiobook_${System.currentTimeMillis()}.mp3"
+                    var tempFile: File? = null
+
                     try {
                         // Copy file from URI to temp file for uploading
                         val inputStream = context.contentResolver.openInputStream(uri)
-                        val fileName = getFileNameFromUri(context, uri) ?: "audiobook_${System.currentTimeMillis()}.mp3"
-                        val tempFile = File(context.cacheDir, fileName)
+                            ?: throw IOException("Cannot read file: $fileName")
 
-                        inputStream?.use { input ->
+                        tempFile = File(context.cacheDir, fileName)
+
+                        inputStream.use { input ->
                             tempFile.outputStream().use { output ->
                                 input.copyTo(output)
                             }
@@ -239,18 +245,26 @@ class MainViewModel @Inject constructor(
                             narrator = narrator?.toRequestBody("text/plain".toMediaTypeOrNull())
                         )
 
-                        // Clean up temp file
-                        tempFile.delete()
-
                         if (response.isSuccessful) {
                             successCount++
                         } else {
                             failCount++
                             android.util.Log.e("MainViewModel", "Upload failed: ${response.code()}")
                         }
+                    } catch (e: CancellationException) {
+                        throw e // Respect coroutine cancellation
                     } catch (e: Exception) {
                         failCount++
-                        android.util.Log.e("MainViewModel", "Upload error for file", e)
+                        android.util.Log.e("MainViewModel", "Upload error for file: $fileName", e)
+                    } finally {
+                        // Always clean up temp file
+                        tempFile?.let { file ->
+                            try {
+                                if (file.exists()) file.delete()
+                            } catch (e: Exception) {
+                                android.util.Log.w("MainViewModel", "Failed to delete temp file: ${file.name}")
+                            }
+                        }
                     }
 
                     _uploadProgress.value = (index + 1).toFloat() / totalFiles
@@ -267,6 +281,8 @@ class MainViewModel @Inject constructor(
                     }
                 )
 
+            } catch (e: CancellationException) {
+                throw e // Respect coroutine cancellation
             } catch (e: Exception) {
                 android.util.Log.e("MainViewModel", "Upload error", e)
                 _uploadState.value = UploadState.ERROR
@@ -294,18 +310,21 @@ class MainViewModel @Inject constructor(
             _uploadProgress.value = 0f
             _uploadResult.value = null
 
+            val tempFiles = mutableListOf<File>()
+
             try {
                 val fileParts = mutableListOf<MultipartBody.Part>()
-                val tempFiles = mutableListOf<File>()
 
                 // Prepare all files
                 uris.forEachIndexed { index, uri ->
-                    val inputStream = context.contentResolver.openInputStream(uri)
                     val fileName = getFileNameFromUri(context, uri) ?: "chapter_${index + 1}.mp3"
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                        ?: throw IOException("Cannot read file: $fileName")
+
                     val tempFile = File(context.cacheDir, fileName)
                     tempFiles.add(tempFile)
 
-                    inputStream?.use { input ->
+                    inputStream.use { input ->
                         tempFile.outputStream().use { output ->
                             input.copyTo(output)
                         }
@@ -325,9 +344,6 @@ class MainViewModel @Inject constructor(
                     author = author?.toRequestBody("text/plain".toMediaTypeOrNull())
                 )
 
-                // Clean up temp files
-                tempFiles.forEach { it.delete() }
-
                 _uploadProgress.value = 1f
 
                 if (response.isSuccessful) {
@@ -344,6 +360,15 @@ class MainViewModel @Inject constructor(
                     )
                 }
 
+            } catch (e: CancellationException) {
+                throw e // Respect coroutine cancellation
+            } catch (e: IOException) {
+                android.util.Log.e("MainViewModel", "File read error", e)
+                _uploadState.value = UploadState.ERROR
+                _uploadResult.value = UploadResultData(
+                    success = false,
+                    message = "Failed to read file: ${e.message}"
+                )
             } catch (e: Exception) {
                 android.util.Log.e("MainViewModel", "Upload error", e)
                 _uploadState.value = UploadState.ERROR
@@ -351,6 +376,15 @@ class MainViewModel @Inject constructor(
                     success = false,
                     message = "Upload failed: ${e.message}"
                 )
+            } finally {
+                // Always clean up temp files
+                tempFiles.forEach { file ->
+                    try {
+                        if (file.exists()) file.delete()
+                    } catch (e: Exception) {
+                        android.util.Log.w("MainViewModel", "Failed to delete temp file: ${file.name}")
+                    }
+                }
             }
         }
     }
