@@ -112,15 +112,16 @@ object LibraryGradients {
     val stone = listOf(Color(0xFF78716C), Color(0xFF57534E))
 
     // All gradients for random/hash-based selection
+    // Excludes browns (stone) and magentas (pink, rose) for better readability
     val all = listOf(
-        blue, indigo, purple, pink, rose,
+        blue, indigo, purple,
         orange, amber, emerald, teal, cyan,
-        slate, stone
+        slate
     )
 
-    // Subset for avatars (more vibrant colors, no grays)
+    // Subset for avatars (more vibrant colors, no grays/browns/magentas)
     val avatars = listOf(
-        blue, indigo, purple, pink,
+        blue, indigo, purple,
         orange, emerald, teal, cyan
     )
 

@@ -192,7 +192,10 @@ class MainViewModel @Inject constructor(
         _uploadState.value = UploadState.IDLE
     }
 
-    fun uploadAudiobooks(
+    /**
+     * Upload files as separate audiobooks (one book per file)
+     */
+    fun uploadAsSeparateBooks(
         context: Context,
         uris: List<Uri>,
         title: String?,
@@ -258,11 +261,88 @@ class MainViewModel @Inject constructor(
                 _uploadResult.value = UploadResultData(
                     success = failCount == 0,
                     message = if (failCount == 0) {
-                        "Successfully uploaded $successCount file(s)"
+                        "Successfully uploaded $successCount audiobook(s)"
                     } else {
-                        "Uploaded $successCount file(s), $failCount failed"
+                        "Uploaded $successCount audiobook(s), $failCount failed"
                     }
                 )
+
+            } catch (e: Exception) {
+                android.util.Log.e("MainViewModel", "Upload error", e)
+                _uploadState.value = UploadState.ERROR
+                _uploadResult.value = UploadResultData(
+                    success = false,
+                    message = "Upload failed: ${e.message}"
+                )
+            }
+        }
+    }
+
+    /**
+     * Upload multiple files as a single audiobook (chapters of one book)
+     */
+    fun uploadAsSingleBook(
+        context: Context,
+        uris: List<Uri>,
+        title: String?,
+        author: String?
+    ) {
+        if (uris.isEmpty()) return
+
+        viewModelScope.launch {
+            _uploadState.value = UploadState.UPLOADING
+            _uploadProgress.value = 0f
+            _uploadResult.value = null
+
+            try {
+                val fileParts = mutableListOf<MultipartBody.Part>()
+                val tempFiles = mutableListOf<File>()
+
+                // Prepare all files
+                uris.forEachIndexed { index, uri ->
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    val fileName = getFileNameFromUri(context, uri) ?: "chapter_${index + 1}.mp3"
+                    val tempFile = File(context.cacheDir, fileName)
+                    tempFiles.add(tempFile)
+
+                    inputStream?.use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    val requestFile = tempFile.asRequestBody("audio/*".toMediaTypeOrNull())
+                    val filePart = MultipartBody.Part.createFormData("files", fileName, requestFile)
+                    fileParts.add(filePart)
+
+                    _uploadProgress.value = (index + 1).toFloat() / (uris.size * 2) // First half is prep
+                }
+
+                // Upload all files as single book
+                val response = api.uploadMultiFile(
+                    files = fileParts,
+                    title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    author = author?.toRequestBody("text/plain".toMediaTypeOrNull())
+                )
+
+                // Clean up temp files
+                tempFiles.forEach { it.delete() }
+
+                _uploadProgress.value = 1f
+
+                if (response.isSuccessful) {
+                    _uploadState.value = UploadState.SUCCESS
+                    _uploadResult.value = UploadResultData(
+                        success = true,
+                        message = "Successfully uploaded audiobook with ${uris.size} file(s)"
+                    )
+                } else {
+                    _uploadState.value = UploadState.ERROR
+                    _uploadResult.value = UploadResultData(
+                        success = false,
+                        message = "Upload failed: ${response.code()}"
+                    )
+                }
 
             } catch (e: Exception) {
                 android.util.Log.e("MainViewModel", "Upload error", e)
