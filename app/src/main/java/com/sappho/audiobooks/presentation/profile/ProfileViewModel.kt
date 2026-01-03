@@ -138,25 +138,44 @@ class ProfileViewModel @Inject constructor(
             _isSaving.value = true
             _saveMessage.value = null
             try {
-                val displayNameBody = displayName?.toRequestBody("text/plain".toMediaTypeOrNull())
-                val emailBody = email?.toRequestBody("text/plain".toMediaTypeOrNull())
+                val displayNamePart = displayName?.let {
+                    MultipartBody.Part.createFormData(
+                        "displayName",
+                        it
+                    )
+                }
+
+                val emailPart = email?.let {
+                    MultipartBody.Part.createFormData(
+                        "email",
+                        it
+                    )
+                }
 
                 val avatarPart = avatarFile?.let { file ->
+                    android.util.Log.d("ProfileViewModel", "Uploading avatar: ${file.name}, size: ${file.length()}, mimeType: $mimeType")
                     val requestFile = file.asRequestBody(mimeType.toMediaTypeOrNull())
                     MultipartBody.Part.createFormData("avatar", file.name, requestFile)
                 }
 
-                val response = api.updateProfileWithAvatar(displayNameBody, emailBody, avatarPart)
+                android.util.Log.d("ProfileViewModel", "Calling updateProfileWithAvatar API...")
+                val response = api.updateProfileWithAvatar(displayNamePart, emailPart, avatarPart)
+                android.util.Log.d("ProfileViewModel", "Response: ${response.code()}, raw: ${response.raw()}")
+                android.util.Log.d("ProfileViewModel", "Response body: ${response.body()}")
                 if (response.isSuccessful) {
+                    val updatedUser = response.body()
+                    android.util.Log.d("ProfileViewModel", "Updated user avatar field: ${updatedUser?.avatar}")
                     // Reload profile to get updated avatar path
                     loadProfile()
                     _avatarUri.value = null // Clear the local preview
-                    _saveMessage.value = "Avatar updated"
+                    _saveMessage.value = if (avatarFile != null) "Avatar updated" else "Profile updated"
                 } else {
                     val errorBody = response.errorBody()?.string()
+                    android.util.Log.e("ProfileViewModel", "Upload failed: ${response.code()} - $errorBody")
                     _saveMessage.value = errorBody ?: "Failed to update profile"
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "Upload error", e)
                 e.printStackTrace()
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
