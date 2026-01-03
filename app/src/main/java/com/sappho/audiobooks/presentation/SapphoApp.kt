@@ -28,7 +28,6 @@ fun SapphoApp(
     // Handle auth errors (401 from server) - logout and go to login
     LaunchedEffect(authError) {
         if (authError) {
-            android.util.Log.d("SapphoApp", "Auth error detected - stopping playback and logging out")
             authRepository.clearAuthError()
             // Stop any active playback - the token in the stream URL is now invalid
             com.sappho.audiobooks.service.AudioPlaybackService.instance?.stopPlayback()
@@ -44,7 +43,6 @@ fun SapphoApp(
         if (!isAuthenticated) {
             val currentRoute = navController.currentDestination?.route
             if (currentRoute == "main") {
-                android.util.Log.d("SapphoApp", "Auth state invalid on main screen - redirecting to login")
                 navController.navigate("login") {
                     popUpTo(0) { inclusive = true }
                 }

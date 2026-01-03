@@ -289,7 +289,6 @@ fun PlayerScreen(
                                     availableRoutes.forEachIndexed { index, route ->
                                         TextButton(
                                             onClick = {
-                                                android.util.Log.d("PlayerActivity", "User clicked index=$index, name=${route.name}, id=${route.id}")
 
                                                 // Stop local playback
                                                 if (localIsPlaying) {
@@ -309,7 +308,6 @@ fun PlayerScreen(
                                                 }
 
                                                 // Select route via CastHelper for better device selection
-                                                android.util.Log.d("PlayerActivity", "Calling castHelper.selectRoute() for: ${route.name}")
                                                 castHelper.selectRoute(context, route)
                                                 showCastDialog = false
                                             },
@@ -513,14 +511,11 @@ fun PlayerScreen(
                                 ) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     // Check if we're currently casting
-                                    android.util.Log.d("PlayerActivity", "Play/Pause tapped: isCastConnected=$isCastConnected, isPlaying=$isPlaying, castIsPlaying=$castIsPlaying, localIsPlaying=$localIsPlaying")
                                     if (isCastConnected) {
                                         // Control the Cast receiver
                                         if (isPlaying) {
-                                            android.util.Log.d("PlayerActivity", "Calling castHelper.pause()")
                                             castHelper.pause()
                                         } else {
-                                            android.util.Log.d("PlayerActivity", "Calling castHelper.play()")
                                             castHelper.play()
                                         }
                                     } else {
@@ -531,7 +526,6 @@ fun PlayerScreen(
                                         } else {
                                             // Service was killed (e.g., after vehicle disconnect)
                                             // Restart playback from current position
-                                            android.util.Log.d("PlayerActivity", "Service is null, restarting playback")
                                             viewModel.loadAndStartPlayback(audiobookId, currentPosition.toInt())
                                         }
                                     }

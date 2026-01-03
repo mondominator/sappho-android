@@ -100,9 +100,7 @@ class MainViewModel @Inject constructor(
     private fun loadUser() {
         viewModelScope.launch {
             try {
-                android.util.Log.d("MainViewModel", "Loading user profile...")
                 val response = api.getProfile()
-                android.util.Log.d("MainViewModel", "Response: ${response.code()}, body: ${response.body()}")
                 if (response.isSuccessful) {
                     val loadedUser = response.body()
                     _user.value = loadedUser
@@ -116,13 +114,11 @@ class MainViewModel @Inject constructor(
                             cacheAvatarImage()
                         }
                     }
-                    android.util.Log.d("MainViewModel", "User set: ${_user.value}")
                 } else {
-                    android.util.Log.e("MainViewModel", "Failed to load user: ${response.code()} - ${response.message()}")
                 }
             } catch (e: Exception) {
                 // Offline - keep using cached user
-                android.util.Log.e("MainViewModel", "Exception loading user (offline?)", e)
+
             }
         }
     }
@@ -135,7 +131,6 @@ class MainViewModel @Inject constructor(
             try {
                 withContext(Dispatchers.IO) {
                     val avatarUrl = "$serverUrl/api/profile/avatar?v=$avatarHash"
-                    android.util.Log.d("MainViewModel", "Caching avatar from: $avatarUrl")
 
                     val request = Request.Builder()
                         .url(avatarUrl)
@@ -149,7 +144,6 @@ class MainViewModel @Inject constructor(
                                     input.copyTo(output)
                                 }
                             }
-                            android.util.Log.d("MainViewModel", "Avatar cached to: ${avatarFile.absolutePath}")
                             _cachedAvatarFile.value = avatarFile
                         } else {
                             android.util.Log.e("MainViewModel", "Failed to cache avatar: ${response.code}")
@@ -180,13 +174,11 @@ class MainViewModel @Inject constructor(
      * Called when avatar is changed in ProfileScreen.
      */
     fun refreshProfile() {
-        android.util.Log.d("MainViewModel", "refreshProfile called - clearing cached avatar")
         
         // Clear existing cached avatar file
         val existingFile = _cachedAvatarFile.value
         if (existingFile != null && existingFile.exists()) {
             existingFile.delete()
-            android.util.Log.d("MainViewModel", "Deleted cached avatar file: ${existingFile.absolutePath}")
         }
         _cachedAvatarFile.value = null
         
@@ -194,7 +186,6 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             // Small delay to ensure server has processed the new avatar
             kotlinx.coroutines.delay(1500)
-            android.util.Log.d("MainViewModel", "Reloading user data after delay")
             loadUser()
         }
     }
@@ -272,7 +263,6 @@ class MainViewModel @Inject constructor(
                             try {
                                 if (file.exists()) file.delete()
                             } catch (e: Exception) {
-                                android.util.Log.w("MainViewModel", "Failed to delete temp file: ${file.name}")
                             }
                         }
                     }
@@ -392,7 +382,6 @@ class MainViewModel @Inject constructor(
                     try {
                         if (file.exists()) file.delete()
                     } catch (e: Exception) {
-                        android.util.Log.w("MainViewModel", "Failed to delete temp file: ${file.name}")
                     }
                 }
             }

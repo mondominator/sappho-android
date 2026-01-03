@@ -138,7 +138,6 @@ class AdminViewModel @Inject constructor(
                     _serverSettings.value = response.body()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to load server settings"
             } finally {
                 _loadingSection.value = null
@@ -158,7 +157,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to update settings"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -198,7 +196,6 @@ class AdminViewModel @Inject constructor(
                     _aiSettings.value = response.body()?.settings
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to load AI settings"
             } finally {
                 _loadingSection.value = null
@@ -218,7 +215,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to update AI settings"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -237,7 +233,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "AI test failed"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -277,7 +272,6 @@ class AdminViewModel @Inject constructor(
                     _users.value = response.body() ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to load users"
             } finally {
                 _loadingSection.value = null
@@ -298,7 +292,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to create user"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -319,7 +312,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to update user"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -339,7 +331,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to delete user"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -376,12 +367,9 @@ class AdminViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                android.util.Log.d("AdminViewModel", "Loading backup retention...")
                 val response = api.getBackupRetention()
-                android.util.Log.d("AdminViewModel", "Backup retention response: ${response.code()}")
                 if (response.isSuccessful) {
                     val body = response.body()
-                    android.util.Log.d("AdminViewModel", "Backup retention body: $body")
                     _backupRetention.value = body
                 } else {
                     android.util.Log.e("AdminViewModel", "Backup retention failed: ${response.code()} - ${response.message()}")
@@ -401,7 +389,6 @@ class AdminViewModel @Inject constructor(
                     _backups.value = response.body()?.backups ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to load backups"
             } finally {
                 _loadingSection.value = null
@@ -421,7 +408,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to create backup"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -441,7 +427,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to delete backup"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -460,7 +445,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to restore backup"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -480,7 +464,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to update retention"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -520,7 +503,6 @@ class AdminViewModel @Inject constructor(
                     _logs.value = response.body()?.logs ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to load logs"
             } finally {
                 _loadingSection.value = null
@@ -540,7 +522,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to clear logs"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -684,7 +665,6 @@ class AdminViewModel @Inject constructor(
                     _duplicates.value = response.body()?.duplicateGroups ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to load duplicates"
             } finally {
                 _loadingSection.value = null
@@ -704,7 +684,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to merge duplicates"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -746,7 +725,6 @@ class AdminViewModel @Inject constructor(
                     _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to refresh jobs"
             } finally {
                 _loadingSection.value = null
@@ -766,7 +744,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to trigger job"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -806,7 +783,6 @@ class AdminViewModel @Inject constructor(
                     _orphanDirectories.value = response.body()?.orphanDirectories ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to refresh orphan directories"
             } finally {
                 _loadingSection.value = null
@@ -827,7 +803,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to delete orphan directories"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -868,7 +843,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to organize library"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -888,7 +862,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to scan library"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -908,7 +881,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to rescan library"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -929,7 +901,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to clear library"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -969,7 +940,6 @@ class AdminViewModel @Inject constructor(
                     _apiKeys.value = response.body() ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to load API keys"
             } finally {
                 _loadingSection.value = null
@@ -993,7 +963,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to create API key"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -1015,7 +984,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to update API key"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -1035,7 +1003,6 @@ class AdminViewModel @Inject constructor(
                     _message.value = "Failed to delete API key"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isLoading.value = false

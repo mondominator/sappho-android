@@ -187,7 +187,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _userRating.value = ratingResponse.body()?.rating
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
 
                 // Load average rating
@@ -197,7 +196,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _averageRating.value = avgResponse.body()
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
 
                 // Load progress separately
@@ -207,7 +205,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _progress.value = progressResponse.body()
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
 
                 // Load chapters
@@ -217,7 +214,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _chapters.value = chaptersResponse.body() ?: emptyList()
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
 
                 // Load files
@@ -227,11 +223,9 @@ class AudiobookDetailViewModel @Inject constructor(
                         _files.value = filesResponse.body() ?: emptyList()
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             } catch (e: Exception) {
                 // Network error - try to load from downloaded data
-                e.printStackTrace()
                 val downloadedBook = downloadManager.getDownloadedBook(id)
                 if (downloadedBook != null) {
                     _audiobook.value = downloadedBook.audiobook
@@ -251,7 +245,6 @@ class AudiobookDetailViewModel @Inject constructor(
                     api.markFinished(book.id, com.sappho.audiobooks.data.remote.ProgressUpdateRequest(0, 1, "stopped"))
                     loadAudiobook(book.id) // Reload to get updated progress
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
         }
@@ -264,7 +257,6 @@ class AudiobookDetailViewModel @Inject constructor(
                     api.clearProgress(book.id, com.sappho.audiobooks.data.remote.ProgressUpdateRequest(0, 0, "stopped"))
                     loadAudiobook(book.id) // Reload to get updated progress
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
         }
@@ -279,7 +271,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         onDeleted()
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
         }
@@ -310,7 +301,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _refreshMetadataResult.value = "Failed to refresh metadata"
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     _refreshMetadataResult.value = e.message ?: "Error refreshing metadata"
                 } finally {
                     _isRefreshingMetadata.value = false
@@ -349,7 +339,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 } finally {
                     _isTogglingFavorite.value = false
                 }
@@ -373,11 +362,9 @@ class AudiobookDetailViewModel @Inject constructor(
                                 _averageRating.value = avgResponse.body()
                             }
                         } catch (e: Exception) {
-                            e.printStackTrace()
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 } finally {
                     _isUpdatingRating.value = false
                 }
@@ -401,11 +388,9 @@ class AudiobookDetailViewModel @Inject constructor(
                                 _averageRating.value = avgResponse.body()
                             }
                         } catch (e: Exception) {
-                            e.printStackTrace()
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 } finally {
                     _isUpdatingRating.value = false
                 }
@@ -432,7 +417,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _metadataSaveResult.value = "Failed to save metadata: ${response.code()}"
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     _metadataSaveResult.value = "Error: ${e.message}"
                 } finally {
                     _isSavingMetadata.value = false
@@ -468,7 +452,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _metadataSearchError.value = "Search failed: ${response.code()}"
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     _metadataSearchError.value = "Error: ${e.message}"
                 } finally {
                     _isSearchingMetadata.value = false
@@ -514,7 +497,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     _embedMetadataResult.value = "Error: ${e.message}"
                 } finally {
                     _isEmbeddingMetadata.value = false
@@ -544,7 +526,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _chapterSaveResult.value = "Failed to update chapters: ${response.code()}"
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     _chapterSaveResult.value = "Error: ${e.message}"
                 } finally {
                     _isSavingChapters.value = false
@@ -574,7 +555,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     _fetchChaptersResult.value = "Error: ${e.message}"
                 } finally {
                     _isFetchingChapters.value = false
@@ -609,7 +589,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         .toSet()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 _isLoadingCollections.value = false
             }
@@ -632,7 +611,6 @@ class AudiobookDetailViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -653,7 +631,6 @@ class AudiobookDetailViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -666,7 +643,6 @@ class AudiobookDetailViewModel @Inject constructor(
                     _isAiConfigured.value = response.body()?.configured ?: false
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _isAiConfigured.value = false
             }
         }
@@ -693,7 +669,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         _recapError.value = errorMessage ?: "Failed to load recap"
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     _recapError.value = e.message ?: "Error loading recap"
                 } finally {
                     _isLoadingRecap.value = false
@@ -709,7 +684,6 @@ class AudiobookDetailViewModel @Inject constructor(
                     api.clearAudiobookRecap(book.id)
                     _recap.value = null
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
         }
@@ -728,7 +702,6 @@ class AudiobookDetailViewModel @Inject constructor(
                     _previousBookCompleted.value = response.body()?.previousBookCompleted ?: false
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _previousBookCompleted.value = false
             }
         }

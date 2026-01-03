@@ -82,7 +82,6 @@ class ProfileViewModel @Inject constructor(
                     _user.value = response.body()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 _isLoading.value = false
             }
@@ -97,7 +96,6 @@ class ProfileViewModel @Inject constructor(
                     _stats.value = response.body()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -110,7 +108,6 @@ class ProfileViewModel @Inject constructor(
                     _serverVersion.value = response.body()?.version
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -128,7 +125,6 @@ class ProfileViewModel @Inject constructor(
                     _saveMessage.value = "Failed to update profile"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
                 _isSaving.value = false
@@ -156,18 +152,13 @@ class ProfileViewModel @Inject constructor(
                 }
 
                 val avatarPart = avatarFile?.let { file ->
-                    android.util.Log.d("ProfileViewModel", "Uploading avatar: ${file.name}, size: ${file.length()}, mimeType: $mimeType")
                     val requestFile = file.asRequestBody(mimeType.toMediaTypeOrNull())
                     MultipartBody.Part.createFormData("avatar", file.name, requestFile)
                 }
 
-                android.util.Log.d("ProfileViewModel", "Calling updateProfileWithAvatar API...")
                 val response = api.updateProfileWithAvatar(displayNamePart, emailPart, avatarPart)
-                android.util.Log.d("ProfileViewModel", "Response: ${response.code()}, raw: ${response.raw()}")
-                android.util.Log.d("ProfileViewModel", "Response body: ${response.body()}")
                 if (response.isSuccessful) {
                     val updatedUser = response.body()
-                    android.util.Log.d("ProfileViewModel", "Updated user avatar field: ${updatedUser?.avatar}")
                     // Update the user state immediately with the response
                     _user.value = updatedUser
                     _avatarUri.value = null // Clear the local preview
@@ -180,12 +171,9 @@ class ProfileViewModel @Inject constructor(
                     loadProfile()
                 } else {
                     val errorBody = response.errorBody()?.string()
-                    android.util.Log.e("ProfileViewModel", "Upload failed: ${response.code()} - $errorBody")
                     _saveMessage.value = errorBody ?: "Failed to update profile"
                 }
             } catch (e: Exception) {
-                android.util.Log.e("ProfileViewModel", "Upload error", e)
-                e.printStackTrace()
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
                 _isSaving.value = false
@@ -212,7 +200,6 @@ class ProfileViewModel @Inject constructor(
                     _saveMessage.value = "Failed to remove avatar"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
                 _isSaving.value = false
@@ -236,7 +223,6 @@ class ProfileViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
                 _isSaving.value = false
@@ -266,7 +252,6 @@ class ProfileViewModel @Inject constructor(
                     _users.value = response.body() ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -279,7 +264,6 @@ class ProfileViewModel @Inject constructor(
                     _aiSettings.value = response.body()?.settings
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -295,7 +279,6 @@ class ProfileViewModel @Inject constructor(
                     onResult(false, "Failed to update AI settings")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error updating settings")
             }
         }
@@ -313,7 +296,6 @@ class ProfileViewModel @Inject constructor(
                     onResult(false, errorBody ?: "Connection failed")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Connection failed")
             }
         }
@@ -333,7 +315,6 @@ class ProfileViewModel @Inject constructor(
                     _scanResult.value = response.body()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 _isScanning.value = false
             }
@@ -352,7 +333,6 @@ class ProfileViewModel @Inject constructor(
                     onResult(false, errorBody ?: "Failed to create user")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error creating user")
             }
         }
@@ -370,7 +350,6 @@ class ProfileViewModel @Inject constructor(
                     onResult(false, errorBody ?: "Failed to delete user")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error deleting user")
             }
         }

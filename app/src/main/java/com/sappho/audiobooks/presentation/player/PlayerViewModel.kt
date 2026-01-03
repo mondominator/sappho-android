@@ -46,7 +46,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun loadAndStartPlayback(audiobookId: Int, startPosition: Int) {
-        android.util.Log.d("PlayerViewModel", "loadAndStartPlayback called with audiobookId: $audiobookId, startPosition: $startPosition")
         viewModelScope.launch {
             var book: Audiobook? = null
             var actualStartPosition = startPosition
@@ -58,7 +57,6 @@ class PlayerViewModel @Inject constructor(
                     book = response.body()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
 
             // Fall back to downloaded data if server failed
@@ -74,11 +72,9 @@ class PlayerViewModel @Inject constructor(
             _audiobook.value = book
 
             book?.let {
-                android.util.Log.d("PlayerViewModel", "About to start playback with actualStartPosition: $actualStartPosition (original was: $startPosition)")
 
                 // Check if we're currently casting
                 if (castHelper.isCasting()) {
-                    android.util.Log.d("PlayerViewModel", "Currently casting - loading new book on Cast device")
                     val serverUrl = authRepository.getServerUrlSync()
                     if (serverUrl != null) {
                         // Load the new audiobook on the Cast device
@@ -128,7 +124,6 @@ class PlayerViewModel @Inject constructor(
                     book = response.body()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
 
             // Fall back to downloaded data if server failed
@@ -150,7 +145,6 @@ class PlayerViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 // Offline - try to load chapters from downloaded data
-                e.printStackTrace()
                 val downloadedBook = downloadManager.getDownloadedBook(audiobookId)
                 if (downloadedBook != null && downloadedBook.chapters.isNotEmpty()) {
                     _chapters.value = downloadedBook.chapters
