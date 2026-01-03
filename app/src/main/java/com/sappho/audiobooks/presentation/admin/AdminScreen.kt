@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Dialog
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +57,7 @@ enum class AdminTab(val title: String, val icon: ImageVector) {
 @Composable
 fun AdminScreen(
     onBack: () -> Unit,
+    onBookClick: (Int) -> Unit = {},
     viewModel: AdminViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(AdminTab.STATISTICS) }
@@ -114,7 +116,7 @@ fun AdminScreen(
 
             // Content - show tab immediately, let each tab handle its own loading
             when (selectedTab) {
-                AdminTab.STATISTICS -> StatisticsTab(viewModel)
+                AdminTab.STATISTICS -> StatisticsTab(viewModel, onBookClick)
                 AdminTab.LIBRARY -> LibraryTab(viewModel)
                 AdminTab.SERVER -> ServerSettingsTab(viewModel)
                 AdminTab.AI -> AiSettingsTab(viewModel)
@@ -1887,36 +1889,39 @@ private fun ApiKeyCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Date info
+                // Date info (uses weight to prevent overlap with buttons)
                 Text(
                     text = try {
                         "Created ${dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(apiKey.createdAt) ?: Date())}"
                     } catch (e: Exception) { "" },
                     color = SapphoTextMuted,
-                    fontSize = 11.sp
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
-                // Action buttons
+                // Action buttons (compact layout)
                 Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                     IconButton(
                         onClick = onToggleActive,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             if (isActive) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
                             contentDescription = if (isActive) "Deactivate" else "Activate",
                             tint = if (isActive) SapphoSuccess else SapphoTextMuted,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                     IconButton(
                         onClick = onDelete,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             Icons.Outlined.Delete,
                             contentDescription = "Delete",
                             tint = SapphoError,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -2110,13 +2115,14 @@ private fun NewApiKeyDialog(
 @Composable
 private fun BackupTab(viewModel: AdminViewModel) {
     val backups by viewModel.backups.collectAsState()
+    val serverSettings by viewModel.serverSettings.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
     var backupToDelete by remember { mutableStateOf<BackupInfo?>(null) }
     var backupToRestore by remember { mutableStateOf<BackupInfo?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
-
     LaunchedEffect(Unit) {
         viewModel.loadBackups()
+        viewModel.loadServerSettings()
     }
 
     LaunchedEffect(loadingSection) {
@@ -2165,6 +2171,82 @@ private fun BackupTab(viewModel: AdminViewModel) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Create Backup")
+                    }
+                }
+            }
+
+            // Retention Settings Card
+            item {
+                serverSettings?.settings?.let { settings ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = SapphoSurfaceLight
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Settings,
+                                        contentDescription = null,
+                                        tint = SapphoInfo,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        "Backup Settings",
+                                        color = Color.White,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+
+                            // Display current settings
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Retention",
+                                        color = SapphoIconDefault,
+                                        fontSize = 11.sp
+                                    )
+                                    Text(
+                                        "${settings.backupRetention ?: 7} backups",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Auto Backup",
+                                        color = SapphoIconDefault,
+                                        fontSize = 11.sp
+                                    )
+                                    val autoBackupEnabled = (settings.autoBackupInterval ?: 0) > 0
+                                    Text(
+                                        if (autoBackupEnabled) "Every ${settings.autoBackupInterval}h" else "Disabled",
+                                        color = if (autoBackupEnabled) SapphoSuccess else SapphoTextMuted,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2782,11 +2864,14 @@ private fun LogEntryCard(log: LogEntry) {
 
 // ============ Statistics Tab ============
 @Composable
-private fun StatisticsTab(viewModel: AdminViewModel) {
+private fun StatisticsTab(viewModel: AdminViewModel, onBookClick: (Int) -> Unit) {
     val statistics by viewModel.statistics.collectAsState()
     val loadingSection by viewModel.loadingSection.collectAsState()
     val isLoading = loadingSection == "statistics"
     var isRefreshing by remember { mutableStateOf(false) }
+    var selectedFormat by remember { mutableStateOf<FormatStats?>(null) }
+    val formatBooks by viewModel.formatBooks.collectAsState()
+    val isLoadingFormatBooks by viewModel.isLoadingFormatBooks.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadStatistics()
@@ -2939,6 +3024,10 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                                 }
                                 val percentage = if (totalSize > 0) (format.size * 100 / totalSize).toInt() else 0
                                 Surface(
+                                    onClick = {
+                                        selectedFormat = format
+                                        viewModel.loadBooksByFormat(format.format ?: "")
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp),
                                     color = SapphoBackground.copy(alpha = 0.5f)
@@ -2951,7 +3040,8 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                                         ) {
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.weight(1f)
                                             ) {
                                                 Text(
                                                     format.format?.uppercase() ?: "Unknown",
@@ -2971,11 +3061,22 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                                                     )
                                                 }
                                             }
-                                            Text(
-                                                formatFileSize(format.size),
-                                                color = SapphoIconDefault,
-                                                fontSize = 13.sp
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Text(
+                                                    formatFileSize(format.size),
+                                                    color = SapphoIconDefault,
+                                                    fontSize = 13.sp
+                                                )
+                                                Icon(
+                                                    Icons.Default.KeyboardArrowRight,
+                                                    contentDescription = "View books",
+                                                    tint = SapphoIconMuted,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
                                         }
                                         Spacer(modifier = Modifier.height(8.dp))
                                         // Progress bar showing percentage of total
@@ -3093,6 +3194,147 @@ private fun StatisticsTab(viewModel: AdminViewModel) {
                 }
             }
         }
+        }
+    }
+
+    // Format Books Dialog
+    selectedFormat?.let { format ->
+        FormatBooksDialog(
+            format = format,
+            books = formatBooks,
+            isLoading = isLoadingFormatBooks,
+            onDismiss = {
+                selectedFormat = null
+                viewModel.clearFormatBooks()
+            },
+            onBookClick = { book ->
+                selectedFormat = null
+                viewModel.clearFormatBooks()
+                onBookClick(book.id)
+            }
+        )
+    }
+}
+
+@Composable
+private fun FormatBooksDialog(
+    format: FormatStats,
+    books: List<com.sappho.audiobooks.domain.model.Audiobook>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onBookClick: (com.sappho.audiobooks.domain.model.Audiobook) -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.8f),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = SapphoSurfaceLight)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            "${format.format?.uppercase() ?: "Unknown"} Books",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "${format.count} books • ${formatFileSize(format.size)}",
+                            color = SapphoIconDefault,
+                            fontSize = 13.sp
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = SapphoIconDefault
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Content
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = SapphoInfo)
+                    }
+                } else if (books.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No books found",
+                            color = SapphoIconDefault,
+                            fontSize = 14.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(books) { book ->
+                            Surface(
+                                onClick = { onBookClick(book) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                color = SapphoBackground.copy(alpha = 0.5f)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            book.title,
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        book.author?.let { author ->
+                                            Text(
+                                                author,
+                                                color = SapphoIconDefault,
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    Icon(
+                                        Icons.Default.KeyboardArrowRight,
+                                        contentDescription = "View",
+                                        tint = SapphoIconMuted,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

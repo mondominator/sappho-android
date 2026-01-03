@@ -1,5 +1,6 @@
 package com.sappho.audiobooks.presentation.detail
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,14 +50,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -120,6 +126,7 @@ fun AudiobookDetailScreen(
     // Check if this audiobook is currently playing or loaded
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
     val isPlaying by viewModel.playerState.isPlaying.collectAsState()
+    val currentPosition by viewModel.playerState.currentPosition.collectAsState()
     val isThisBookLoaded = currentAudiobook?.id == audiobookId
     val isThisBookPlaying = isThisBookLoaded && isPlaying
 
@@ -913,29 +920,57 @@ fun AudiobookDetailScreen(
                                 }
                             }
 
-                            Text(
-                                text = description,
-                                fontSize = 16.sp,
-                                color = SapphoTextLight,
-                                lineHeight = 28.8.sp,
-                                maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            // Show More/Less button if text is long enough
-                            if (description.length > 200) {
-                                TextButton(
-                                    onClick = { isDescriptionExpanded = !isDescriptionExpanded },
-                                    modifier = Modifier.padding(top = 4.dp),
-                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
-                                ) {
+                            // Description with inline "...more" / "less"
+                            val isLongDescription = description.length > 200
+                            if (isDescriptionExpanded || !isLongDescription) {
+                                // Show full text
+                                Text(
+                                    text = description,
+                                    fontSize = 16.sp,
+                                    color = SapphoTextLight,
+                                    lineHeight = 28.8.sp
+                                )
+                                if (isLongDescription) {
                                     Text(
-                                        text = if (isDescriptionExpanded) "Less" else "More",
-                                        fontSize = 14.sp,
+                                        text = "less",
+                                        fontSize = 16.sp,
+                                        color = SapphoInfo,
                                         fontWeight = FontWeight.Medium,
-                                        color = SapphoInfo
+                                        modifier = Modifier
+                                            .padding(top = 4.dp)
+                                            .clickable { isDescriptionExpanded = false }
                                     )
                                 }
+                            } else {
+                                // Show truncated text at word boundary with "...more" inline
+                                val truncatedText = remember(description) {
+                                    val maxLength = 200
+                                    if (description.length <= maxLength) {
+                                        description
+                                    } else {
+                                        // Find last space before maxLength to avoid cutting words
+                                        val lastSpace = description.lastIndexOf(' ', maxLength)
+                                        if (lastSpace > 100) {
+                                            description.substring(0, lastSpace)
+                                        } else {
+                                            // Fallback if no good break point
+                                            description.substring(0, maxLength)
+                                        }
+                                    }
+                                }
+                                Text(
+                                    buildAnnotatedString {
+                                        append(truncatedText)
+                                        append(" ")
+                                        withStyle(SpanStyle(color = SapphoInfo, fontWeight = FontWeight.Medium)) {
+                                            append("...more")
+                                        }
+                                    },
+                                    fontSize = 16.sp,
+                                    color = SapphoTextLight,
+                                    lineHeight = 28.8.sp,
+                                    modifier = Modifier.clickable { isDescriptionExpanded = true }
+                                )
                             }
                         }
                     }
@@ -1098,6 +1133,7 @@ fun AudiobookDetailScreen(
                 chapters = chapters,
                 audiobook = audiobook,
                 currentAudiobook = currentAudiobook,
+                currentPosition = currentPosition,
                 isAdmin = isAdmin,
                 isSavingChapters = isSavingChapters,
                 chapterSaveResult = chapterSaveResult,
@@ -3035,6 +3071,7 @@ private fun ChaptersDialog(
     chapters: List<com.sappho.audiobooks.domain.model.Chapter>,
     audiobook: com.sappho.audiobooks.domain.model.Audiobook?,
     currentAudiobook: com.sappho.audiobooks.domain.model.Audiobook?,
+    currentPosition: Long,
     isAdmin: Boolean,
     isSavingChapters: Boolean,
     chapterSaveResult: String?,
@@ -3055,6 +3092,31 @@ private fun ChaptersDialog(
     var asinInput by remember(audiobook) { mutableStateOf(audiobook?.asin ?: "") }
 
     val isBusy = isSavingChapters || isFetchingChapters
+
+    // Determine if this book is currently playing
+    val isCurrentBook = audiobook != null && currentAudiobook?.id == audiobook.id
+
+    // Find the current chapter index based on position
+    val currentChapterIndex = remember(chapters, currentPosition, isCurrentBook) {
+        if (!isCurrentBook || chapters.isEmpty()) -1
+        else {
+            chapters.indexOfLast { it.startTime <= currentPosition }
+        }
+    }
+
+    // LazyListState for auto-scrolling
+    val listState = rememberLazyListState()
+
+    // Auto-scroll to current chapter when dialog opens
+    LaunchedEffect(currentChapterIndex) {
+        if (currentChapterIndex > 0) {
+            // Scroll to center the current chapter
+            listState.animateScrollToItem(
+                index = maxOf(0, currentChapterIndex - 2),
+                scrollOffset = 0
+            )
+        }
+    }
 
     // Reset edit mode when chapters change (after save/fetch)
     LaunchedEffect(chapters) {
@@ -3224,10 +3286,12 @@ private fun ChaptersDialog(
 
                 // Chapter list
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.heightIn(max = 350.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     itemsIndexed(chapters) { index, chapter ->
+                        val isCurrentChapter = index == currentChapterIndex
                         if (isEditMode && isAdmin) {
                             // Edit mode - show text fields
                             OutlinedTextField(
@@ -3260,28 +3324,49 @@ private fun ChaptersDialog(
                                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
                             )
                         } else {
-                            // View mode - clickable chapter
-                            TextButton(
-                                onClick = { onChapterClick(chapter) },
-                                modifier = Modifier.fillMaxWidth()
+                            // View mode - clickable chapter with highlighting for current chapter
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isCurrentChapter) SapphoInfo.copy(alpha = 0.15f) else Color.Transparent
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                TextButton(
+                                    onClick = { onChapterClick(chapter) },
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text(
-                                        text = chapter.title ?: "Chapter ${index + 1}",
-                                        color = Color.White,
-                                        modifier = Modifier.weight(1f).padding(end = 8.dp),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = formatTime(chapter.startTime.toLong()),
-                                        color = SapphoIconDefault,
-                                        fontSize = 12.sp
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.weight(1f),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (isCurrentChapter) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PlayArrow,
+                                                    contentDescription = "Currently playing",
+                                                    tint = SapphoInfo,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = chapter.title ?: "Chapter ${index + 1}",
+                                                color = if (isCurrentChapter) SapphoInfo else Color.White,
+                                                fontWeight = if (isCurrentChapter) FontWeight.SemiBold else FontWeight.Normal,
+                                                modifier = Modifier.padding(end = 8.dp),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Text(
+                                            text = formatTime(chapter.startTime.toLong()),
+                                            color = if (isCurrentChapter) SapphoInfo else SapphoIconDefault,
+                                            fontSize = 12.sp
+                                        )
+                                    }
                                 }
                             }
                         }

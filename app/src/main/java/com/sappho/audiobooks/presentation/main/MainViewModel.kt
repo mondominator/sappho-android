@@ -108,7 +108,9 @@ class MainViewModel @Inject constructor(
                     _user.value = loadedUser
                     // Cache user info for offline use
                     loadedUser?.let {
-                        authRepository.saveUserInfo(it.username, it.displayName, it.avatar)
+                        if (it.username != null) {
+                            authRepository.saveUserInfo(it.username, it.displayName, it.avatar)
+                        }
                         // Download and cache avatar image if user has one
                         if (it.avatar != null) {
                             cacheAvatarImage()
@@ -178,15 +180,23 @@ class MainViewModel @Inject constructor(
      * Called when avatar is changed in ProfileScreen.
      */
     fun refreshProfile() {
+        android.util.Log.d("MainViewModel", "refreshProfile called - clearing cached avatar")
+        
         // Clear existing cached avatar file
         val existingFile = _cachedAvatarFile.value
         if (existingFile != null && existingFile.exists()) {
             existingFile.delete()
+            android.util.Log.d("MainViewModel", "Deleted cached avatar file: ${existingFile.absolutePath}")
         }
         _cachedAvatarFile.value = null
-
-        // Reload user data which will re-cache avatar if present
-        loadUser()
+        
+        // Force reload user data after a delay to ensure server has processed the upload
+        viewModelScope.launch {
+            // Small delay to ensure server has processed the new avatar
+            kotlinx.coroutines.delay(1500)
+            android.util.Log.d("MainViewModel", "Reloading user data after delay")
+            loadUser()
+        }
     }
 
     fun clearUploadResult() {

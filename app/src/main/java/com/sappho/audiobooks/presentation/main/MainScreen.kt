@@ -292,7 +292,10 @@ fun MainScreen(
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onLogout = onLogout,
-                    onAvatarChanged = { viewModel.refreshProfile() }
+                    onAvatarChanged = { 
+                        android.util.Log.d("MainScreen", "onAvatarChanged callback triggered")
+                        viewModel.refreshProfile() 
+                    }
                 )
             }
             composable(Screen.Settings.route) {
@@ -957,9 +960,15 @@ fun TopBar(
                     }
                     // Fall back to network URL if no cached file
                     user?.avatar != null && serverUrl != null -> {
-                        val avatarUrl = "$serverUrl/api/profile/avatar?v=${user.avatar.hashCode()}"
+                        // Add timestamp to force fresh load when cache is cleared
+                        val avatarUrl = "$serverUrl/api/profile/avatar?v=${user.avatar.hashCode()}&t=${System.currentTimeMillis()}"
                         AsyncImage(
-                            model = avatarUrl,
+                            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                .data(avatarUrl)
+                                .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                                .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                .crossfade(false)
+                                .build(),
                             contentDescription = "User Avatar",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop

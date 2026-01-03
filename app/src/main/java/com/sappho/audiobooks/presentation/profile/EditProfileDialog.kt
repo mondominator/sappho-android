@@ -106,9 +106,15 @@ fun EditProfileDialog(
                                 )
                             }
                             user?.avatar != null && serverUrl != null -> {
-                                val avatarUrl = "$serverUrl/api/profile/avatar"
+                                // Force fresh load with timestamp
+                                val avatarUrl = "$serverUrl/api/profile/avatar?_=${System.currentTimeMillis()}"
                                 AsyncImage(
-                                    model = avatarUrl,
+                                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                        .data(avatarUrl)
+                                        .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                                        .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                        .crossfade(false)
+                                        .build(),
                                     contentDescription = "Avatar",
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop

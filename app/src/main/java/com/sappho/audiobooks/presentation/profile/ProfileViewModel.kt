@@ -41,6 +41,9 @@ class ProfileViewModel @Inject constructor(
     private val _saveMessage = MutableStateFlow<String?>(null)
     val saveMessage: StateFlow<String?> = _saveMessage
 
+    private val _avatarUpdated = MutableStateFlow(false)
+    val avatarUpdated: StateFlow<Boolean> = _avatarUpdated
+
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl
 
@@ -169,6 +172,10 @@ class ProfileViewModel @Inject constructor(
                     _user.value = updatedUser
                     _avatarUri.value = null // Clear the local preview
                     _saveMessage.value = if (avatarFile != null) "Avatar updated" else "Profile updated"
+                    // Signal that avatar was updated
+                    if (avatarFile != null) {
+                        _avatarUpdated.value = true
+                    }
                     // Also reload profile to ensure consistency
                     loadProfile()
                 } else {
@@ -239,6 +246,10 @@ class ProfileViewModel @Inject constructor(
 
     fun clearMessage() {
         _saveMessage.value = null
+    }
+
+    fun clearAvatarUpdatedFlag() {
+        _avatarUpdated.value = false
     }
 
     fun refresh() {
