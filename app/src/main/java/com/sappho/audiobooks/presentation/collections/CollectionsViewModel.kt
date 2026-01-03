@@ -50,7 +50,6 @@ class CollectionsViewModel @Inject constructor(
                     _error.value = "Failed to load collections"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _error.value = e.message ?: "Network error"
             } finally {
                 _isLoading.value = false
@@ -70,7 +69,6 @@ class CollectionsViewModel @Inject constructor(
                     onResult(false, "Failed to create collection")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error creating collection")
             } finally {
                 _isCreating.value = false
@@ -89,7 +87,6 @@ class CollectionsViewModel @Inject constructor(
                     onResult(false, "Failed to delete collection")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error deleting collection")
             }
         }

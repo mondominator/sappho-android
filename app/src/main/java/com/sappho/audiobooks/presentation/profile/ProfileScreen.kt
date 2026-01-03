@@ -101,11 +101,10 @@ fun ProfileScreen(
                     originalBitmap.recycle()
 
                     selectedAvatarFile = tempFile
-                    android.util.Log.d("ProfileScreen", "Compressed avatar: ${tempFile.length()} bytes")
                     viewModel.updateProfileWithAvatar(null, null, tempFile, "image/jpeg")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                // Silently ignore image compression errors
             }
         }
     }
@@ -123,7 +122,6 @@ fun ProfileScreen(
     // Watch for avatar updates
     LaunchedEffect(avatarUpdated) {
         if (avatarUpdated) {
-            android.util.Log.d("ProfileScreen", "Avatar was updated, calling onAvatarChanged()")
             onAvatarChanged()
             viewModel.clearAvatarUpdatedFlag()
         }

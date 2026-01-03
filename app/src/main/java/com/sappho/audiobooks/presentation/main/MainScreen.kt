@@ -293,7 +293,6 @@ fun MainScreen(
                 ProfileScreen(
                     onLogout = onLogout,
                     onAvatarChanged = { 
-                        android.util.Log.d("MainScreen", "onAvatarChanged callback triggered")
                         viewModel.refreshProfile() 
                     }
                 )
@@ -340,7 +339,6 @@ fun MainScreen(
                     audiobookId = audiobookId,
                     onBackClick = { navController.navigateUp() },
                     onPlayClick = { id, position ->
-                        android.util.Log.d("MainScreen", "onPlayClick: id=$id, position=$position")
                         val intent = android.content.Intent(context, com.sappho.audiobooks.presentation.player.PlayerActivity::class.java)
                         intent.putExtra("AUDIOBOOK_ID", id)
                         intent.putExtra("START_POSITION", position ?: 0)

@@ -33,7 +33,6 @@ class SapphoApplication : Application(), ImageLoaderFactory {
         super.onTerminate()
         // Disconnect Cast when app is terminated
         if (castHelper.isCasting()) {
-            android.util.Log.d("SapphoApplication", "App terminating, disconnecting Cast")
             castHelper.disconnectCast()
         }
     }

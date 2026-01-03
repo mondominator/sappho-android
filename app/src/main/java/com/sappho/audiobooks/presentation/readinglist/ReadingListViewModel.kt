@@ -40,7 +40,6 @@ class ReadingListViewModel @Inject constructor(
                     _books.value = response.body() ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 _isLoading.value = false
             }

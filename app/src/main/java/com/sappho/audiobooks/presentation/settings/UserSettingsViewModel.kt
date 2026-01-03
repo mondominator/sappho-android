@@ -50,7 +50,6 @@ class UserSettingsViewModel @Inject constructor(
                     _user.value = response.body()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 _isLoading.value = false
             }
@@ -65,7 +64,6 @@ class UserSettingsViewModel @Inject constructor(
                     _serverVersion.value = response.body()?.version
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -82,7 +80,6 @@ class UserSettingsViewModel @Inject constructor(
                     _message.value = "Failed to update profile"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isSaving.value = false
@@ -101,7 +98,6 @@ class UserSettingsViewModel @Inject constructor(
                     _message.value = response.errorBody()?.string() ?: "Failed to update password"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isSaving.value = false

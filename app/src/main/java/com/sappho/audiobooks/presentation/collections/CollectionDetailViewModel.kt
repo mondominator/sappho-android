@@ -49,7 +49,6 @@ class CollectionDetailViewModel @Inject constructor(
                     _error.value = "Failed to load collection"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _error.value = e.message ?: "Network error"
             } finally {
                 _isLoading.value = false
@@ -78,7 +77,6 @@ class CollectionDetailViewModel @Inject constructor(
                     onResult(false, "Failed to update collection")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error updating collection")
             } finally {
                 _isSaving.value = false
@@ -97,7 +95,6 @@ class CollectionDetailViewModel @Inject constructor(
                     onResult(false, "Failed to remove book")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error removing book")
             }
         }

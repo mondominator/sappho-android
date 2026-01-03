@@ -739,10 +739,8 @@ class AudioPlaybackService : MediaLibraryService() {
                 val response = api.getInProgress(limit = 25)
                 if (response.isSuccessful) {
                     val inProgressBooks = response.body() ?: emptyList()
-                    android.util.Log.d("AudioPlaybackService", "Loaded ${inProgressBooks.size} in-progress books from server")
 
                     inProgressBooks.forEach { book ->
-                        android.util.Log.d("AudioPlaybackService", "  - ${book.title}: position=${book.progress?.position}, completed=${book.progress?.completed}")
                     }
 
                     val mediaItems = inProgressBooks.map { book ->
@@ -771,7 +769,6 @@ class AudioPlaybackService : MediaLibraryService() {
                 val response = api.getRecentlyAdded(limit = 20)
                 if (response.isSuccessful) {
                     val recentBooks = response.body() ?: emptyList()
-                    android.util.Log.d("AudioPlaybackService", "Loaded ${recentBooks.size} recently added books")
 
                     val mediaItems = recentBooks.map { book ->
                         createPlayableMediaItem(book)
@@ -890,11 +887,9 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     fun loadAndPlay(audiobook: Audiobook, startPosition: Int) {
-        android.util.Log.d("AudioPlaybackService", "loadAndPlay called with startPosition: $startPosition seconds for book: ${audiobook.title}")
 
         // Ensure player is initialized - reinitialize if it was released
         if (player == null || mediaLibrarySession == null) {
-            android.util.Log.d("AudioPlaybackService", "Player or session was null, reinitializing...")
             initializePlayer()
         }
 
@@ -920,7 +915,6 @@ class AudioPlaybackService : MediaLibraryService() {
 
             if (localFilePath != null && File(localFilePath).exists()) {
                 // Use local downloaded file
-                android.util.Log.d("AudioPlaybackService", "Playing from local file: $localFilePath")
                 mediaUri = Uri.fromFile(File(localFilePath))
             } else {
                 // Stream from server
@@ -929,7 +923,6 @@ class AudioPlaybackService : MediaLibraryService() {
                     playerState.updateLoadingState(false)
                     return
                 }
-                android.util.Log.d("AudioPlaybackService", "Streaming from server")
                 mediaUri = Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream?token=$token")
             }
 
@@ -1098,7 +1091,6 @@ class AudioPlaybackService : MediaLibraryService() {
                     downloadManager.clearPendingProgress(book.id)
                 } catch (e: Exception) {
                     // Failed to sync (offline) - save progress locally
-                    android.util.Log.d("AudioPlaybackService", "Offline - saving progress locally for book ${book.id}")
                     downloadManager.saveOfflineProgress(book.id, position)
                 }
             }
@@ -1110,7 +1102,6 @@ class AudioPlaybackService : MediaLibraryService() {
             val pendingList = downloadManager.getPendingProgressList()
             if (pendingList.isEmpty()) return@launch
 
-            android.util.Log.d("AudioPlaybackService", "Syncing ${pendingList.size} pending progress entries")
 
             for (pending in pendingList) {
                 try {
@@ -1124,10 +1115,8 @@ class AudioPlaybackService : MediaLibraryService() {
                     )
                     // Successfully synced - clear this pending progress
                     downloadManager.clearPendingProgress(pending.audiobookId)
-                    android.util.Log.d("AudioPlaybackService", "Synced pending progress for book ${pending.audiobookId}")
                 } catch (e: Exception) {
                     // Still offline or error - keep the pending progress
-                    android.util.Log.d("AudioPlaybackService", "Failed to sync pending progress for book ${pending.audiobookId}")
                     break // Stop trying if we're still offline
                 }
             }
@@ -1141,7 +1130,6 @@ class AudioPlaybackService : MediaLibraryService() {
                     api.markFinished(book.id, ProgressUpdateRequest(0, 1, "stopped"))
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }

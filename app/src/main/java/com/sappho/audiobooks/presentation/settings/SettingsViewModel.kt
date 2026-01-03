@@ -56,7 +56,6 @@ class SettingsViewModel @Inject constructor(
                     _librarySettings.value = response.body()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Failed to load settings"
             } finally {
                 _isLoading.value = false
@@ -79,7 +78,6 @@ class SettingsViewModel @Inject constructor(
                     _message.value = "Failed to update library settings"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isSaving.value = false
@@ -115,7 +113,6 @@ class SettingsViewModel @Inject constructor(
                     _message.value = "Failed to scan library"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isScanning.value = false
@@ -143,7 +140,6 @@ class SettingsViewModel @Inject constructor(
                     _message.value = "Failed to force rescan"
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 _message.value = "Error: ${e.message}"
             } finally {
                 _isScanning.value = false
@@ -168,7 +164,6 @@ class SettingsViewModel @Inject constructor(
                     _aiSettings.value = response.body()?.settings
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -184,7 +179,6 @@ class SettingsViewModel @Inject constructor(
                     onResult(false, "Failed to update AI settings")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error updating settings")
             }
         }
@@ -202,7 +196,6 @@ class SettingsViewModel @Inject constructor(
                     onResult(false, errorBody ?: "Connection failed")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Connection failed")
             }
         }
@@ -217,7 +210,6 @@ class SettingsViewModel @Inject constructor(
                     _users.value = response.body() ?: emptyList()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -234,7 +226,6 @@ class SettingsViewModel @Inject constructor(
                     onResult(false, errorBody ?: "Failed to create user")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error creating user")
             }
         }
@@ -252,7 +243,6 @@ class SettingsViewModel @Inject constructor(
                     onResult(false, errorBody ?: "Failed to delete user")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 onResult(false, e.message ?: "Error deleting user")
             }
         }

@@ -86,7 +86,6 @@ class HomeViewModel @Inject constructor(
         val pendingList = downloadManager.getPendingProgressList()
         if (pendingList.isEmpty()) return
 
-        android.util.Log.d("HomeViewModel", "Syncing ${pendingList.size} pending progress entries")
 
         for (pending in pendingList) {
             try {
@@ -100,7 +99,6 @@ class HomeViewModel @Inject constructor(
                 )
                 // Successfully synced - clear this pending progress
                 downloadManager.clearPendingProgress(pending.audiobookId)
-                android.util.Log.d("HomeViewModel", "Synced pending progress for book ${pending.audiobookId}: position ${pending.position}")
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModel", "Failed to sync pending progress for book ${pending.audiobookId}", e)
                 // Continue trying other entries
@@ -126,7 +124,6 @@ class HomeViewModel @Inject constructor(
                         favoriteIds.addAll(favoritesResponse.body()?.map { it.id } ?: emptyList())
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                 }
 
                 // Helper function to apply favorite status to book lists
@@ -162,7 +159,6 @@ class HomeViewModel @Inject constructor(
                     _finished.value = (finishedResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 _isLoading.value = false
             }
@@ -184,7 +180,6 @@ class HomeViewModel @Inject constructor(
                     onResult(isFavorite)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -253,7 +248,6 @@ class HomeViewModel @Inject constructor(
                         .toSet()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             } finally {
                 _isLoadingCollections.value = false
             }
@@ -276,7 +270,6 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
@@ -296,7 +289,6 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
