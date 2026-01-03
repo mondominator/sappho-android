@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +34,7 @@ import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.sappho.audiobooks.BuildConfig
 import com.sappho.audiobooks.presentation.theme.*
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -54,7 +56,9 @@ fun ProfileScreen(
     val avatarUri by viewModel.avatarUri.collectAsState()
     val serverVersion by viewModel.serverVersion.collectAsState()
     val avatarUpdated by viewModel.avatarUpdated.collectAsState()
+    
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Avatar picker
     var selectedAvatarFile by remember { mutableStateOf<File?>(null) }
@@ -116,9 +120,6 @@ fun ProfileScreen(
             }
         }
     }
-
-    // Snackbar
-    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(saveMessage) {
         saveMessage?.let { message ->
