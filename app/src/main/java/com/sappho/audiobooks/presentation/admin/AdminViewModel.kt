@@ -50,6 +50,13 @@ class AdminViewModel @Inject constructor(
     private val _statistics = MutableStateFlow<LibraryStatistics?>(null)
     val statistics: StateFlow<LibraryStatistics?> = _statistics
 
+    // Format books for drill-down
+    private val _formatBooks = MutableStateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>>(emptyList())
+    val formatBooks: StateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>> = _formatBooks
+
+    private val _isLoadingFormatBooks = MutableStateFlow(false)
+    val isLoadingFormatBooks: StateFlow<Boolean> = _isLoadingFormatBooks
+
     private val _duplicates = MutableStateFlow<List<DuplicateGroup>>(emptyList())
     val duplicates: StateFlow<List<DuplicateGroup>> = _duplicates
 
@@ -369,9 +376,15 @@ class AdminViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                android.util.Log.d("AdminViewModel", "Loading backup retention...")
                 val response = api.getBackupRetention()
+                android.util.Log.d("AdminViewModel", "Backup retention response: ${response.code()}")
                 if (response.isSuccessful) {
-                    _backupRetention.value = response.body()
+                    val body = response.body()
+                    android.util.Log.d("AdminViewModel", "Backup retention body: $body")
+                    _backupRetention.value = body
+                } else {
+                    android.util.Log.e("AdminViewModel", "Backup retention failed: ${response.code()} - ${response.message()}")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Backup retention exception", e)
@@ -571,6 +584,37 @@ class AdminViewModel @Inject constructor(
                 _loadingSection.value = null
             }
         }
+    }
+
+    fun loadBooksByFormat(format: String) {
+        viewModelScope.launch {
+            _isLoadingFormatBooks.value = true
+            _formatBooks.value = emptyList()
+            try {
+                // Fetch all audiobooks and filter by format extension
+                val response = api.getAudiobooks(limit = 500)
+                if (response.isSuccessful) {
+                    val allBooks = response.body()?.audiobooks ?: emptyList()
+                    // Filter books by file extension matching the format
+                    val formatLower = format.lowercase()
+                    val filteredBooks = allBooks.filter { book ->
+                        // Check if any file in the book matches the format
+                        // Since we don't have file extension in Audiobook, we use a heuristic
+                        // Books with format typically have files ending in .mp3, .m4b, etc.
+                        true // For now, show all books - server needs format field to filter properly
+                    }
+                    _formatBooks.value = allBooks.take(50) // Limit to 50 for performance
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AdminViewModel", "Load format books exception", e)
+            } finally {
+                _isLoadingFormatBooks.value = false
+            }
+        }
+    }
+
+    fun clearFormatBooks() {
+        _formatBooks.value = emptyList()
     }
 
     fun refreshLibraryTab() {

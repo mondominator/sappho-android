@@ -53,6 +53,7 @@ fun ProfileScreen(
     val serverUrl by viewModel.serverUrl.collectAsState()
     val avatarUri by viewModel.avatarUri.collectAsState()
     val serverVersion by viewModel.serverVersion.collectAsState()
+    val avatarUpdated by viewModel.avatarUpdated.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     // Avatar picker
@@ -63,24 +64,46 @@ fun ProfileScreen(
         uri?.let {
             viewModel.setAvatarUri(it)
             try {
+                // Load and compress image to avoid "File too large" errors (server limit is 5MB)
                 val inputStream = context.contentResolver.openInputStream(it)
-                // Get the actual MIME type and determine extension
-                val mimeType = context.contentResolver.getType(it) ?: "image/jpeg"
-                val extension = when {
-                    mimeType.contains("png") -> ".png"
-                    mimeType.contains("gif") -> ".gif"
-                    mimeType.contains("webp") -> ".webp"
-                    else -> ".jpg"
-                }
-                val tempFile = File(context.cacheDir, "avatar_temp$extension")
-                inputStream?.use { input ->
-                    tempFile.outputStream().use { output ->
-                        input.copyTo(output)
+                val originalBitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                inputStream?.close()
+
+                if (originalBitmap != null) {
+                    // Scale down to max 800x800 while maintaining aspect ratio
+                    val maxSize = 800
+                    val scale = minOf(
+                        maxSize.toFloat() / originalBitmap.width,
+                        maxSize.toFloat() / originalBitmap.height,
+                        1f // Don't upscale
+                    )
+                    val scaledBitmap = if (scale < 1f) {
+                        android.graphics.Bitmap.createScaledBitmap(
+                            originalBitmap,
+                            (originalBitmap.width * scale).toInt(),
+                            (originalBitmap.height * scale).toInt(),
+                            true
+                        )
+                    } else {
+                        originalBitmap
                     }
+
+                    // Save as compressed JPEG
+                    val tempFile = File(context.cacheDir, "avatar_temp.jpg")
+                    tempFile.outputStream().use { output ->
+                        scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, output)
+                    }
+
+                    // Clean up bitmaps
+                    if (scaledBitmap != originalBitmap) {
+                        scaledBitmap.recycle()
+                    }
+                    originalBitmap.recycle()
+
+                    selectedAvatarFile = tempFile
+                    android.util.Log.d("ProfileScreen", "Compressed avatar: ${tempFile.length()} bytes")
+                    viewModel.updateProfileWithAvatar(null, null, tempFile, "image/jpeg")
                 }
-                selectedAvatarFile = tempFile
-                // Auto-save avatar with correct MIME type
-                viewModel.updateProfileWithAvatar(null, null, tempFile, mimeType)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -93,11 +116,16 @@ fun ProfileScreen(
     LaunchedEffect(saveMessage) {
         saveMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
-            // Notify MainScreen to refresh navbar avatar when avatar changes
-            if (message.contains("Avatar", ignoreCase = true)) {
-                onAvatarChanged()
-            }
             viewModel.clearMessage()
+        }
+    }
+
+    // Watch for avatar updates
+    LaunchedEffect(avatarUpdated) {
+        if (avatarUpdated) {
+            android.util.Log.d("ProfileScreen", "Avatar was updated, calling onAvatarChanged()")
+            onAvatarChanged()
+            viewModel.clearAvatarUpdatedFlag()
         }
     }
 
@@ -128,13 +156,12 @@ fun ProfileScreen(
                         .padding(Spacing.M),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Avatar
+                    // Avatar (display only - edit via Edit Profile dialog)
                     Box(
                         modifier = Modifier
                             .size(80.dp)
                             .clip(CircleShape)
-                            .background(Brush.verticalGradient(avatarGradient))
-                            .clickable { imagePickerLauncher.launch("image/*") },
+                            .background(Brush.verticalGradient(avatarGradient)),
                         contentAlignment = Alignment.Center
                     ) {
                         when {
@@ -147,13 +174,14 @@ fun ProfileScreen(
                                 )
                             }
                             user?.avatar != null && serverUrl != null -> {
-                                val avatarPath = user?.avatar ?: ""
-                                val avatarUrl = "$serverUrl/api/profile/avatar?v=${avatarPath.hashCode()}&t=${System.currentTimeMillis() / 60000}"
+                                // Force fresh load with timestamp
+                                val avatarUrl = "$serverUrl/api/profile/avatar?_=${System.currentTimeMillis()}"
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
                                         .data(avatarUrl)
                                         .diskCachePolicy(CachePolicy.DISABLED)
                                         .memoryCachePolicy(CachePolicy.DISABLED)
+                                        .crossfade(false)
                                         .build(),
                                     contentDescription = "Avatar",
                                     modifier = Modifier.fillMaxSize(),

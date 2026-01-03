@@ -77,12 +77,12 @@ data class AuthResponse(
 )
 
 data class User(
-    val id: Int,
-    val username: String,
-    val email: String?,
-    @SerializedName("display_name") val displayName: String?,
-    @SerializedName("is_admin") val isAdmin: Int,
-    val avatar: String?,
+    val id: Int = 0,
+    val username: String? = null,
+    val email: String? = null,
+    @SerializedName("display_name") val displayName: String? = null,
+    @SerializedName("is_admin") val isAdmin: Int = 0,
+    val avatar: String? = null,
     @SerializedName("created_at") val createdAt: String? = null
 )
 

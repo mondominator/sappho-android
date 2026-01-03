@@ -302,6 +302,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     if (response.isSuccessful) {
                         response.body()?.audiobook?.let { updatedBook ->
                             _audiobook.value = updatedBook
+                            // Increment cover version to bust image cache
+                            _coverVersion.value = System.currentTimeMillis()
                         }
                         _refreshMetadataResult.value = response.body()?.message ?: "Metadata refreshed"
                     } else {
