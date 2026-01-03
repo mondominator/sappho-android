@@ -103,8 +103,16 @@ fun ProfileScreen(
                     selectedAvatarFile = tempFile
                     viewModel.updateProfileWithAvatar(null, null, tempFile, "image/jpeg")
                 }
+            } catch (e: OutOfMemoryError) {
+                android.util.Log.e("ProfileScreen", "Out of memory while processing image", e)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Image too large. Please choose a smaller image.")
+                }
             } catch (e: Exception) {
-                // Silently ignore image compression errors
+                android.util.Log.e("ProfileScreen", "Failed to process image", e)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Failed to process image. Please try again.")
+                }
             }
         }
     }

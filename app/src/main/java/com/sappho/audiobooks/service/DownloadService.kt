@@ -151,7 +151,7 @@ class DownloadService : Service() {
             .build()
     }
 
-    private fun createCompletedNotification(title: String, success: Boolean): Notification {
+    private fun createCompletedNotification(title: String, success: Boolean, errorMessage: String? = null): Notification {
         val contentIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -162,7 +162,7 @@ class DownloadService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(if (success) "Download Complete" else "Download Failed")
-            .setContentText(title)
+            .setContentText(if (success) title else errorMessage ?: "Failed to download $title")
             .setSmallIcon(if (success) android.R.drawable.stat_sys_download_done else android.R.drawable.stat_notify_error)
             .setContentIntent(contentPendingIntent)
             .setAutoCancel(true)
@@ -202,8 +202,19 @@ class DownloadService : Service() {
                 val body = response.body ?: throw Exception("Empty response body")
                 val contentLength = body.contentLength()
 
-                val downloadsDir = File(filesDir, "audiobooks").also { it.mkdirs() }
+                val downloadsDir = File(filesDir, "audiobooks").also { 
+                    if (!it.exists() && !it.mkdirs()) {
+                        throw IOException("Failed to create download directory")
+                    }
+                }
                 val file = File(downloadsDir, "audiobook_$audiobookId.m4b")
+                
+                // Check available storage space
+                val freeSpace = downloadsDir.freeSpace
+                if (contentLength > 0 && freeSpace < contentLength * 1.1) { // 10% buffer
+                    throw IOException("Insufficient storage space. Need ${contentLength / 1024 / 1024}MB, but only ${freeSpace / 1024 / 1024}MB available")
+                }
+                
                 val outputStream = FileOutputStream(file)
                 val inputStream = body.byteStream()
 
@@ -280,18 +291,36 @@ class DownloadService : Service() {
             } catch (e: Exception) {
                 Log.e(TAG, "Download failed", e)
 
+                // Clean up partial download
+                try {
+                    val downloadsDir = File(filesDir, "audiobooks")
+                    val file = File(downloadsDir, "audiobook_$audiobookId.m4b")
+                    if (file.exists()) {
+                        file.delete()
+                    }
+                } catch (deleteError: Exception) {
+                    Log.e(TAG, "Failed to clean up partial download", deleteError)
+                }
+
+                val errorMessage = when (e) {
+                    is IOException -> e.message ?: "Download failed"
+                    is SecurityException -> "Permission denied"
+                    is OutOfMemoryError -> "Out of memory"
+                    else -> "Download failed: ${e.message}"
+                }
+
                 downloadManager.updateDownloadStateExternal(audiobookId, DownloadState(
                     audiobookId = audiobookId,
                     progress = 0f,
                     isDownloading = false,
                     isCompleted = false,
-                    error = e.message
+                    error = errorMessage
                 ))
 
-                // Show failure notification
+                // Show failure notification with specific error
                 withContext(Dispatchers.Main) {
                     val notificationManager = getSystemService(NotificationManager::class.java)
-                    notificationManager.notify(NOTIFICATION_ID + 1, createCompletedNotification(title, false))
+                    notificationManager.notify(NOTIFICATION_ID + 1, createCompletedNotification(title, false, errorMessage))
                 }
             } finally {
                 currentDownloadId = null
