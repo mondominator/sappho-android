@@ -230,12 +230,17 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private fun registerNoisyReceiver() {
-        noisyReceiver = BecomingNoisyReceiver()
-        val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(noisyReceiver, filter)
+        try {
+            noisyReceiver = BecomingNoisyReceiver()
+            val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(noisyReceiver, filter)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AudioPlaybackService", "Failed to register noisy receiver", e)
+            noisyReceiver = null
         }
     }
 
@@ -1130,6 +1135,7 @@ class AudioPlaybackService : MediaLibraryService() {
                     api.markFinished(book.id, ProgressUpdateRequest(0, 1, "stopped"))
                 }
             } catch (e: Exception) {
+                android.util.Log.e("AudioPlaybackService", "Failed to mark audiobook as finished", e)
             }
         }
     }

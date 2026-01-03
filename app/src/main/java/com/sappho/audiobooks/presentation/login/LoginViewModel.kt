@@ -48,19 +48,32 @@ class LoginViewModel @Inject constructor(
                 // Attempt login
                 val response = api.login(LoginRequest(username, password))
 
-                if (response.isSuccessful && response.body() != null) {
-                    val authResponse = response.body()!!
-                    authRepository.saveToken(authResponse.token)
-                    _uiState.value = LoginUiState.Success
+                if (response.isSuccessful) {
+                    response.body()?.let { authResponse ->
+                        authRepository.saveToken(authResponse.token)
+                        _uiState.value = LoginUiState.Success
+                    } ?: run {
+                        _uiState.value = LoginUiState.Error("Invalid response from server")
+                    }
                 } else {
-                    _uiState.value = LoginUiState.Error(
-                        response.errorBody()?.string() ?: "Login failed"
-                    )
+                    val errorMessage = when (response.code()) {
+                        401 -> "Invalid username or password"
+                        404 -> "Server endpoint not found. Please check your server URL"
+                        500 -> "Server error. Please try again later"
+                        else -> response.errorBody()?.string() ?: "Login failed (${response.code()})"
+                    }
+                    _uiState.value = LoginUiState.Error(errorMessage)
                 }
             } catch (e: Exception) {
-                _uiState.value = LoginUiState.Error(
-                    e.message ?: "Network error. Please check your server URL and connection."
-                )
+                val errorMessage = when (e) {
+                    is java.net.UnknownHostException -> "Cannot reach server. Please check your server URL and network connection"
+                    is java.net.ConnectException -> "Connection failed. Is the server running?"
+                    is java.net.SocketTimeoutException -> "Connection timed out. Please check your server URL"
+                    is javax.net.ssl.SSLHandshakeException -> "SSL certificate error. If using self-signed certificates, enable 'Allow cleartext traffic'"
+                    is java.io.IOException -> "Network error: ${e.message}"
+                    else -> "Unexpected error: ${e.message ?: "Please try again"}"
+                }
+                _uiState.value = LoginUiState.Error(errorMessage)
             }
         }
     }

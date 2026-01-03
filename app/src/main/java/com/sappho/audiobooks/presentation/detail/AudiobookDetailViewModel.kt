@@ -78,6 +78,9 @@ class AudiobookDetailViewModel @Inject constructor(
     private val _userRating = MutableStateFlow<Int?>(null)
     val userRating: StateFlow<Int?> = _userRating
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
     private val _averageRating = MutableStateFlow<AverageRating?>(null)
     val averageRating: StateFlow<AverageRating?> = _averageRating
 
@@ -175,9 +178,18 @@ class AudiobookDetailViewModel @Inject constructor(
                 // Load audiobook
                 val response = api.getAudiobook(id)
                 if (response.isSuccessful) {
-                    val book = response.body()
-                    _audiobook.value = book
-                    _isFavorite.value = book?.isFavorite ?: false
+                    response.body()?.let { book ->
+                        _audiobook.value = book
+                        _isFavorite.value = book.isFavorite
+                    } ?: run {
+                        _errorMessage.value = "Invalid response from server"
+                    }
+                } else {
+                    _errorMessage.value = when (response.code()) {
+                        404 -> "Audiobook not found"
+                        401 -> "Authentication required"
+                        else -> "Failed to load audiobook (${response.code()})"
+                    }
                 }
 
                 // Load user's rating
@@ -187,6 +199,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         _userRating.value = ratingResponse.body()?.rating
                     }
                 } catch (e: Exception) {
+                    // Rating is optional, don't show error to user
+                    android.util.Log.e("AudiobookDetailViewModel", "Failed to load rating", e)
                 }
 
                 // Load average rating
