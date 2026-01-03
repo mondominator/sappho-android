@@ -149,10 +149,18 @@ The app uses these Sappho API endpoints:
 - `POST /api/library/scan` - Trigger library scan (admin)
 - `POST /api/library/force-rescan` - Force rescan library (admin)
 
+## AI Assistant Documentation
+
+This project includes configuration files for AI coding assistants:
+- **CLAUDE.md** - For use with Claude (Anthropic)
+- **OPENCODE.md** - For use with OpenCode
+
+Both files contain the same architectural guidelines and development workflows to ensure consistency across different AI assistants.
+
 ## License
 
 MIT License - See LICENSE file for details.
 
 ---
 
-**Built with Claude Code**
+**Built with Claude Code & OpenCode**
