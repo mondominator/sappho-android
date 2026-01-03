@@ -126,8 +126,8 @@ interface SapphoApi {
     @Multipart
     @PUT("api/profile")
     suspend fun updateProfileWithAvatar(
-        @Part("displayName") displayName: okhttp3.RequestBody?,
-        @Part("email") email: okhttp3.RequestBody?,
+        @Part displayName: okhttp3.MultipartBody.Part?,
+        @Part email: okhttp3.MultipartBody.Part?,
         @Part avatar: okhttp3.MultipartBody.Part?
     ): Response<User>
 
@@ -521,7 +521,10 @@ data class ServerSettings(
     val dataDir: String?,
     val audiobooksDir: String?,
     val uploadDir: String?,
-    val libraryScanInterval: Int?
+    val libraryScanInterval: Int?,
+    val autoBackupInterval: Int?,
+    val backupRetention: Int?,
+    val logBufferSize: Int?
 )
 
 data class ServerSettingsUpdate(
