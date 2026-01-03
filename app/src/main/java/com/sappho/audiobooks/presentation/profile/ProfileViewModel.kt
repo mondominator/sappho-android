@@ -165,10 +165,12 @@ class ProfileViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     val updatedUser = response.body()
                     android.util.Log.d("ProfileViewModel", "Updated user avatar field: ${updatedUser?.avatar}")
-                    // Reload profile to get updated avatar path
-                    loadProfile()
+                    // Update the user state immediately with the response
+                    _user.value = updatedUser
                     _avatarUri.value = null // Clear the local preview
                     _saveMessage.value = if (avatarFile != null) "Avatar updated" else "Profile updated"
+                    // Also reload profile to ensure consistency
+                    loadProfile()
                 } else {
                     val errorBody = response.errorBody()?.string()
                     android.util.Log.e("ProfileViewModel", "Upload failed: ${response.code()} - $errorBody")
