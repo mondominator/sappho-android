@@ -65,8 +65,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.sappho.audiobooks.service.AudioPlaybackService
+import com.sappho.audiobooks.service.DownloadService
+import com.sappho.audiobooks.util.HapticPatterns
 
 @Composable
 fun AudiobookDetailScreen(
@@ -136,6 +139,9 @@ fun AudiobookDetailScreen(
     val isDownloaded = viewModel.downloadManager.isDownloaded(audiobookId)
     val isDownloading = downloadState?.isDownloading == true
     val downloadProgress = downloadState?.progress ?: 0f
+    val downloadError = downloadState?.error
+    val hasDownloadError = !downloadError.isNullOrBlank() && !isDownloading
+    val context = LocalContext.current
 
     LaunchedEffect(audiobookId) {
         viewModel.loadAudiobook(audiobookId)
@@ -173,8 +179,12 @@ fun AudiobookDetailScreen(
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        val backHaptic = HapticPatterns.navigationAction()
                         OutlinedButton(
-                            onClick = onBackClick,
+                            onClick = { 
+                                backHaptic()
+                                onBackClick() 
+                            },
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = SapphoIconDefault
                             ),
@@ -193,8 +203,12 @@ fun AudiobookDetailScreen(
 
                         // Edit button (admin only)
                         if (isAdmin && !isOffline) {
+                            val editHaptic = HapticPatterns.buttonPress()
                             OutlinedButton(
-                                onClick = { showEditMetadataDialog = true },
+                                onClick = { 
+                                    editHaptic()
+                                    showEditMetadataDialog = true 
+                                },
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = SapphoInfo
                                 ),
@@ -238,6 +252,61 @@ fun AudiobookDetailScreen(
                                 fontSize = 14.sp,
                                 color = SapphoWarning
                             )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    // Download Error Banner
+                    if (hasDownloadError) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .background(
+                                    SapphoError.copy(alpha = 0.2f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = null,
+                                    tint = SapphoError,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Download failed",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = SapphoError
+                                    )
+                                    Text(
+                                        text = downloadError ?: "Unknown error",
+                                        fontSize = 12.sp,
+                                        color = LegacyRedLight,
+                                        maxLines = 2
+                                    )
+                                }
+                            }
+                            TextButton(
+                                onClick = { viewModel.clearDownloadError(audiobookId) },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Dismiss",
+                                    tint = SapphoError,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -471,8 +540,10 @@ fun AudiobookDetailScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Play/Pause Button (mobile style)
+                    val playButtonHaptic = HapticPatterns.playButtonPress()
                     Button(
                         onClick = {
+                            playButtonHaptic()
                             val service = AudioPlaybackService.instance
                             if (isThisBookLoaded && service != null) {
                                 // Book is already loaded and service is alive, just toggle play/pause
@@ -521,8 +592,12 @@ fun AudiobookDetailScreen(
                         ) {
                             // Chapters button
                             if (hasChapters) {
+                                val chaptersHaptic = HapticPatterns.buttonPress()
                                 Button(
-                                    onClick = { showChaptersDialog = true },
+                                    onClick = { 
+                                        chaptersHaptic()
+                                        showChaptersDialog = true 
+                                    },
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(48.dp),
@@ -543,12 +618,29 @@ fun AudiobookDetailScreen(
 
                             // Download button
                             if (showDownloadButton) {
+                                val downloadStartHaptic = HapticPatterns.downloadStart()
+                                val downloadCancelHaptic = HapticPatterns.downloadCancel()
                                 Button(
                                     onClick = {
                                         when {
-                                            isDownloading -> { /* Cancel not implemented */ }
-                                            isDownloaded -> { if (!isOffline) showDeleteDownloadDialog = true }
-                                            else -> { viewModel.downloadAudiobook() }
+                                            isDownloading -> { 
+                                                downloadCancelHaptic()
+                                                // Cancel download via service
+                                                DownloadService.cancelDownload(context)
+                                            }
+                                            isDownloaded -> { 
+                                                downloadCancelHaptic()
+                                                if (!isOffline) showDeleteDownloadDialog = true 
+                                            }
+                                            hasDownloadError -> { 
+                                                downloadStartHaptic()
+                                                // Retry download
+                                                viewModel.downloadAudiobook() 
+                                            }
+                                            else -> { 
+                                                downloadStartHaptic()
+                                                viewModel.downloadAudiobook() 
+                                            }
                                         }
                                     },
                                     modifier = Modifier
@@ -558,30 +650,46 @@ fun AudiobookDetailScreen(
                                         containerColor = when {
                                             isDownloading -> SapphoInfo.copy(alpha = 0.15f)
                                             isDownloaded -> SapphoSuccess.copy(alpha = 0.15f)
+                                            hasDownloadError -> SapphoError.copy(alpha = 0.15f)
                                             else -> SapphoInfo.copy(alpha = 0.15f)
                                         },
                                         contentColor = when {
                                             isDownloading -> LegacyBluePale
                                             isDownloaded -> LegacyGreenPale
+                                            hasDownloadError -> LegacyRedLight
                                             else -> LegacyBluePale
                                         }
                                     ),
                                     shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
                                 ) {
-                                    if (isDownloading) {
-                                        CircularProgressIndicator(
-                                            progress = downloadProgress,
-                                            modifier = Modifier.size(16.dp),
-                                            color = LegacyBluePale,
-                                            strokeWidth = 2.dp
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                    when {
+                                        isDownloading -> {
+                                            CircularProgressIndicator(
+                                                progress = downloadProgress,
+                                                modifier = Modifier.size(16.dp),
+                                                color = LegacyBluePale,
+                                                strokeWidth = 2.dp
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
+                                        hasDownloadError -> {
+                                            Icon(
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
                                     }
                                     Text(
                                         text = when {
-                                            isDownloading -> "${(downloadProgress * 100).toInt()}%"
+                                            isDownloading -> {
+                                                val percent = (downloadProgress * 100).toInt()
+                                                if (percent > 0) "$percent%" else "Starting..."
+                                            }
                                             isDownloaded -> "Downloaded"
+                                            hasDownloadError -> "Retry"
                                             else -> "Download"
                                         },
                                         fontSize = 14.sp,

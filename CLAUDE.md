@@ -161,6 +161,118 @@ The app matches the Sappho web app's dark theme:
 
 Logo: `app/src/main/res/drawable/sappho_logo.png` (from web app)
 
+## Enhanced UI System
+
+The app features a comprehensive UI enhancement system with premium polish and accessibility features.
+
+### Enhanced Theme System
+
+**Advanced Dark Mode Colors** (`Color.kt`):
+- Enhanced contrast ratios for better accessibility (WCAG compliant)
+- `SapphoTextHigh` - High contrast white text for premium readability
+- `SapphoBackgroundDeep` - OLED-friendly deeper background variant
+- `SapphoSurfaceElevated` & `SapphoSurfaceDialog` - Sophisticated surface hierarchy
+- Semantic color variants with dark alternatives for better visual hierarchy
+
+**Material 3 Integration** (`Theme.kt`):
+- Extended `SapphoColors` data class with all enhanced color variants
+- Backward compatibility with legacy color mappings
+- Dynamic theming with proper Material 3 color scheme integration
+
+### Haptic Feedback System
+
+**Comprehensive Haptic Patterns** (`HapticFeedback.kt`):
+- `SapphoHaptics.hapticClickable()` - Enhanced clickable modifier with contextual feedback
+- `SapphoHaptics.hapticToggleable()` - Toggleable interactions with appropriate feedback
+- `HapticPatterns` - Predefined patterns for common actions:
+  - `lightTap()` / `mediumTap()` - Basic interaction feedback
+  - `playButtonPress()` - Media control emphasis
+  - `downloadStart()` / `downloadCancel()` - Action-specific feedback
+  - `cardTap()` - Card interaction feedback
+  - `navigationAction()` - Navigation transitions
+  - `successAction()` / `errorOccurred()` - State-based feedback
+
+**Integration Points**:
+- AudiobookDetailScreen: Play/pause, download actions, navigation buttons
+- HomeScreen: Card taps, retry actions, sync operations
+- All major interactive elements throughout the app
+
+### Skeleton Loading Components
+
+**Modular Skeleton System** (`SkeletonLoading.kt`):
+- `shimmerBrush()` - High-performance shimmer animation engine
+- `SkeletonBox` / `SkeletonCircle` - Basic building blocks
+- `SkeletonText` - Multi-line text placeholders with configurable widths
+- `SkeletonRow` - Icon + text combinations
+- `SkeletonAudiobookCard` - Perfect audiobook card placeholder
+- `SkeletonHomeSection` - Complete section with title + cards
+- `SkeletonHomeScreen` - Full screen loading state
+- `SkeletonAudiobookDetail` - Detail screen loading placeholder
+
+**Performance Features**:
+- Configurable shimmer effects with smooth infinite transitions
+- Memory-efficient animations using `rememberInfiniteTransition`
+- Accessibility-friendly loading states
+- Responsive sizing based on content dimensions
+
+### Advanced Animations
+
+**Micro-Interactions** (`Animations.kt`):
+- `bouncyClickable()` - Signature bouncy click animations with haptic feedback
+- `enhancedClickable()` - Sophisticated click animations with scale transitions
+- `progressiveReveal()` - Staggered list item animations
+- `rememberShakeAnimation()` - Error state feedback with configurable intensity
+- `rememberBreathingAnimation()` - Subtle active state indicators
+
+**State Transition Animations**:
+- `AnimatedContentSwap` - Smooth content transitions with slide effects
+- `rememberButtonScaleAnimation()` - Dynamic button state animations
+- `rememberElevationAnimation()` - Card hover/press elevation changes
+- `rememberColorAnimation()` - Smooth color transitions for interactive states
+
+**Content Animations**:
+- `SapphoAnimatedVisibility` - Signature enter/exit animations
+- `ContentStateAnimation` - Loading/error/success state management
+- Performance-optimized animation specs with proper easing curves
+
+### Enhanced Empty States
+
+**Sophisticated Empty State System** (`EmptyStates.kt`):
+- `EmptyState` - Base component with animation, icons, and action buttons
+- Specialized states for different scenarios:
+  - `EmptyLibrary` - Library onboarding
+  - `EmptySearchResults` - Search feedback with query context
+  - `NoInternetConnection` - Network error with retry action
+  - `ServerError` - Server connectivity issues
+  - `EmptyAudiobooks` - Animated illustration for empty content
+  - `EmptyReadingList` - Reading list onboarding
+  - `LoadingError` - Generic error handling with custom messages
+
+**Animated Illustrations**:
+- `AnimatedAudiobookIllustration` - Rotating book icon with pulse effects
+- `AnimatedMusicWaves` - Dynamic audio waveform animation
+- Custom Canvas drawings with sophisticated animation timing
+- Performance-optimized illustration rendering
+
+### Accessibility Features
+
+**WCAG Compliance**:
+- Enhanced color contrast ratios (minimum 4.5:1, target 7:1 for text)
+- Semantic descriptions for all interactive elements
+- Proper focus management and keyboard navigation
+- Screen reader optimizations with `accessibleCard()` modifier
+
+**Interaction Accessibility**:
+- Haptic feedback respects accessibility preferences
+- Configurable animation preferences (reduce motion support)
+- Proper touch target sizing (minimum 48dp)
+- High contrast mode support with enhanced color variants
+
+**Loading State Accessibility**:
+- Skeleton loading states maintain semantic structure
+- Progress announcements for screen readers
+- Meaningful loading descriptions and timeouts
+
 ## PWA Reference
 
 The Sappho PWA (Progressive Web App) is located at `/Users/mondo/Documents/git/sappho/client` and serves as the design reference for the Android app:
@@ -253,6 +365,89 @@ Text(color = MaterialTheme.sapphoColors.textMuted)
 // or import directly
 Text(color = SapphoTextSecondary)
 ```
+
+## Testing Requirements
+
+**CRITICAL: All new code must include comprehensive unit tests.**
+
+### Test Coverage Standards
+- **Minimum 80% code coverage** for new features and bug fixes
+- **100% coverage for critical business logic** (authentication, playback, data persistence)
+- **Unit tests required** for all ViewModels, Repositories, and API classes
+- **Integration tests** for complex workflows (login flow, playback, etc.)
+- **UI tests** for critical user paths (login, playbook selection, player controls)
+
+### Testing Guidelines
+- Write tests **FIRST** when fixing bugs - create a failing test that reproduces the issue, then fix it
+- Test both **happy path** and **error scenarios** (network failures, invalid data, etc.)
+- Use **descriptive test names** that explain what is being tested: `fun should return error when network is unavailable()`
+- **Mock external dependencies** (API, databases, file system) in unit tests
+- **Test edge cases**: empty states, null values, boundary conditions
+- **Verify error handling**: ensure proper error messages and state updates
+
+### Test Structure
+All tests must follow the **Arrange-Act-Assert** pattern:
+```kotlin
+@Test
+fun `should update user profile when valid data provided`() = runTest {
+    // Given (Arrange)
+    val newProfile = UserProfile(name = "John Doe", email = "john@test.com")
+    coEvery { api.updateProfile(any()) } returns Response.success(newProfile)
+    
+    // When (Act)
+    viewModel.updateProfile(newProfile)
+    testDispatcher.scheduler.advanceUntilIdle()
+    
+    // Then (Assert)
+    assertThat(viewModel.profileState.value).isEqualTo(ProfileState.Success(newProfile))
+    coVerify { api.updateProfile(newProfile) }
+}
+```
+
+### Test Dependencies
+Use these standardized testing libraries:
+- **JUnit 4.13.2** - Core testing framework
+- **MockK 1.13.12** - Mocking for Kotlin
+- **Truth 1.4.2** - Fluent assertions (`assertThat().isEqualTo()`)
+- **Turbine 1.1.0** - Testing Kotlin Flows
+- **Robolectric 4.11.1** - Android framework testing
+- **Hilt Testing** - Dependency injection for tests
+- **Coroutines Test** - Testing coroutines and suspend functions
+
+### Running Tests
+```bash
+# Run all tests
+./gradlew test
+
+# Run specific test class
+./gradlew test --tests "*LoginViewModelTest*"
+
+# Run tests with coverage
+./gradlew test jacocoTestReport
+```
+
+### Test File Organization
+```
+app/src/test/java/
+├── com/sappho/audiobooks/
+│   ├── presentation/
+│   │   ├── login/
+│   │   │   └── LoginViewModelTest.kt
+│   │   └── home/
+│   │       └── HomeViewModelTest.kt
+│   ├── data/
+│   │   ├── repository/
+│   │   │   └── AuthRepositoryTest.kt
+│   │   └── remote/
+│   │       └── SapphoApiTest.kt
+│   └── TestSapphoApplication.kt
+```
+
+### Enforcement
+- **CI/CD pipeline fails** if tests don't pass or coverage drops
+- **PRs cannot be merged** without adequate test coverage
+- **Code reviews must verify** that tests cover the changes made
+- **No exceptions** - if you write code, you write tests
 
 ## PR Workflow
 
