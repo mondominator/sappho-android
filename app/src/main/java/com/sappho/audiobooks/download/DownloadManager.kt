@@ -359,6 +359,9 @@ class DownloadManager @Inject constructor(
 
         // Also update the audiobook's progress in the downloaded book metadata
         updateDownloadedBookProgress(audiobookId, position)
+        
+        // Trigger background sync if we have network
+        triggerSyncIfOnline()
     }
 
     fun getPendingProgressList(): List<PendingProgress> {
@@ -375,6 +378,16 @@ class DownloadManager @Inject constructor(
 
     fun hasPendingProgress(): Boolean {
         return _pendingProgress.value.isNotEmpty()
+    }
+    
+    fun getPendingProgressCount(): Int {
+        return _pendingProgress.value.size
+    }
+    
+    private fun triggerSyncIfOnline() {
+        // This will be connected to NetworkMonitor and SyncStatusManager
+        // For now, just log that we would trigger sync
+        Log.d(TAG, "Would trigger background sync - ${getPendingProgressCount()} items pending")
     }
 
     private fun updateDownloadedBookProgress(audiobookId: Int, position: Int) {
