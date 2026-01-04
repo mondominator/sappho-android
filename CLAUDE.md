@@ -451,10 +451,13 @@ app/src/test/java/
 
 ## PR Workflow
 
+**CRITICAL: Never push directly to main. Always create a branch and PR.**
+
+- When asked to "ship it", "commit", or similar - create a feature branch first, then open a PR
 - Always work on a new branch and merge back in via PR
 - Don't use automerge - wait for pipelines to give results before moving on or declaring success
 - Wait for user testing before shipping/merging
-- Never bypass merge rules
+- Never bypass merge rules or force push to main
 
 ## Remote Server Access (Unraid)
 
