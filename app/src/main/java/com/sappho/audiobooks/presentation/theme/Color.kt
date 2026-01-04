@@ -23,23 +23,34 @@ val SapphoSurfaceLight = Color(0xFF1E293B)  // Elevated surface
 val SapphoSurfaceBorder = Color(0xFF3A3A3A)  // Card border (improved contrast)
 val SapphoSurfaceDark = Color(0xFF1F2937)  // Darker surface variant
 
-// -----------------------------------------------------------------------------
-// Text Colors
-// -----------------------------------------------------------------------------
-val SapphoText = Color(0xFFE0E7F1)  // Primary text
-val SapphoTextSecondary = Color(0xFFB0B7BF)  // Secondary text (5.5:1 contrast)
-val SapphoTextMuted = Color(0xFF9CA3AF)  // Muted/disabled text (4.5:1 contrast)
-val SapphoTextLight = Color(0xFFD1D5DB)  // Light gray text
+// Enhanced dark mode variants
+val SapphoBackgroundDeep = Color(0xFF08111D)  // Even deeper background for OLED
+val SapphoSurfaceElevated = Color(0xFF252525)  // Higher elevation surface
+val SapphoSurfaceDialog = Color(0xFF2D2D2D)  // Dialog/modal background
 
 // -----------------------------------------------------------------------------
-// Semantic Colors
+// Text Colors (Enhanced Contrast)
 // -----------------------------------------------------------------------------
-val SapphoError = Color(0xFFEF4444)  // Error red
+val SapphoText = Color(0xFFE8F0FF)  // Primary text (improved contrast)
+val SapphoTextSecondary = Color(0xFFB8C2D1)  // Secondary text (enhanced 5.5:1 contrast)
+val SapphoTextMuted = Color(0xFF9CA3AF)  // Muted/disabled text (4.5:1 contrast)
+val SapphoTextLight = Color(0xFFD1D5DB)  // Light gray text
+val SapphoTextHigh = Color(0xFFF8FAFC)  // High contrast white text
+val SapphoTextDim = Color(0xFF8B92A6)  // Dimmed text for subtle elements
+
+// -----------------------------------------------------------------------------
+// Semantic Colors (Enhanced)
+// -----------------------------------------------------------------------------
+val SapphoError = Color(0xFFF87171)  // Error red (softer on dark)
 val SapphoErrorLight = Color(0xFFFCA5A5)  // Light error red (for text on error backgrounds)
-val SapphoWarning = Color(0xFFFB923C)  // Warning orange
-val SapphoSuccess = Color(0xFF10B981)  // Success emerald
-val SapphoInfo = Color(0xFF3B82F6)  // Info blue
+val SapphoErrorDark = Color(0xFFDC2626)  // Darker error red for borders
+val SapphoWarning = Color(0xFFFBBF24)  // Warning amber (better contrast)
+val SapphoWarningDark = Color(0xFFD97706)  // Darker warning for emphasis
+val SapphoSuccess = Color(0xFF34D399)  // Success emerald (brighter on dark)
+val SapphoSuccessDark = Color(0xFF059669)  // Darker success for borders
+val SapphoInfo = Color(0xFF60A5FA)  // Info blue (brighter on dark)
 val SapphoInfoLight = Color(0xFFA5B4FC)  // Light info (indigo-ish, for loading states)
+val SapphoInfoDark = Color(0xFF2563EB)  // Darker info blue
 
 // Feature accent (used for AI features, recaps, etc.)
 val SapphoAccent = Color(0xFF6366F1)  // Indigo accent

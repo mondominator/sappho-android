@@ -320,6 +320,32 @@ class DownloadManager @Inject constructor(
         saveDownloadedBooks()
     }
 
+    fun clearDownloadError(audiobookId: Int) {
+        val currentStates = _downloadStates.value.toMutableMap()
+        val currentState = currentStates[audiobookId]
+        if (currentState?.error != null) {
+            // Clear the error but keep other state if still relevant
+            currentStates[audiobookId] = currentState.copy(error = null)
+            _downloadStates.value = currentStates
+        }
+    }
+
+    fun clearAllDownloadErrors() {
+        val currentStates = _downloadStates.value.toMutableMap()
+        val hasChanges = currentStates.values.any { !it.error.isNullOrBlank() }
+        
+        if (hasChanges) {
+            currentStates.replaceAll { _, state ->
+                if (!state.error.isNullOrBlank()) {
+                    state.copy(error = null)
+                } else {
+                    state
+                }
+            }
+            _downloadStates.value = currentStates
+        }
+    }
+
     // Pending progress management for offline sync
     private fun loadPendingProgress() {
         try {

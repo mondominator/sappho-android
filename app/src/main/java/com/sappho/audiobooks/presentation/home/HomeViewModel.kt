@@ -11,11 +11,13 @@ import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.util.NetworkMonitor
+import com.sappho.audiobooks.util.PerformanceMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import com.sappho.audiobooks.sync.SyncStatusManager
 import javax.inject.Inject
 
@@ -25,7 +27,8 @@ class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     val downloadManager: DownloadManager,  // Make public for HomeScreen access
     private val networkMonitor: NetworkMonitor,
-    private val syncStatusManager: SyncStatusManager
+    private val syncStatusManager: SyncStatusManager,
+    private val performanceMonitor: PerformanceMonitor
 ) : ViewModel() {
 
     private val _inProgress = MutableStateFlow<List<Audiobook>>(emptyList())
@@ -118,17 +121,55 @@ class HomeViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                // First, load the favorites list to get the IDs of favorited books
-                // (The meta endpoints don't return correct is_favorite status)
-                val favoriteIds = mutableSetOf<Int>()
+            performanceMonitor.measureTime("Home Data Load") {
+                _isLoading.value = true
                 try {
-                    val favoritesResponse = api.getFavorites()
-                    if (favoritesResponse.isSuccessful) {
-                        favoriteIds.addAll(favoritesResponse.body()?.map { it.id } ?: emptyList())
+                // Load all data in parallel for better performance
+                val favoritesDeferred = async {
+                    try {
+                        api.getFavorites()
+                    } catch (e: Exception) {
+                        null
                     }
-                } catch (e: Exception) {
+                }
+                
+                val inProgressDeferred = async { 
+                    try {
+                        api.getInProgress(10)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                
+                val recentlyAddedDeferred = async { 
+                    try {
+                        api.getRecentlyAdded(10) 
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                
+                val upNextDeferred = async { 
+                    try {
+                        api.getUpNext(10)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                
+                val finishedDeferred = async {
+                    try {
+                        api.getFinished(10)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+                // Wait for favorites first to apply status to other lists
+                val favoriteIds = mutableSetOf<Int>()
+                val favoritesResponse = favoritesDeferred.await()
+                if (favoritesResponse?.isSuccessful == true) {
+                    favoriteIds.addAll(favoritesResponse.body()?.map { it.id } ?: emptyList())
                 }
 
                 // Helper function to apply favorite status to book lists
@@ -138,34 +179,33 @@ class HomeViewModel @Inject constructor(
                     }
                 }
 
-                // Load in progress audiobooks
-                val inProgressResponse = api.getInProgress(10)
-                if (inProgressResponse.isSuccessful) {
+                // Process all responses in parallel
+                val inProgressResponse = inProgressDeferred.await()
+                if (inProgressResponse?.isSuccessful == true) {
                     _inProgress.value = (inProgressResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
 
-                // Load recently added audiobooks
-                val recentlyAddedResponse = api.getRecentlyAdded(10)
-                if (recentlyAddedResponse.isSuccessful) {
+                val recentlyAddedResponse = recentlyAddedDeferred.await()
+                if (recentlyAddedResponse?.isSuccessful == true) {
                     _recentlyAdded.value = (recentlyAddedResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
 
-                // Load up next audiobooks
-                val upNextResponse = api.getUpNext(10)
-                if (upNextResponse.isSuccessful) {
+                val upNextResponse = upNextDeferred.await()
+                if (upNextResponse?.isSuccessful == true) {
                     val upNextBooks = (upNextResponse.body() ?: emptyList()).withFavoriteStatus()
                     // Prioritize next book in series of the currently playing book
                     _upNext.value = prioritizeUpNext(upNextBooks, _inProgress.value)
                 }
 
-                // Load finished audiobooks
-                val finishedResponse = api.getFinished(10)
-                if (finishedResponse.isSuccessful) {
+                val finishedResponse = finishedDeferred.await()
+                if (finishedResponse?.isSuccessful == true) {
                     _finished.value = (finishedResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
             } catch (e: Exception) {
-            } finally {
-                _isLoading.value = false
+                } finally {
+                    _isLoading.value = false
+                    performanceMonitor.logMemoryUsage("After Home Data Load")
+                }
             }
         }
     }
@@ -304,5 +344,9 @@ class HomeViewModel @Inject constructor(
     
     fun clearSyncError() {
         syncStatusManager.clearErrorMessage()
+    }
+
+    fun clearAllDownloadErrors() {
+        downloadManager.clearAllDownloadErrors()
     }
 }

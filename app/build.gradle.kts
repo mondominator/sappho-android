@@ -16,8 +16,8 @@ android {
         applicationId = "com.sappho.audiobooks"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5.0"
+        versionCode = 7
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -180,6 +180,11 @@ dependencies {
     testImplementation("app.cash.turbine:turbine:1.1.0")
     testImplementation("com.google.truth:truth:1.4.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    
+    // Compose Testing for unit tests
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.compose.ui:ui-test-manifest")
     
     // Hilt testing
     testImplementation("com.google.dagger:hilt-android-testing:2.48.1")
