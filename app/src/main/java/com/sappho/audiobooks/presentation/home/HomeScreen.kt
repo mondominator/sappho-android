@@ -24,6 +24,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.FolderSpecial
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.SyncProblem
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
@@ -67,6 +70,7 @@ fun HomeScreen(
     val serverUrl by viewModel.serverUrl.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
     val downloadedBooks by viewModel.downloadManager.downloadedBooks.collectAsState()
+    val syncStatus by viewModel.syncStatus.collectAsState()
 
     // Collections state
     val collections by viewModel.collections.collectAsState()
@@ -139,6 +143,16 @@ fun HomeScreen(
                     }
                 }
             }
+            
+            // TODO: Add sync status banner back
+            // Sync Status Banner
+            // if (syncStatus.pendingCount > 0 || syncStatus.errorMessage != null) {
+            //     SyncStatusBanner(
+            //         syncStatus = syncStatus,
+            //         onTriggerSync = { viewModel.triggerManualSync() },
+            //         onDismissError = { viewModel.clearSyncError() }
+            //     )
+            // }
 
             LazyColumn(
                 modifier = Modifier
@@ -548,9 +562,119 @@ fun AudiobookCard(
                     showMenu = false
                     onAddToCollection()
                 }
-            )
+        )
+    }
+}
+
+@Composable
+fun SyncStatusBanner(
+    syncStatus: com.sappho.audiobooks.sync.SyncStatus,
+    onTriggerSync: () -> Unit,
+    onDismissError: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (syncStatus.errorMessage != null) {
+        SapphoWarning.copy(alpha = 0.2f)
+    } else {
+        SapphoPrimary.copy(alpha = 0.2f)
+    }
+    
+    val iconTint = if (syncStatus.errorMessage != null) {
+        SapphoWarning
+    } else {
+        SapphoPrimary
+    }
+    
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.M, vertical = Spacing.XS)
+            .background(backgroundColor, RoundedCornerShape(8.dp))
+            .padding(Spacing.S),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = when {
+                syncStatus.errorMessage != null -> Icons.Default.SyncProblem
+                syncStatus.issyncing -> Icons.Default.Sync
+                syncStatus.pendingCount > 0 -> Icons.Default.Sync
+                else -> Icons.Default.CheckCircle
+            },
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(IconSize.Medium)
+        )
+        
+        Spacer(modifier = Modifier.width(Spacing.XS))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            when {
+                syncStatus.errorMessage != null -> {
+                    Text(
+                        text = "Sync Error",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SapphoWarning
+                    )
+                    Text(
+                        text = syncStatus.errorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SapphoTextSecondary
+                    )
+                }
+                syncStatus.issyncing -> {
+                    Text(
+                        text = "Syncing progress...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SapphoPrimary
+                    )
+                    if (syncStatus.pendingCount > 0) {
+                        Text(
+                            text = "${syncStatus.pendingCount} item${if (syncStatus.pendingCount != 1) "s" else ""} pending",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SapphoTextSecondary
+                        )
+                    }
+                }
+                syncStatus.pendingCount > 0 -> {
+                    Text(
+                        text = "Pending sync",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SapphoPrimary
+                    )
+                    Text(
+                        text = "${syncStatus.pendingCount} item${if (syncStatus.pendingCount != 1) "s" else ""} waiting to sync",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SapphoTextSecondary
+                    )
+                }
+            }
+        }
+        
+        if (syncStatus.errorMessage != null) {
+            TextButton(
+                onClick = onDismissError,
+                colors = ButtonDefaults.textButtonColors(contentColor = SapphoWarning),
+                contentPadding = PaddingValues(horizontal = Spacing.S, vertical = Spacing.XXS)
+            ) {
+                Text("Dismiss", style = MaterialTheme.typography.labelMedium)
+            }
+            Spacer(modifier = Modifier.width(Spacing.XS))
+        }
+        
+        if (!syncStatus.issyncing && syncStatus.pendingCount > 0) {
+            TextButton(
+                onClick = onTriggerSync,
+                colors = ButtonDefaults.textButtonColors(contentColor = SapphoPrimary),
+                contentPadding = PaddingValues(horizontal = Spacing.S, vertical = Spacing.XXS)
+            ) {
+                Text("Sync Now", style = MaterialTheme.typography.labelMedium)
+            }
         }
     }
+}
 }
 
 /**
@@ -758,8 +882,10 @@ private fun AddToCollectionDialog(
                                             contentDescription = "In collection",
                                             tint = SapphoInfo
                                         )
-                                    }
-                                }
+    }
+}
+
+
                             }
                         }
                     }

@@ -6,24 +6,26 @@ import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.remote.Collection
 import com.sappho.audiobooks.data.remote.AddToCollectionRequest
 import com.sappho.audiobooks.data.remote.CreateCollectionRequest
+import com.sappho.audiobooks.data.remote.ProgressUpdateRequest
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.util.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
-import com.sappho.audiobooks.data.remote.ProgressUpdateRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import com.sappho.audiobooks.sync.SyncStatusManager
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val api: SapphoApi,
     private val authRepository: AuthRepository,
-    val downloadManager: DownloadManager,
-    private val networkMonitor: NetworkMonitor
+    val downloadManager: DownloadManager,  // Make public for HomeScreen access
+    private val networkMonitor: NetworkMonitor,
+    private val syncStatusManager: SyncStatusManager
 ) : ViewModel() {
 
     private val _inProgress = MutableStateFlow<List<Audiobook>>(emptyList())
@@ -44,8 +46,11 @@ class HomeViewModel @Inject constructor(
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl
 
-    private val _isOffline = MutableStateFlow(!networkMonitor.isOnline.value)
+    private val _isOffline = MutableStateFlow(false)
     val isOffline: StateFlow<Boolean> = _isOffline
+    
+    // Expose sync status to UI
+    val syncStatus: StateFlow<com.sappho.audiobooks.sync.SyncStatus> = syncStatusManager.syncStatus
 
     // Collections state
     private val _collections = MutableStateFlow<List<Collection>>(emptyList())
@@ -70,9 +75,9 @@ class HomeViewModel @Inject constructor(
                 _isOffline.value = !isOnline
 
                 if (isOnline) {
-                    // Just came online - sync pending progress first, then refresh data
+                    // Just came online - trigger sync and refresh data
                     if (wasOffline) {
-                        syncPendingProgress()
+                        syncStatusManager.triggerSync()
                     }
                     if (wasOffline || _inProgress.value.isEmpty()) {
                         loadData()
@@ -291,5 +296,13 @@ class HomeViewModel @Inject constructor(
             } catch (e: Exception) {
             }
         }
+    }
+    
+    fun triggerManualSync() {
+        syncStatusManager.triggerSync()
+    }
+    
+    fun clearSyncError() {
+        syncStatusManager.clearErrorMessage()
     }
 }

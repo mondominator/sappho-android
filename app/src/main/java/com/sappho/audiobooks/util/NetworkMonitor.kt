@@ -25,8 +25,10 @@ class NetworkMonitor @Inject constructor(
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            Log.d(TAG, "Network available")
+            Log.d(TAG, "Network available - triggering sync")
             _isOnline.value = true
+            // Trigger progress sync when network becomes available
+            triggerProgressSync()
         }
 
         override fun onLost(network: Network) {
@@ -44,8 +46,19 @@ class NetworkMonitor @Inject constructor(
             val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
                     capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
             Log.d(TAG, "Network capabilities changed, hasInternet: $hasInternet")
+            val wasOnline = _isOnline.value
             _isOnline.value = hasInternet
+            
+            // Trigger sync if we just came online
+            if (hasInternet && !wasOnline) {
+                triggerProgressSync()
+            }
         }
+    }
+    
+    private fun triggerProgressSync() {
+        // This will be injected with SyncStatusManager in a more complete implementation
+        Log.d(TAG, "Network available - would trigger progress sync")
     }
 
     init {
