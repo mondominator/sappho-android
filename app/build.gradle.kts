@@ -205,7 +205,7 @@ jacoco {
 tasks.register<JacocoReport>("jacocoTestReport") {
     group = "reporting"
     description = "Generate Jacoco test coverage report"
-    dependsOn("testDebugUnitTest")
+    dependsOn("testDebugUnitTest", "compileDebugKotlin")
 
     reports {
         xml.required.set(true)
@@ -228,14 +228,12 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "**/*Activity.*"
     )
 
-    val debugTree = fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug") {
-        exclude(fileFilter)
-    }
+    val kotlinDebugTree = fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug")
+    val classDirectoriesTree = files(listOf(kotlinDebugTree))
 
-    val mainSrc = "${project.projectDir}/src/main/java"
-    sourceDirectories.setFrom(files(listOf(mainSrc)))
-    classDirectories.setFrom(files(listOf(debugTree)))
-    executionData.setFrom(fileTree(layout.buildDirectory) {
-        include("**/testDebugUnitTest.exec")
+    classDirectories.setFrom(classDirectoriesTree)
+    sourceDirectories.setFrom(files(listOf("${project.projectDir}/src/main/java")))
+    executionData.setFrom(fileTree(layout.buildDirectory.get()) {
+        include("jacoco/testDebugUnitTest.exec")
     })
 }
