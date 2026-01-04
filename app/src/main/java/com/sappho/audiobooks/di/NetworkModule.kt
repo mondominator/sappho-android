@@ -34,7 +34,12 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(authRepository: AuthRepository): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // Only log in debug builds for performance
+            level = if (com.sappho.audiobooks.BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
 
         return OkHttpClient.Builder()

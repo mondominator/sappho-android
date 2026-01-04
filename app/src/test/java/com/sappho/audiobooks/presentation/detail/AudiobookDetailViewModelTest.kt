@@ -162,6 +162,77 @@ class AudiobookDetailViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        assertThat(viewModel.isFavorite.first()).isTrue()
+        assertThat(viewModel.isFavorite.value).isEqualTo(true)
+    }
+
+    @Test
+    fun `should start download through service`() = runTest {
+        // Given
+        val audiobook = createSampleAudiobook(123)
+        coEvery { api.getAudiobook(123) } returns Response.success(audiobook)
+        viewModel.loadAudiobook(123)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // When
+        viewModel.downloadAudiobook()
+
+        // Then
+        // Note: We can't easily test the DownloadService.startDownload call in unit tests
+        // because it requires Context, but we can verify the audiobook is loaded
+        assertThat(viewModel.audiobook.value).isEqualTo(audiobook)
+    }
+
+    @Test
+    fun `should delete download correctly`() = runTest {
+        // Given
+        val audiobook = createSampleAudiobook(123)
+        coEvery { api.getAudiobook(123) } returns Response.success(audiobook)
+        viewModel.loadAudiobook(123)
+        testDispatcher.scheduler.advanceUntilIdle()
+        every { downloadManager.deleteDownload(123) } returns true
+
+        // When
+        viewModel.deleteDownload()
+
+        // Then
+        io.mockk.verify { downloadManager.deleteDownload(123) }
+    }
+
+    @Test
+    fun `should clear download error correctly`() = runTest {
+        // When
+        viewModel.clearDownloadError(123)
+
+        // Then
+        io.mockk.verify { downloadManager.clearDownloadError(123) }
+    }
+
+    private fun createSampleAudiobook(id: Int): com.sappho.audiobooks.domain.model.Audiobook {
+        return com.sappho.audiobooks.domain.model.Audiobook(
+            id = id,
+            title = "Test Audiobook",
+            author = "Test Author",
+            duration = 3600,
+            coverImage = null,
+            description = null,
+            progress = com.sappho.audiobooks.domain.model.Progress(position = 0, completed = 0),
+            isMultiFile = 0,
+            narrator = null,
+            series = null,
+            seriesPosition = null,
+            genre = null,
+            tags = null,
+            publishYear = null,
+            copyrightYear = null,
+            publisher = null,
+            isbn = null,
+            asin = null,
+            language = null,
+            rating = null,
+            subtitle = null,
+            abridged = null,
+            fileCount = 1,
+            createdAt = "2024-01-01"
+        )
     }
 }

@@ -35,6 +35,7 @@ class HomeViewModelTest {
     private lateinit var authRepository: AuthRepository
     private lateinit var networkMonitor: NetworkMonitor
     private lateinit var downloadManager: DownloadManager
+    private lateinit var syncStatusManager: com.sappho.audiobooks.sync.SyncStatusManager
     
     private val testDispatcher = StandardTestDispatcher()
     private val isOnlineFlow = MutableStateFlow(true)
@@ -47,13 +48,17 @@ class HomeViewModelTest {
         authRepository = mockk(relaxed = true)
         networkMonitor = mockk(relaxed = true)
         downloadManager = mockk(relaxed = true)
+        syncStatusManager = mockk(relaxed = true)
         
         every { authRepository.getServerUrlSync() } returns "https://test.sappho.com"
         every { authRepository.getTokenSync() } returns "test-token"
         every { networkMonitor.isOnline } returns isOnlineFlow
         every { downloadManager.getPendingProgressList() } returns emptyList()
+        every { syncStatusManager.syncStatus } returns MutableStateFlow(com.sappho.audiobooks.sync.SyncStatus())
         
-        viewModel = HomeViewModel(api, authRepository, downloadManager, networkMonitor)
+        // Create HomeViewModel with mocked performance monitor
+        val performanceMonitor = mockk<com.sappho.audiobooks.util.PerformanceMonitor>(relaxed = true)
+        viewModel = HomeViewModel(api, authRepository, downloadManager, networkMonitor, syncStatusManager, performanceMonitor)
     }
     
     @After
@@ -96,7 +101,8 @@ class HomeViewModelTest {
         isOnlineFlow.value = false
         
         // When
-        val newViewModel = HomeViewModel(api, authRepository, downloadManager, networkMonitor)
+        val performanceMonitor = mockk<com.sappho.audiobooks.util.PerformanceMonitor>(relaxed = true)
+        val newViewModel = HomeViewModel(api, authRepository, downloadManager, networkMonitor, syncStatusManager, performanceMonitor)
         testDispatcher.scheduler.advanceUntilIdle()
         
         // Then - API should not be called
@@ -136,6 +142,7 @@ class HomeViewModelTest {
         )
         
         every { downloadManager.getPendingProgressList() } returns listOf(pendingProgress)
+        every { syncStatusManager.triggerSync() } returns Unit
         coEvery { api.updateProgress(any(), any()) } returns Response.success(Unit)
         coEvery { api.getFavorites() } returns Response.success(emptyList())
         coEvery { api.getInProgress(any()) } returns Response.success(emptyList())
@@ -147,7 +154,8 @@ class HomeViewModelTest {
         isOnlineFlow.value = false
         
         // When - Create ViewModel while offline
-        val newViewModel = HomeViewModel(api, authRepository, downloadManager, networkMonitor)
+        val performanceMonitor = mockk<com.sappho.audiobooks.util.PerformanceMonitor>(relaxed = true)
+        val newViewModel = HomeViewModel(api, authRepository, downloadManager, networkMonitor, syncStatusManager, performanceMonitor)
         testDispatcher.scheduler.advanceUntilIdle()
         
         // Verify no API calls made while offline
@@ -157,11 +165,8 @@ class HomeViewModelTest {
         isOnlineFlow.value = true
         testDispatcher.scheduler.advanceUntilIdle()
         
-        // Then - Should sync pending progress
-        coVerify { 
-            api.updateProgress(1, any())
-        }
-        verify { downloadManager.clearPendingProgress(1) }
+        // Then - Should trigger sync via SyncStatusManager
+        io.mockk.verify { syncStatusManager.triggerSync() }
     }
     
     private fun createTestBook(id: Int, title: String): Audiobook {
@@ -196,4 +201,14 @@ class HomeViewModelTest {
             isFavorite = false
         )
     }
+
+    @Test
+    fun `should clear all download errors correctly`() = runTest {
+        // When
+        viewModel.clearAllDownloadErrors()
+
+        // Then
+        io.mockk.verify { downloadManager.clearAllDownloadErrors() }
+    }
+
 }

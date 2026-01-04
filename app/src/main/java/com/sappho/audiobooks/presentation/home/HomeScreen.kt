@@ -27,13 +27,19 @@ import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SyncProblem
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import com.sappho.audiobooks.presentation.theme.SapphoAnimatedVisibility
+import com.sappho.audiobooks.presentation.theme.bouncyClickable
+import com.sappho.audiobooks.presentation.theme.accessibleCard
+import com.sappho.audiobooks.presentation.theme.AccessibleSectionHeader
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -53,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.sappho.audiobooks.domain.model.Audiobook
+import com.sappho.audiobooks.util.HapticPatterns
 import com.sappho.audiobooks.presentation.theme.*
 import com.sappho.audiobooks.presentation.theme.IconSize
 import com.sappho.audiobooks.presentation.theme.Spacing
@@ -70,6 +77,7 @@ fun HomeScreen(
     val serverUrl by viewModel.serverUrl.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
     val downloadedBooks by viewModel.downloadManager.downloadedBooks.collectAsState()
+    val downloadStates by viewModel.downloadManager.downloadStates.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
 
     // Collections state
@@ -129,8 +137,12 @@ fun HomeScreen(
                         color = SapphoWarning,
                         modifier = Modifier.weight(1f)
                     )
+                    val retryHaptic = HapticPatterns.buttonPress()
                     TextButton(
-                        onClick = { viewModel.refresh() },
+                        onClick = { 
+                            retryHaptic()
+                            viewModel.refresh() 
+                        },
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = SapphoWarning
                         ),
@@ -142,6 +154,18 @@ fun HomeScreen(
                         )
                     }
                 }
+            }
+
+            // Download Status Banner
+            val activeDownloads = downloadStates.values.filter { it.isDownloading }
+            val failedDownloads = downloadStates.values.filter { !it.error.isNullOrBlank() && !it.isDownloading }
+            
+            if (activeDownloads.isNotEmpty() || failedDownloads.isNotEmpty()) {
+                DownloadStatusBanner(
+                    activeDownloads = activeDownloads,
+                    failedDownloads = failedDownloads,
+                    onClearFailedDownloads = { viewModel.clearAllDownloadErrors() }
+                )
             }
             
             // TODO: Add sync status banner back
@@ -162,7 +186,10 @@ fun HomeScreen(
             ) {
                 // When offline - show Downloaded section prominently at top
             if (isOffline && downloadedBooks.isNotEmpty()) {
-                item {
+                item(
+                    key = "downloaded_section",
+                    contentType = "section"
+                ) {
                     AudiobookSection(
                         title = "Downloaded Books",
                         books = downloadedBooks.map { it.audiobook },
@@ -179,7 +206,10 @@ fun HomeScreen(
             if (!isOffline) {
                 // Continue Listening Section - Larger cards to highlight importance
                 if (inProgress.isNotEmpty()) {
-                    item {
+                    item(
+                        key = "continue_listening_section", 
+                        contentType = "section"
+                    ) {
                         AudiobookSection(
                             title = "Continue Listening",
                             books = inProgress,
@@ -199,7 +229,10 @@ fun HomeScreen(
 
                 // Up Next Section
                 if (upNext.isNotEmpty()) {
-                    item {
+                    item(
+                        key = "up_next_section",
+                        contentType = "section"
+                    ) {
                         AudiobookSection(
                             title = "Up Next",
                             books = upNext,
@@ -343,11 +376,13 @@ fun AudiobookSection(
     showCompletedCheckmark: Boolean = true
 ) {
     Column(modifier = modifier) {
-        Text(
+        AccessibleSectionHeader(
             text = title,
-            fontSize = titleSize,
-            fontWeight = FontWeight.Bold,
-            color = SapphoText,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = titleSize,
+                fontWeight = FontWeight.Bold,
+                color = SapphoText
+            ),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
@@ -355,7 +390,11 @@ fun AudiobookSection(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(books) { book ->
+            items(
+                items = books,
+                key = { book -> book.id }, // Stable key for better performance
+                contentType = { "audiobook" } // Content type for composition optimization
+            ) { book ->
                 AudiobookCard(
                     book = book,
                     serverUrl = serverUrl,
@@ -382,25 +421,43 @@ fun AudiobookCard(
     cardSize: androidx.compose.ui.unit.Dp = 140.dp,
     showCompletedCheckmark: Boolean = true
 ) {
-    val textScale = cardSize.value / 140f
-    val titleFontSize = (14 * textScale).sp
-    val authorFontSize = (12 * textScale).sp
-    val placeholderFontSize = (32 * textScale).sp
+    // Use remember to avoid recalculating on every recomposition
+    val coverUrl = remember(book.id, serverUrl) { 
+        serverUrl?.let { "$it/api/audiobooks/${book.id}/cover" }
+    }
+    
+    // Calculate responsive font sizes based on card size
+    val placeholderFontSize = (cardSize.value * 0.15f).sp
+    val titleFontSize = (cardSize.value * 0.10f).sp
+    val authorFontSize = (cardSize.value * 0.08f).sp
+    
+    val cardTapHaptic = HapticPatterns.cardTap()
 
-    var showMenu by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
-
-    Box(modifier = modifier) {
-        Column(
-            modifier = Modifier
-                .width(cardSize)
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        showMenu = true
-                    }
-                )
+    Column(
+        modifier = modifier
+            .width(cardSize + 8.dp)
+            .accessibleCard(
+                title = book.title,
+                subtitle = book.author,
+                progress = book.progress?.let { 
+                    if (book.duration != null && book.duration > 0) {
+                        it.position.toFloat() / book.duration
+                    } else null
+                },
+                isFavorite = book.isFavorite,
+                isCompleted = book.progress?.completed == 1,
+                onClick = { 
+                    cardTapHaptic()
+                    onClick() 
+                }
+            )
+            .bouncyClickable(
+                onClick = { 
+                    cardTapHaptic()
+                    onClick() 
+                },
+                onClickLabel = "Open ${book.title}"
+            )
         ) {
             // Cover Image
             Box(
@@ -411,9 +468,6 @@ fun AudiobookCard(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 val context = LocalContext.current
-                val imageUrl = if (book.coverImage != null && serverUrl != null) {
-                    "$serverUrl/api/audiobooks/${book.id}/cover"
-                } else null
 
                 // Placeholder/fallback content (initials)
                 Box(
@@ -429,11 +483,15 @@ fun AudiobookCard(
                 }
 
                 // Cover image with crossfade (overlays placeholder when loaded)
-                if (imageUrl != null) {
+                if (coverUrl != null) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data(imageUrl)
-                            .crossfade(300)
+                            .data(coverUrl)
+                            // Add memory optimizations
+                            .memoryCacheKey("cover_${book.id}")
+                            .diskCacheKey("cover_${book.id}")
+                            // Use appropriate size for better memory usage
+                            .size(cardSize.value.toInt())
                             .build(),
                         contentDescription = book.title,
                         modifier = Modifier.fillMaxSize(),
@@ -441,10 +499,20 @@ fun AudiobookCard(
                     )
                 }
 
-                // Progress Bar
+                // Progress Bar with animation
                 if (book.progress != null && book.duration != null) {
                     val progressPercent = (book.progress.position.toFloat() / book.duration) * 100
                     val isCompleted = book.progress.completed == 1
+                    
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = if (isCompleted) 1f else progressPercent / 100f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "progress"
+                    )
+                    
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -454,21 +522,16 @@ fun AudiobookCard(
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(if (isCompleted) 1f else progressPercent / 100f)
+                                .fillMaxWidth(animatedProgress)
                                 .fillMaxHeight()
                                 .background(
-                                    Brush.horizontalGradient(
-                                        if (isCompleted)
-                                            listOf(SapphoSuccess, LegacyGreenLight)
-                                        else
-                                            listOf(SapphoInfo, LegacyBlueLight)
-                                    )
+                                    if (isCompleted) LegacyGreen else SapphoInfo
                                 )
                         )
-                    }
-                }
+                     }
+                 }
 
-                // Completed checkmark overlay
+                 // Completed checkmark overlay
                 if (showCompletedCheckmark && book.progress?.completed == 1) {
                     Box(
                         modifier = Modifier
@@ -487,12 +550,12 @@ fun AudiobookCard(
                     }
                 }
 
-                // Reading list ribbon (top-right corner)
-                if (book.isFavorite) {
-                    ReadingListRibbon(
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        size = 28f
-                    )
+                // Animated Reading list ribbon (top-right corner)
+                SapphoAnimatedVisibility(
+                    visible = book.isFavorite,
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    ReadingListRibbon(size = 28f)
                 }
             }
 
@@ -517,53 +580,6 @@ fun AudiobookCard(
                 )
             }
         }
-
-        // Context menu dropdown
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-            modifier = Modifier.background(SapphoSurface)
-        ) {
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = if (book.isFavorite) "Remove from Reading List" else "Add to Reading List",
-                        color = SapphoText
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = if (book.isFavorite) Icons.Filled.BookmarkRemove else Icons.Filled.BookmarkAdd,
-                        contentDescription = null,
-                        tint = SapphoInfo
-                    )
-                },
-                onClick = {
-                    showMenu = false
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onToggleFavorite()
-                }
-            )
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = "Add to Collection",
-                        color = SapphoText
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.FolderSpecial,
-                        contentDescription = null,
-                        tint = SapphoInfo
-                    )
-                },
-                onClick = {
-                    showMenu = false
-                    onAddToCollection()
-                }
-        )
-    }
 }
 
 @Composable
@@ -654,8 +670,12 @@ fun SyncStatusBanner(
         }
         
         if (syncStatus.errorMessage != null) {
+            val dismissHaptic = HapticPatterns.buttonPress()
             TextButton(
-                onClick = onDismissError,
+                onClick = { 
+                    dismissHaptic()
+                    onDismissError() 
+                },
                 colors = ButtonDefaults.textButtonColors(contentColor = SapphoWarning),
                 contentPadding = PaddingValues(horizontal = Spacing.S, vertical = Spacing.XXS)
             ) {
@@ -665,8 +685,12 @@ fun SyncStatusBanner(
         }
         
         if (!syncStatus.issyncing && syncStatus.pendingCount > 0) {
+            val syncHaptic = HapticPatterns.buttonPress()
             TextButton(
-                onClick = onTriggerSync,
+                onClick = { 
+                    syncHaptic()
+                    onTriggerSync() 
+                },
                 colors = ButtonDefaults.textButtonColors(contentColor = SapphoPrimary),
                 contentPadding = PaddingValues(horizontal = Spacing.S, vertical = Spacing.XXS)
             ) {
@@ -674,7 +698,6 @@ fun SyncStatusBanner(
             }
         }
     }
-}
 }
 
 /**
@@ -818,8 +841,8 @@ private fun AddToCollectionDialog(
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text("Create & Add")
-                                }
-                            }
+    }
+}
                         }
                     } else {
                         Button(
