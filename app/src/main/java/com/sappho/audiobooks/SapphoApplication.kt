@@ -7,6 +7,9 @@ import android.os.Build
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.util.DebugLogger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.google.android.gms.cast.framework.CastContext
 import com.sappho.audiobooks.cast.CastHelper
 import com.sappho.audiobooks.di.NetworkModule
@@ -26,7 +29,8 @@ class SapphoApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        initializeCast()
+        // Initialize Cast asynchronously to not block app startup
+        initializeCastAsync()
     }
 
     override fun onTerminate() {
@@ -37,20 +41,42 @@ class SapphoApplication : Application(), ImageLoaderFactory {
         }
     }
 
-    private fun initializeCast() {
-        try {
-            // Initialize Cast context lazily in background
-            CastContext.getSharedInstance(this)
-            castHelper.initialize(this)
-        } catch (e: Exception) {
-            android.util.Log.e("SapphoApplication", "Error initializing Cast", e)
+    private fun initializeCastAsync() {
+        // Initialize Cast in background thread to avoid blocking app startup
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                // Initialize Cast context lazily in background
+                CastContext.getSharedInstance(this@SapphoApplication)
+                castHelper.initialize(this@SapphoApplication)
+                android.util.Log.d("SapphoApplication", "Cast initialized successfully")
+            } catch (e: Exception) {
+                android.util.Log.e("SapphoApplication", "Error initializing Cast", e)
+            }
         }
     }
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .okHttpClient(okHttpClient)
-            .logger(DebugLogger())
+            // Remove debug logger for production performance
+            .logger(if (BuildConfig.DEBUG) DebugLogger() else null)
+            // Configure memory cache (25% of available memory)
+            .memoryCache {
+                coil.memory.MemoryCache.Builder(this@SapphoApplication)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            // Configure disk cache (50MB)
+            .diskCache {
+                coil.disk.DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(50 * 1024 * 1024) // 50MB
+                    .build()
+            }
+            // Enable hardware bitmaps for better memory efficiency
+            .allowHardware(true)
+            // Crossfade animation for smoother UX
+            .crossfade(300)
             .build()
     }
 

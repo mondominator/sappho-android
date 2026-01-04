@@ -5,6 +5,7 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     kotlin("plugin.serialization") version "2.0.21"
+    id("jacoco")
 }
 
 android {
@@ -15,8 +16,8 @@ android {
         applicationId = "com.sappho.audiobooks"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5.0"
+        versionCode = 7
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -81,6 +82,13 @@ android {
         // Remaining disabled lint checks:
         // - MissingIntentFilterForMediaSearch: Tracked in #56 (Android Auto search support)
         disable += setOf("MissingIntentFilterForMediaSearch")
+    }
+    
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
     }
 }
 
@@ -162,8 +170,75 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.11")
+    testImplementation("io.mockk:mockk-android:1.13.11")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core:1.6.1")
+    testImplementation("androidx.test.ext:junit-ktx:1.2.1")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("app.cash.turbine:turbine:1.1.0")
+    testImplementation("com.google.truth:truth:1.4.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    
+    // Compose Testing for unit tests
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.compose.ui:ui-test-manifest")
+    
+    // Hilt testing
+    testImplementation("com.google.dagger:hilt-android-testing:2.48.1")
+    kspTest("com.google.dagger:hilt-android-compiler:2.48.1")
+    
+    // Android Instrumentation Tests
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.6.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.48.1")
+    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.48.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// Jacoco configuration for code coverage
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    group = "reporting"
+    description = "Generate Jacoco test coverage report"
+    dependsOn("testDebugUnitTest", "compileDebugKotlin")
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    val fileFilter = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+        "**/*\$WhenMappings.*",
+        "**/*ComposableSingletons*.*",
+        "**/di/**",
+        "**/*Module.*",
+        "**/*Application.*",
+        "**/*Activity.*"
+    )
+
+    val kotlinDebugTree = fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug")
+    val classDirectoriesTree = files(listOf(kotlinDebugTree))
+
+    classDirectories.setFrom(classDirectoriesTree)
+    sourceDirectories.setFrom(files(listOf("${project.projectDir}/src/main/java")))
+    executionData.setFrom(fileTree(layout.buildDirectory.get()) {
+        include("jacoco/testDebugUnitTest.exec")
+    })
 }

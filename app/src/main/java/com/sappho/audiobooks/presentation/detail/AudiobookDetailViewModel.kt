@@ -340,6 +340,11 @@ class AudiobookDetailViewModel @Inject constructor(
         }
     }
 
+    fun clearDownloadError(audiobookId: Int) {
+        // Remove the error state from download manager
+        downloadManager.clearDownloadError(audiobookId)
+    }
+
     fun toggleFavorite() {
         viewModelScope.launch {
             _audiobook.value?.let { book ->

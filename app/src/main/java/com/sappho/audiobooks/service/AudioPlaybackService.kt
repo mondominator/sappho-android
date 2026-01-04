@@ -384,6 +384,18 @@ class AudioPlaybackService : MediaLibraryService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
+            val packageName = controller.packageName
+            android.util.Log.d("AutoService", "Connection from: $packageName")
+            
+            // Check if this is an Android Auto connection
+            val isAndroidAuto = packageName.contains("android.projection") || 
+                               packageName.contains("com.google.android.projection.gearhead") ||
+                               packageName == "com.google.android.gms"
+            
+            if (isAndroidAuto) {
+                android.util.Log.i("AutoService", "Android Auto connection detected")
+            }
+
             // Add custom commands for skip forward/backward
             val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
                 .add(SessionCommand(ACTION_SKIP_FORWARD, Bundle.EMPTY))
@@ -391,7 +403,7 @@ class AudioPlaybackService : MediaLibraryService() {
                 .build()
 
             // Enable player commands including SEEK_TO_PREVIOUS/NEXT for system media controls
-            // The ForwardingPlayer intercepts these and performs 15-second skips
+            // The ForwardingPlayer intercepts these and performs 10-second skips
             val playerCommands = Player.Commands.Builder()
                 .addAll(
                     Player.COMMAND_PLAY_PAUSE,
@@ -441,6 +453,7 @@ class AudioPlaybackService : MediaLibraryService() {
             browser: MediaSession.ControllerInfo,
             params: LibraryParams?
         ): ListenableFuture<LibraryResult<MediaItem>> {
+            android.util.Log.d("AutoService", "onGetLibraryRoot called by ${browser.packageName}")
             return Futures.immediateFuture(
                 LibraryResult.ofItem(
                     MediaItem.Builder()
@@ -451,6 +464,7 @@ class AudioPlaybackService : MediaLibraryService() {
                                 .setIsBrowsable(true)
                                 .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
                                 .setTitle("Sappho Audiobooks")
+                                .setSubtitle("Your Audiobook Library")
                                 .build()
                         )
                         .build(),
@@ -467,35 +481,44 @@ class AudioPlaybackService : MediaLibraryService() {
             pageSize: Int,
             params: LibraryParams?
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+            android.util.Log.d("AutoService", "onGetChildren called for parentId: $parentId, by ${browser.packageName}")
             return when {
                 parentId == ROOT_ID -> {
-                    // Root menu items
+                    android.util.Log.d("AutoService", "Loading root menu items")
+                    // Root menu items - optimized for Android Auto
                     val items = ImmutableList.of(
                         createBrowsableMediaItem(
                             CONTINUE_LISTENING_ID,
                             "Continue Listening",
-                            MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS
+                            MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                            "Resume your audiobooks"
                         ),
                         createBrowsableMediaItem(
                             RECENT_ID,
                             "Recently Added",
-                            MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS
+                            MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                            "Newest audiobooks"
                         ),
                         createBrowsableMediaItem(
                             ALL_BOOKS_ID,
-                            "All Audiobooks",
-                            MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS
+                            "All Audiobooks", 
+                            MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                            "Browse entire library"
                         )
                     )
+                    android.util.Log.d("AutoService", "Returning ${items.size} root items")
                     Futures.immediateFuture(LibraryResult.ofItemList(items, params))
                 }
                 parentId == CONTINUE_LISTENING_ID -> {
+                    android.util.Log.d("AutoService", "Loading in-progress audiobooks")
                     loadInProgressAudiobooks(params)
                 }
                 parentId == RECENT_ID -> {
+                    android.util.Log.d("AutoService", "Loading recent audiobooks")
                     loadRecentAudiobooks(params)
                 }
                 parentId == ALL_BOOKS_ID -> {
+                    android.util.Log.d("AutoService", "Loading all audiobooks")
                     loadAllAudiobooks(params)
                 }
                 parentId.startsWith(CHAPTERS_PREFIX) -> {
@@ -627,6 +650,8 @@ class AudioPlaybackService : MediaLibraryService() {
 
             return future
         }
+
+
     }
 
     private fun buildPlayableMediaItem(audiobook: Audiobook, startPosition: Int = 0): MediaItem {
@@ -720,7 +745,8 @@ class AudioPlaybackService : MediaLibraryService() {
     private fun createBrowsableMediaItem(
         mediaId: String,
         title: String,
-        mediaType: Int
+        mediaType: Int,
+        subtitle: String? = null
     ): MediaItem {
         return MediaItem.Builder()
             .setMediaId(mediaId)
@@ -730,6 +756,7 @@ class AudioPlaybackService : MediaLibraryService() {
                     .setIsBrowsable(true)
                     .setMediaType(mediaType)
                     .setTitle(title)
+                    .apply { subtitle?.let { setSubtitle(it) } }
                     .build()
             )
             .build()
@@ -738,26 +765,34 @@ class AudioPlaybackService : MediaLibraryService() {
     private fun loadInProgressAudiobooks(params: LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
         val future = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
 
+        // Check if we have authentication
+        val serverUrl = authRepository.getServerUrlSync()
+        val token = authRepository.getTokenSync()
+        if (serverUrl.isNullOrEmpty() || token.isNullOrEmpty()) {
+            android.util.Log.w("AutoService", "Missing authentication for in-progress books")
+            future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
+            return future
+        }
+
         serviceScope.launch {
             try {
+                android.util.Log.d("AutoService", "Fetching in-progress audiobooks")
                 // Use the dedicated /meta/in-progress endpoint for proper server-side filtering and sorting
                 val response = api.getInProgress(limit = 25)
                 if (response.isSuccessful) {
                     val inProgressBooks = response.body() ?: emptyList()
-
-                    inProgressBooks.forEach { book ->
-                    }
+                    android.util.Log.d("AutoService", "Found ${inProgressBooks.size} in-progress books")
 
                     val mediaItems = inProgressBooks.map { book ->
                         createPlayableMediaItem(book)
                     }
                     future.set(LibraryResult.ofItemList(ImmutableList.copyOf(mediaItems), params))
                 } else {
-                    android.util.Log.e("AudioPlaybackService", "Failed to load in-progress books: ${response.code()}")
+                    android.util.Log.e("AutoService", "Failed to load in-progress books: ${response.code()}")
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AudioPlaybackService", "Exception loading in-progress books", e)
+                android.util.Log.e("AutoService", "Exception loading in-progress books", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
             }
         }
@@ -768,23 +803,34 @@ class AudioPlaybackService : MediaLibraryService() {
     private fun loadRecentAudiobooks(params: LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
         val future = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
 
+        // Check if we have authentication
+        val serverUrl = authRepository.getServerUrlSync()
+        val token = authRepository.getTokenSync()
+        if (serverUrl.isNullOrEmpty() || token.isNullOrEmpty()) {
+            android.util.Log.w("AutoService", "Missing authentication for recent books")
+            future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
+            return future
+        }
+
         serviceScope.launch {
             try {
+                android.util.Log.d("AutoService", "Fetching recent audiobooks")
                 // Use the dedicated /meta/recent endpoint for proper server-side sorting
                 val response = api.getRecentlyAdded(limit = 20)
                 if (response.isSuccessful) {
                     val recentBooks = response.body() ?: emptyList()
+                    android.util.Log.d("AutoService", "Found ${recentBooks.size} recent books")
 
                     val mediaItems = recentBooks.map { book ->
                         createPlayableMediaItem(book)
                     }
                     future.set(LibraryResult.ofItemList(ImmutableList.copyOf(mediaItems), params))
                 } else {
-                    android.util.Log.e("AudioPlaybackService", "Failed to load recent books: ${response.code()}")
+                    android.util.Log.e("AutoService", "Failed to load recent books: ${response.code()}")
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AudioPlaybackService", "Exception loading recent books", e)
+                android.util.Log.e("AutoService", "Exception loading recent books", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
             }
         }
@@ -795,19 +841,33 @@ class AudioPlaybackService : MediaLibraryService() {
     private fun loadAllAudiobooks(params: LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
         val future = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
 
+        // Check if we have authentication
+        val serverUrl = authRepository.getServerUrlSync()
+        val token = authRepository.getTokenSync()
+        if (serverUrl.isNullOrEmpty() || token.isNullOrEmpty()) {
+            android.util.Log.w("AutoService", "Missing authentication for all books")
+            future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
+            return future
+        }
+
         serviceScope.launch {
             try {
-                val response = api.getAudiobooks(limit = 1000)
+                android.util.Log.d("AutoService", "Fetching all audiobooks")
+                val response = api.getAudiobooks(limit = 100) // Reduced limit for better Android Auto performance
                 if (response.isSuccessful) {
                     val audiobooks = response.body()?.audiobooks ?: emptyList()
+                    android.util.Log.d("AutoService", "Found ${audiobooks.size} total books")
+                    
                     val mediaItems = audiobooks.map { book ->
                         createPlayableMediaItem(book)
                     }
                     future.set(LibraryResult.ofItemList(ImmutableList.copyOf(mediaItems), params))
                 } else {
+                    android.util.Log.e("AutoService", "Failed to load all books: ${response.code()}")
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
             } catch (e: Exception) {
+                android.util.Log.e("AutoService", "Exception loading all books", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
             }
         }
@@ -847,14 +907,21 @@ class AudioPlaybackService : MediaLibraryService() {
         // Cache the audiobook for later use
         audiobookCache[audiobook.id] = audiobook
 
-        // Include auth token in cover URL for Android Auto to access it
-        val coverArtUri = if (audiobook.coverImage != null && serverUrl.isNotEmpty() && token.isNotEmpty()) {
-            Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token")
+        // For Android Auto, we need to handle authentication differently
+        // Some Android Auto systems may not properly handle tokens in URLs
+        val coverArtUri = if (audiobook.coverImage != null && serverUrl.isNotEmpty()) {
+            // Try to use a simpler URL structure that might work better with Auto
+            if (token.isNotEmpty()) {
+                Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token")
+            } else {
+                // Fallback for unauthenticated or when token is unavailable
+                Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover")
+            }
         } else {
             null
         }
 
-        // Build subtitle with progress info if available
+        // Build subtitle with progress info if available - optimized for Android Auto
         val subtitle = buildString {
             append(audiobook.author ?: "Unknown Author")
             audiobook.progress?.let { progress ->
@@ -862,12 +929,22 @@ class AudioPlaybackService : MediaLibraryService() {
                     val positionMin = progress.position / 60
                     val positionHr = positionMin / 60
                     val remainingMin = positionMin % 60
-                    if (positionHr > 0) {
-                        append(" • ${positionHr}h ${remainingMin}m in")
-                    } else {
-                        append(" • ${positionMin}m in")
+                    when {
+                        positionHr > 0 -> append(" • ${positionHr}h ${remainingMin}m")
+                        positionMin > 0 -> append(" • ${positionMin}m")
                     }
                 }
+            }
+        }
+        
+        // Build duration info for description
+        val durationText = audiobook.duration?.let { duration ->
+            val hours = duration / 3600
+            val minutes = (duration % 3600) / 60
+            when {
+                hours > 0 -> "${hours}h ${minutes}m"
+                minutes > 0 -> "${minutes}m"
+                else -> null
             }
         }
 
@@ -882,7 +959,9 @@ class AudioPlaybackService : MediaLibraryService() {
                     .setIsBrowsable(hasChapters)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
                     .setTitle(audiobook.title)
-                    .setArtist(subtitle)
+                    .setArtist(audiobook.author ?: "Unknown Author")
+                    .setSubtitle(subtitle)
+                    .setDescription(durationText)
                     .setArtworkUri(coverArtUri)
                     .setAlbumTitle(audiobook.series)
                     .setGenre(audiobook.genre)
