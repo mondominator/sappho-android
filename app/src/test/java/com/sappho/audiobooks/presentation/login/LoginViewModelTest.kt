@@ -158,16 +158,16 @@ class LoginViewModelTest {
     }
     
     @Test
-    @org.junit.Ignore("Flaky test - needs investigation")
-    fun `updateServerUrl updates repository and viewModel state`() = runTest {
+    fun `updateServerUrl updates viewModel state`() = runTest {
         // Given
         val newUrl = "https://new.sappho.com"
         
         // When
         viewModel.updateServerUrl(newUrl)
         
-        // Then
-        verify(exactly = 1) { authRepository.saveServerUrl(newUrl) }
+        // Then - should update the state but NOT save to repository yet
+        // (saving happens during login)
         assertThat(viewModel.serverUrl.value).isEqualTo(newUrl)
+        verify(exactly = 0) { authRepository.saveServerUrl(any()) }
     }
 }

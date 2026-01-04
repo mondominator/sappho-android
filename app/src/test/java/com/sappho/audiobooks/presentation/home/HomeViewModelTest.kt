@@ -127,8 +127,7 @@ class HomeViewModelTest {
 
     
     @Test
-    @org.junit.Ignore("Flaky test - needs investigation")
-    fun `syncs pending progress when online`() = runTest {
+    fun `syncs pending progress when coming back online`() = runTest {
         // Given
         val pendingProgress = PendingProgress(
             audiobookId = 1,
@@ -144,11 +143,21 @@ class HomeViewModelTest {
         coEvery { api.getFinished(any()) } returns Response.success(emptyList())
         coEvery { api.getUpNext(any()) } returns Response.success(emptyList())
         
-        // When
+        // Start offline
+        isOnlineFlow.value = false
+        
+        // When - Create ViewModel while offline
         val newViewModel = HomeViewModel(api, authRepository, downloadManager, networkMonitor)
         testDispatcher.scheduler.advanceUntilIdle()
         
-        // Then
+        // Verify no API calls made while offline
+        coVerify(exactly = 0) { api.updateProgress(any(), any()) }
+        
+        // When - Come back online
+        isOnlineFlow.value = true
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        // Then - Should sync pending progress
         coVerify { 
             api.updateProgress(1, any())
         }
