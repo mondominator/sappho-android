@@ -254,6 +254,89 @@ Text(color = MaterialTheme.sapphoColors.textMuted)
 Text(color = SapphoTextSecondary)
 ```
 
+## Testing Requirements
+
+**CRITICAL: All new code must include comprehensive unit tests.**
+
+### Test Coverage Standards
+- **Minimum 80% code coverage** for new features and bug fixes
+- **100% coverage for critical business logic** (authentication, playback, data persistence)
+- **Unit tests required** for all ViewModels, Repositories, and API classes
+- **Integration tests** for complex workflows (login flow, playback, etc.)
+- **UI tests** for critical user paths (login, playbook selection, player controls)
+
+### Testing Guidelines
+- Write tests **FIRST** when fixing bugs - create a failing test that reproduces the issue, then fix it
+- Test both **happy path** and **error scenarios** (network failures, invalid data, etc.)
+- Use **descriptive test names** that explain what is being tested: `fun should return error when network is unavailable()`
+- **Mock external dependencies** (API, databases, file system) in unit tests
+- **Test edge cases**: empty states, null values, boundary conditions
+- **Verify error handling**: ensure proper error messages and state updates
+
+### Test Structure
+All tests must follow the **Arrange-Act-Assert** pattern:
+```kotlin
+@Test
+fun `should update user profile when valid data provided`() = runTest {
+    // Given (Arrange)
+    val newProfile = UserProfile(name = "John Doe", email = "john@test.com")
+    coEvery { api.updateProfile(any()) } returns Response.success(newProfile)
+    
+    // When (Act)
+    viewModel.updateProfile(newProfile)
+    testDispatcher.scheduler.advanceUntilIdle()
+    
+    // Then (Assert)
+    assertThat(viewModel.profileState.value).isEqualTo(ProfileState.Success(newProfile))
+    coVerify { api.updateProfile(newProfile) }
+}
+```
+
+### Test Dependencies
+Use these standardized testing libraries:
+- **JUnit 4.13.2** - Core testing framework
+- **MockK 1.13.12** - Mocking for Kotlin
+- **Truth 1.4.2** - Fluent assertions (`assertThat().isEqualTo()`)
+- **Turbine 1.1.0** - Testing Kotlin Flows
+- **Robolectric 4.11.1** - Android framework testing
+- **Hilt Testing** - Dependency injection for tests
+- **Coroutines Test** - Testing coroutines and suspend functions
+
+### Running Tests
+```bash
+# Run all tests
+./gradlew test
+
+# Run specific test class
+./gradlew test --tests "*LoginViewModelTest*"
+
+# Run tests with coverage
+./gradlew test jacocoTestReport
+```
+
+### Test File Organization
+```
+app/src/test/java/
+├── com/sappho/audiobooks/
+│   ├── presentation/
+│   │   ├── login/
+│   │   │   └── LoginViewModelTest.kt
+│   │   └── home/
+│   │       └── HomeViewModelTest.kt
+│   ├── data/
+│   │   ├── repository/
+│   │   │   └── AuthRepositoryTest.kt
+│   │   └── remote/
+│   │       └── SapphoApiTest.kt
+│   └── TestSapphoApplication.kt
+```
+
+### Enforcement
+- **CI/CD pipeline fails** if tests don't pass or coverage drops
+- **PRs cannot be merged** without adequate test coverage
+- **Code reviews must verify** that tests cover the changes made
+- **No exceptions** - if you write code, you write tests
+
 ## PR Workflow
 
 - Always work on a new branch and merge back in via PR
