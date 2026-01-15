@@ -499,8 +499,23 @@ docker pull (user will pull via Unraid UI)
 
 Before creating a new release, update the version number in `app/build.gradle.kts`:
 - `versionCode` - increment by 1
-- `versionName` - update to match the release tag (e.g., "1.3.0")
+- `versionName` - update to match the release tag (e.g., "0.8.0")
 
 The app version is displayed in two places which both use `BuildConfig.VERSION_NAME`:
 - User dropdown menu (HomeScreen.kt)
 - About section in Profile (ProfileScreen.kt)
+
+### Versioning Guidelines
+
+**IMPORTANT: Follow semantic versioning carefully.**
+
+- **0.x.x** - Pre-release/development phase (current stage)
+- **1.0.0** - First stable production release (not yet reached)
+- Only bump to 1.0.0 when the app is considered stable and feature-complete
+
+Version increments:
+- **Patch (0.7.x)** - Bug fixes, minor tweaks
+- **Minor (0.x.0)** - New features, non-breaking changes
+- **Major (x.0.0)** - Breaking changes, major milestones
+
+Do NOT arbitrarily jump versions. Increment by one minor version per release during development (0.7.0 → 0.8.0 → 0.9.0, etc.).
