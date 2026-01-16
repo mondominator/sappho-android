@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import android.net.Uri
 import android.os.Bundle
 import androidx.core.content.ContextCompat
+import androidx.media3.common.AudioAttributes as Media3AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
@@ -349,6 +350,15 @@ class AudioPlaybackService : MediaLibraryService() {
                 }
             })
         }
+
+        // Set audio attributes on ExoPlayer for proper Bluetooth/audio routing
+        // This tells the system what type of audio we're playing (speech media)
+        val media3AudioAttributes = Media3AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+            .build()
+        // handleAudioFocus=false because we manage audio focus manually via requestAudioFocus()
+        player?.setAudioAttributes(media3AudioAttributes, false)
 
         // Create command buttons for notification using standard player commands
         // This helps the notification provider recognize them as seek buttons
