@@ -121,6 +121,15 @@ class AuthRepository @Inject constructor(
         clearCachedAvatarImage()
     }
 
+    // Playback speed preference (global setting)
+    fun savePlaybackSpeed(speed: Float) {
+        securePrefs.edit().putFloat(KEY_PLAYBACK_SPEED, speed).apply()
+    }
+
+    fun getPlaybackSpeed(): Float {
+        return securePrefs.getFloat(KEY_PLAYBACK_SPEED, 1.0f)
+    }
+
     private fun createEncryptedPrefs(): SharedPreferences {
         return try {
             EncryptedSharedPreferences.create(
@@ -188,5 +197,6 @@ class AuthRepository @Inject constructor(
         private const val KEY_USERNAME = "cached_username"
         private const val KEY_DISPLAY_NAME = "cached_display_name"
         private const val KEY_AVATAR = "cached_avatar"
+        private const val KEY_PLAYBACK_SPEED = "playback_speed"
     }
 }
