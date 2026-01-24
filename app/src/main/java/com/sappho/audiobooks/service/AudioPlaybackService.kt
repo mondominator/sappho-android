@@ -1049,6 +1049,12 @@ class AudioPlaybackService : MediaLibraryService() {
             }
 
             exoPlayer.play()
+
+            // Restore saved playback speed
+            val savedSpeed = authRepository.getPlaybackSpeed()
+            exoPlayer.setPlaybackSpeed(savedSpeed)
+            playerState.updatePlaybackSpeed(savedSpeed)
+
             startProgressSync()
 
             // Start foreground with our custom MediaStyle notification
@@ -1103,6 +1109,7 @@ class AudioPlaybackService : MediaLibraryService() {
     fun setPlaybackSpeed(speed: Float) {
         player?.setPlaybackSpeed(speed)
         playerState.updatePlaybackSpeed(speed)
+        authRepository.savePlaybackSpeed(speed)
     }
 
     fun setSleepTimer(minutes: Int) {
