@@ -50,6 +50,10 @@ class AudiobookDetailViewModel @Inject constructor(
     private val _progress = MutableStateFlow<Progress?>(null)
     val progress: StateFlow<Progress?> = _progress
 
+    // Track if progress has been confirmed (loaded from server or merged with pending)
+    private val _isProgressLoading = MutableStateFlow(true)
+    val isProgressLoading: StateFlow<Boolean> = _isProgressLoading
+
     private val _chapters = MutableStateFlow<List<Chapter>>(emptyList())
     val chapters: StateFlow<List<Chapter>> = _chapters
 
@@ -161,15 +165,28 @@ class AudiobookDetailViewModel @Inject constructor(
     fun loadAudiobook(id: Int) {
         viewModelScope.launch {
             _isLoading.value = true
+            _isProgressLoading.value = true
 
-            // If offline, load from downloaded data
+            // If offline, load from downloaded data and merge with pending progress
             if (!networkMonitor.isOnline.value) {
                 val downloadedBook = downloadManager.getDownloadedBook(id)
                 if (downloadedBook != null) {
                     _audiobook.value = downloadedBook.audiobook
-                    _progress.value = downloadedBook.audiobook.progress
                     _chapters.value = downloadedBook.chapters
+
+                    // Check for pending progress that may be more recent than downloaded data
+                    val pendingProgress = downloadManager.pendingProgress.value[id]
+                    if (pendingProgress != null) {
+                        // Use pending progress if it exists (more recent than downloaded data)
+                        _progress.value = Progress(
+                            position = pendingProgress.position,
+                            completed = downloadedBook.audiobook.progress?.completed ?: 0
+                        )
+                    } else {
+                        _progress.value = downloadedBook.audiobook.progress
+                    }
                 }
+                _isProgressLoading.value = false
                 _isLoading.value = false
                 return@launch
             }
@@ -212,13 +229,23 @@ class AudiobookDetailViewModel @Inject constructor(
                 } catch (e: Exception) {
                 }
 
-                // Load progress separately
+                // Load progress separately - this is the authoritative source
                 try {
                     val progressResponse = api.getProgress(id)
                     if (progressResponse.isSuccessful) {
                         _progress.value = progressResponse.body()
                     }
                 } catch (e: Exception) {
+                    // If progress endpoint fails, check for pending progress
+                    val pendingProgress = downloadManager.pendingProgress.value[id]
+                    if (pendingProgress != null) {
+                        _progress.value = Progress(
+                            position = pendingProgress.position,
+                            completed = _audiobook.value?.progress?.completed ?: 0
+                        )
+                    }
+                } finally {
+                    _isProgressLoading.value = false
                 }
 
                 // Load chapters
@@ -239,13 +266,24 @@ class AudiobookDetailViewModel @Inject constructor(
                 } catch (e: Exception) {
                 }
             } catch (e: Exception) {
-                // Network error - try to load from downloaded data
+                // Network error - try to load from downloaded data with pending progress
                 val downloadedBook = downloadManager.getDownloadedBook(id)
                 if (downloadedBook != null) {
                     _audiobook.value = downloadedBook.audiobook
-                    _progress.value = downloadedBook.audiobook.progress
                     _chapters.value = downloadedBook.chapters
+
+                    // Check for pending progress that may be more recent
+                    val pendingProgress = downloadManager.pendingProgress.value[id]
+                    if (pendingProgress != null) {
+                        _progress.value = Progress(
+                            position = pendingProgress.position,
+                            completed = downloadedBook.audiobook.progress?.completed ?: 0
+                        )
+                    } else {
+                        _progress.value = downloadedBook.audiobook.progress
+                    }
                 }
+                _isProgressLoading.value = false
             } finally {
                 _isLoading.value = false
             }
@@ -268,7 +306,7 @@ class AudiobookDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _audiobook.value?.let { book ->
                 try {
-                    api.clearProgress(book.id, com.sappho.audiobooks.data.remote.ProgressUpdateRequest(0, 0, "stopped"))
+                    api.clearProgress(book.id)
                     loadAudiobook(book.id) // Reload to get updated progress
                 } catch (e: Exception) {
                 }

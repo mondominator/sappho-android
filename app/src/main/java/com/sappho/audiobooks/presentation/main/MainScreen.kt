@@ -372,7 +372,21 @@ fun MainScreen(
         // Cast Dialog
         if (showCastDialog) {
             val isCasting = castHelper.isCasting()
-            val availableRoutes = remember { castHelper.getAvailableRoutes(context) }
+            val availableRoutes by castHelper.availableRoutes.collectAsState()
+            var isScanning by remember { mutableStateOf(true) }
+
+            // Start discovery and clean up when dialog closes
+            DisposableEffect(Unit) {
+                castHelper.startDiscovery(context)
+                onDispose {
+                    castHelper.stopDiscovery()
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(2000)
+                isScanning = false
+            }
 
             AlertDialog(
                 onDismissRequest = { showCastDialog = false },
@@ -395,6 +409,18 @@ fun MainScreen(
                             ) {
                                 Text("Disconnect", color = SapphoError)
                             }
+                        } else if (isScanning) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = SapphoInfo,
+                                    strokeWidth = 2.dp
+                                )
+                                Text("Scanning for Cast devices...", color = SapphoIconDefault)
+                            }
                         } else if (availableRoutes.isEmpty()) {
                             Text(
                                 "No Cast devices found on your network. Make sure your Cast devices are powered on and connected to the same WiFi network.",
@@ -409,9 +435,7 @@ fun MainScreen(
                             availableRoutes.forEach { route ->
                                 TextButton(
                                     onClick = {
-                                        castHelper.selectRoute(context, route)
-
-                                        // If there's a current audiobook, cast it after connecting
+                                        // Set up pending media BEFORE connecting so it's ready when session starts
                                         currentAudiobook?.let { book ->
                                             serverUrl?.let { url ->
                                                 val streamUrl = "$url/api/audiobooks/${book.id}/stream"
@@ -424,18 +448,19 @@ fun MainScreen(
                                                     AudioPlaybackService.instance?.togglePlayPause()
                                                 }
 
-                                                // Send to cast after a delay for connection
+                                                // Queue the audiobook for casting - will load when session connects
                                                 val currentPos = viewModel.playerState.currentPosition.value
-                                                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                                                    castHelper.castAudiobook(
-                                                        audiobook = book,
-                                                        streamUrl = streamUrl,
-                                                        coverUrl = coverUrl,
-                                                        currentPosition = currentPos
-                                                    )
-                                                }, 2000)
+                                                castHelper.castAudiobook(
+                                                    audiobook = book,
+                                                    streamUrl = streamUrl,
+                                                    coverUrl = coverUrl,
+                                                    currentPosition = currentPos
+                                                )
                                             }
                                         }
+
+                                        // Now connect to the selected device
+                                        castHelper.selectRoute(context, route)
 
                                         showCastDialog = false
                                     },

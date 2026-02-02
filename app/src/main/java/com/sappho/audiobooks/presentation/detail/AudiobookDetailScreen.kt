@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.StarHalf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
@@ -83,6 +84,7 @@ fun AudiobookDetailScreen(
 ) {
     val audiobook by viewModel.audiobook.collectAsState()
     val progress by viewModel.progress.collectAsState()
+    val isProgressLoading by viewModel.isProgressLoading.collectAsState()
     val chapters by viewModel.chapters.collectAsState()
     val files by viewModel.files.collectAsState()
     val serverUrl by viewModel.serverUrl.collectAsState()
@@ -110,6 +112,7 @@ fun AudiobookDetailScreen(
     var showEditMetadataDialog by remember { mutableStateOf(false) }
     var showCollectionsDialog by remember { mutableStateOf(false) }
     var showDeleteBookDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     val isRefreshingMetadata by viewModel.isRefreshingMetadata.collectAsState()
     val refreshMetadataResult by viewModel.refreshMetadataResult.collectAsState()
 
@@ -539,42 +542,209 @@ fun AudiobookDetailScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Play/Pause Button (mobile style)
+                    // Play/Pause Button with overflow menu
+                    // Disable button until progress is confirmed (unless book is already loaded in service)
+                    val canPlay = isThisBookLoaded || !isProgressLoading
                     val playButtonHaptic = HapticPatterns.playButtonPress()
-                    Button(
-                        onClick = {
-                            playButtonHaptic()
-                            val service = AudioPlaybackService.instance
-                            if (isThisBookLoaded && service != null) {
-                                // Book is already loaded and service is alive, just toggle play/pause
-                                service.togglePlayPause()
-                            } else {
-                                // Start playing a new book (or restart if service was killed)
-                                onPlayClick(book.id, progress?.position)
-                            }
-                        },
+                    val progressCheck = progress
+                    val hasProgress = progressCheck != null && (progressCheck.position > 0 || progressCheck.completed == 1)
+
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isThisBookPlaying) SapphoInfo.copy(alpha = 0.15f) else SapphoSuccess.copy(alpha = 0.15f),
-                            contentColor = if (isThisBookPlaying) LegacyBluePale else LegacyGreenPale
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                            .padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (isThisBookPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isThisBookPlaying) "Pause" else if (progress?.position ?: 0 > 0) "Continue" else "Play",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        // Play button
+                        Button(
+                            onClick = {
+                                if (!canPlay) return@Button
+                                playButtonHaptic()
+                                val service = AudioPlaybackService.instance
+                                if (isThisBookLoaded && service != null) {
+                                    // Book is already loaded and service is alive, try to toggle play/pause
+                                    val playerHandled = service.togglePlayPause()
+                                    if (!playerHandled) {
+                                        // Player was null (service exists but player released)
+                                        // Restart playback from current position or saved progress
+                                        val position = if (currentPosition > 0) currentPosition.toInt() else progress?.position
+                                        onPlayClick(book.id, position)
+                                    }
+                                } else {
+                                    // Start playing a new book (or restart if service was killed)
+                                    onPlayClick(book.id, progress?.position)
+                                }
+                            },
+                            enabled = canPlay,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isThisBookPlaying) SapphoInfo.copy(alpha = 0.15f) else SapphoSuccess.copy(alpha = 0.15f),
+                                contentColor = if (isThisBookPlaying) LegacyBluePale else LegacyGreenPale,
+                                disabledContainerColor = SapphoSurface,
+                                disabledContentColor = SapphoTextSecondary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = if (canPlay) 0.1f else 0.05f))
+                        ) {
+                            if (isProgressLoading && !isThisBookLoaded) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = SapphoTextSecondary,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Loading...",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isThisBookPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isThisBookPlaying) "Pause" else if (progress?.position ?: 0 > 0) "Continue" else "Play",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        // Overflow menu button (only show when online)
+                        if (!isOffline) {
+                            Box {
+                                IconButton(
+                                    onClick = { showOverflowMenu = true },
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .background(
+                                            color = SapphoSurfaceLight.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .border(
+                                            width = 1.dp,
+                                            color = Color.White.copy(alpha = 0.1f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "More options",
+                                        tint = SapphoIconDefault,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = showOverflowMenu,
+                                    onDismissRequest = { showOverflowMenu = false },
+                                    modifier = Modifier.background(SapphoSurface)
+                                ) {
+                                    // Collection
+                                    DropdownMenuItem(
+                                        text = { Text("Add to Collection", color = SapphoText) },
+                                        onClick = {
+                                            showOverflowMenu = false
+                                            showCollectionsDialog = true
+                                            viewModel.loadCollectionsForBook(book.id)
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Filled.LibraryBooks,
+                                                contentDescription = null,
+                                                tint = SapphoInfo
+                                            )
+                                        }
+                                    )
+
+                                    // Mark Finished
+                                    DropdownMenuItem(
+                                        text = { Text("Mark Finished", color = SapphoText) },
+                                        onClick = {
+                                            showOverflowMenu = false
+                                            viewModel.markFinished()
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Filled.CheckCircle,
+                                                contentDescription = null,
+                                                tint = LegacyGreen
+                                            )
+                                        }
+                                    )
+
+                                    // Clear Progress (only if has progress)
+                                    if (hasProgress) {
+                                        DropdownMenuItem(
+                                            text = { Text("Clear Progress", color = SapphoText) },
+                                            onClick = {
+                                                showOverflowMenu = false
+                                                viewModel.clearProgress()
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Close,
+                                                    contentDescription = null,
+                                                    tint = SapphoWarning
+                                                )
+                                            }
+                                        )
+                                    }
+
+                                    // Refresh Metadata
+                                    DropdownMenuItem(
+                                        text = { Text(if (isRefreshingMetadata) "Refreshing..." else "Refresh Metadata", color = SapphoText) },
+                                        onClick = {
+                                            if (!isRefreshingMetadata) {
+                                                showOverflowMenu = false
+                                                viewModel.refreshMetadata()
+                                            }
+                                        },
+                                        enabled = !isRefreshingMetadata,
+                                        leadingIcon = {
+                                            if (isRefreshingMetadata) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    color = SapphoIconDefault,
+                                                    strokeWidth = 2.dp
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Refresh,
+                                                    contentDescription = null,
+                                                    tint = SapphoIconDefault
+                                                )
+                                            }
+                                        }
+                                    )
+
+                                    // Delete (admin only)
+                                    if (isAdmin) {
+                                        HorizontalDivider(color = SapphoProgressTrack)
+                                        DropdownMenuItem(
+                                            text = { Text("Delete Audiobook", color = SapphoError) },
+                                            onClick = {
+                                                showOverflowMenu = false
+                                                showDeleteBookDialog = true
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Delete,
+                                                    contentDescription = null,
+                                                    tint = SapphoError
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -700,142 +870,6 @@ fun AudiobookDetailScreen(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    // Action Buttons (only show when online)
-                    if (!isOffline) {
-                        val progressCheck = progress
-                        val hasProgress = progressCheck != null && (progressCheck.position > 0 || progressCheck.completed == 1)
-
-                        @OptIn(ExperimentalLayoutApi::class)
-                        FlowRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Collection Button
-                            OutlinedButton(
-                                onClick = {
-                                    showCollectionsDialog = true
-                                    viewModel.loadCollectionsForBook(book.id)
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = SapphoInfo
-                                ),
-                                border = BorderStroke(1.dp, SapphoInfo.copy(alpha = 0.3f)),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.LibraryBooks,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Collection",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                            // Mark Finished Button
-                            OutlinedButton(
-                                onClick = { viewModel.markFinished() },
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = LegacyGreen
-                                ),
-                                border = BorderStroke(1.dp, LegacyGreen.copy(alpha = 0.3f)),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = "Mark Finished",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                            // Clear Progress Button (only show if has progress)
-                            if (hasProgress) {
-                                OutlinedButton(
-                                    onClick = { viewModel.clearProgress() },
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = SapphoWarning
-                                    ),
-                                    border = BorderStroke(1.dp, SapphoWarning.copy(alpha = 0.3f)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        text = "Clear Progress",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-
-                            // Refresh Metadata Button
-                            OutlinedButton(
-                                onClick = { viewModel.refreshMetadata() },
-                                enabled = !isRefreshingMetadata,
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = SapphoIconDefault
-                                ),
-                                border = BorderStroke(1.dp, SapphoProgressTrack),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                if (isRefreshingMetadata) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = SapphoIconDefault,
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Filled.Refresh,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (isRefreshingMetadata) "Refreshing..." else "Refresh",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                            // Delete Button (admin only)
-                            if (isAdmin) {
-                                OutlinedButton(
-                                    onClick = { showDeleteBookDialog = true },
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = SapphoError
-                                    ),
-                                    border = BorderStroke(1.dp, SapphoError.copy(alpha = 0.3f)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Delete,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Delete",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
                     // Progress Section (above About)

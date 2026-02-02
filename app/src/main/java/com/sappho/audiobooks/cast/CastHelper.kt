@@ -40,6 +40,9 @@ class CastHelper @Inject constructor(
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected
 
+    private val _connectedDeviceName = MutableStateFlow<String?>(null)
+    val connectedDeviceName: StateFlow<String?> = _connectedDeviceName
+
     private val _currentPosition = MutableStateFlow(0L)
     val currentPositionFlow: StateFlow<Long> = _currentPosition
 
@@ -69,12 +72,17 @@ class CastHelper @Inject constructor(
 
     private val sessionManagerListener = object : SessionManagerListener<CastSession> {
         override fun onSessionStarting(session: CastSession) {
+            val deviceName = session.castDevice?.friendlyName ?: "unknown"
+            val deviceId = session.castDevice?.deviceId ?: "unknown"
+            android.util.Log.d("CastHelper", "onSessionStarting: device='$deviceName' deviceId='$deviceId'")
         }
 
         override fun onSessionStarted(session: CastSession, sessionId: String) {
             val deviceName = session.castDevice?.friendlyName ?: "unknown"
             val deviceId = session.castDevice?.deviceId ?: "unknown"
+            android.util.Log.d("CastHelper", ">>> onSessionStarted: CONNECTED TO device='$deviceName' deviceId='$deviceId' sessionId='$sessionId'")
             _isConnected.value = true
+            _connectedDeviceName.value = deviceName
             session.remoteMediaClient?.registerCallback(remoteMediaClientCallback)
 
             // Load pending media if any
@@ -82,33 +90,47 @@ class CastHelper @Inject constructor(
         }
 
         override fun onSessionStartFailed(session: CastSession, error: Int) {
-            android.util.Log.e("CastHelper", "Session start failed: $error")
+            val deviceName = session.castDevice?.friendlyName ?: "unknown"
+            android.util.Log.e("CastHelper", "onSessionStartFailed: device='$deviceName' error=$error")
             _isConnected.value = false
             clearPendingMedia()
         }
 
         override fun onSessionEnding(session: CastSession) {
+            val deviceName = session.castDevice?.friendlyName ?: "unknown"
+            android.util.Log.d("CastHelper", "onSessionEnding: device='$deviceName'")
         }
 
         override fun onSessionEnded(session: CastSession, error: Int) {
+            val deviceName = session.castDevice?.friendlyName ?: "unknown"
+            android.util.Log.d("CastHelper", "onSessionEnded: device='$deviceName' error=$error")
             _isConnected.value = false
+            _connectedDeviceName.value = null
             _isPlaying.value = false
         }
 
         override fun onSessionResuming(session: CastSession, sessionId: String) {
+            val deviceName = session.castDevice?.friendlyName ?: "unknown"
+            android.util.Log.d("CastHelper", "onSessionResuming: device='$deviceName' sessionId='$sessionId'")
         }
 
         override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) {
+            val deviceName = session.castDevice?.friendlyName ?: "unknown"
+            android.util.Log.d("CastHelper", ">>> onSessionResumed: RECONNECTED TO device='$deviceName' wasSuspended=$wasSuspended")
             _isConnected.value = true
+            _connectedDeviceName.value = deviceName
             session.remoteMediaClient?.registerCallback(remoteMediaClientCallback)
         }
 
         override fun onSessionResumeFailed(session: CastSession, error: Int) {
-            android.util.Log.e("CastHelper", "Session resume failed: $error")
+            val deviceName = session.castDevice?.friendlyName ?: "unknown"
+            android.util.Log.e("CastHelper", "onSessionResumeFailed: device='$deviceName' error=$error")
             _isConnected.value = false
         }
 
         override fun onSessionSuspended(session: CastSession, reason: Int) {
+            val deviceName = session.castDevice?.friendlyName ?: "unknown"
+            android.util.Log.d("CastHelper", "onSessionSuspended: device='$deviceName' reason=$reason")
         }
     }
 
@@ -138,6 +160,7 @@ class CastHelper @Inject constructor(
                 castContext?.sessionManager?.endCurrentSession(true)
             }
             _isConnected.value = false
+            _connectedDeviceName.value = null
             _isPlaying.value = false
             _currentPosition.value = 0L
 
@@ -152,18 +175,23 @@ class CastHelper @Inject constructor(
         val coverUrl = pendingCoverUrl
         val position = pendingPosition
 
-        if (audiobook != null && streamUrl != null) {
+        android.util.Log.d("CastHelper", "loadPendingMedia: retryCount=$retryCount, audiobook=${audiobook?.title}, streamUrl=$streamUrl")
 
+        if (audiobook != null && streamUrl != null) {
             // Check if remote media client is ready
             val session = getCastSession()
             val remoteMediaClient = session?.remoteMediaClient
 
+            android.util.Log.d("CastHelper", "loadPendingMedia: session=${session != null}, isConnected=${session?.isConnected}, remoteMediaClient=${remoteMediaClient != null}")
+
             if (remoteMediaClient != null && session.isConnected) {
+                android.util.Log.d("CastHelper", "loadPendingMedia: Calling loadMedia()")
                 loadMedia(audiobook, streamUrl, coverUrl, position)
                 clearPendingMedia()
             } else if (retryCount < 5) {
                 // Retry with increasing delay
                 val delay = 1000L * (retryCount + 1)
+                android.util.Log.d("CastHelper", "loadPendingMedia: Remote media client not ready, retrying in ${delay}ms")
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     loadPendingMedia(retryCount + 1)
                 }, delay)
@@ -171,6 +199,8 @@ class CastHelper @Inject constructor(
                 android.util.Log.e("CastHelper", "Failed to load media after $retryCount retries - remote media client not available")
                 clearPendingMedia()
             }
+        } else {
+            android.util.Log.w("CastHelper", "loadPendingMedia: No pending media to load (audiobook=${audiobook != null}, streamUrl=${streamUrl != null})")
         }
     }
 
@@ -275,33 +305,61 @@ class CastHelper @Inject constructor(
 
     fun selectRoute(context: Context, route: MediaRouter.RouteInfo) {
         try {
+            android.util.Log.d("CastHelper", "selectRoute: === SELECTING CAST DEVICE ===")
+            android.util.Log.d("CastHelper", "selectRoute: Target route name='${route.name}', id='${route.id}'")
+
+            // Get CastDevice from the route
+            val castDevice = com.google.android.gms.cast.CastDevice.getFromBundle(route.extras)
+            android.util.Log.d("CastHelper", "selectRoute: CastDevice from route: ${castDevice?.friendlyName ?: "NULL"} (deviceId: ${castDevice?.deviceId ?: "NULL"})")
 
             // End any existing session first
             val existingSession = getCastSession()
             if (existingSession != null) {
+                val currentDevice = existingSession.castDevice?.friendlyName
+                val currentDeviceId = existingSession.castDevice?.deviceId
+                android.util.Log.d("CastHelper", "selectRoute: Ending existing session on '$currentDevice' (deviceId: $currentDeviceId)")
+
+                // Stop any media first
+                try {
+                    existingSession.remoteMediaClient?.stop()
+                } catch (e: Exception) {
+                    android.util.Log.w("CastHelper", "selectRoute: Error stopping media: ${e.message}")
+                }
+
                 castContext?.sessionManager?.endCurrentSession(true)
-                // Small delay to let session end
-                Thread.sleep(200)
-            }
 
-            // Use SessionManager.startSession with intent for more reliable device selection
-            val castDevice = com.google.android.gms.cast.CastDevice.getFromBundle(route.extras)
-            if (castDevice != null) {
-
-                val intent = android.content.Intent()
-                intent.putExtra("CAST_INTENT_TO_CAST_ROUTE_ID_KEY", route.id)
-                intent.putExtra("CAST_INTENT_TO_CAST_DEVICE_NAME_KEY", route.name)
-                intent.putExtra("CAST_INTENT_TO_CAST_NO_TOAST_KEY", true)
-
-                castContext?.sessionManager?.startSession(intent)
+                // Use non-blocking delay then select route
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    performRouteSelection(context, route)
+                }, 500)
             } else {
-                route.select()
+                // No existing session, select immediately
+                performRouteSelection(context, route)
             }
 
-            // Register callback to listen for Cast state changes
-            getCastSession()?.remoteMediaClient?.registerCallback(remoteMediaClientCallback)
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error selecting route", e)
+            android.widget.Toast.makeText(context, "Failed to connect: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun performRouteSelection(context: Context, route: MediaRouter.RouteInfo) {
+        try {
+            // Log all available routes for debugging
+            val router = mediaRouter ?: MediaRouter.getInstance(context)
+            android.util.Log.d("CastHelper", "performRouteSelection: Available routes:")
+            router.routes.forEach { r ->
+                val rDevice = com.google.android.gms.cast.CastDevice.getFromBundle(r.extras)
+                android.util.Log.d("CastHelper", "  - '${r.name}' id='${r.id}' deviceId='${rDevice?.deviceId ?: "N/A"}' selected=${r.isSelected}")
+            }
+
+            // Select the route - this should trigger Cast SDK to connect to this specific device
+            android.util.Log.d("CastHelper", "performRouteSelection: Calling route.select() for '${route.name}'")
+            route.select()
+
+            android.util.Log.d("CastHelper", "performRouteSelection: route.select() called, waiting for session callback...")
+        } catch (e: Exception) {
+            android.util.Log.e("CastHelper", "Error in performRouteSelection", e)
             android.widget.Toast.makeText(context, "Failed to connect: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
@@ -367,18 +425,25 @@ class CastHelper @Inject constructor(
         coverUrl: String?,
         currentPosition: Long = 0
     ) {
+        android.util.Log.d("CastHelper", "castAudiobook: Setting pending media - title='${audiobook.title}', streamUrl=$streamUrl, position=$currentPosition")
+
         // Store as pending media - will be loaded when session is ready
         pendingAudiobook = audiobook
         pendingStreamUrl = streamUrl
         pendingCoverUrl = coverUrl
         pendingPosition = currentPosition
 
-
         // If already connected, load immediately
         val castSession = getCastSession()
-        if (castSession?.isConnected == true && castSession.remoteMediaClient != null) {
+        val isConnected = castSession?.isConnected == true
+        val hasRemoteClient = castSession?.remoteMediaClient != null
+        android.util.Log.d("CastHelper", "castAudiobook: castSession=${castSession != null}, isConnected=$isConnected, hasRemoteClient=$hasRemoteClient")
+
+        if (isConnected && hasRemoteClient) {
+            android.util.Log.d("CastHelper", "castAudiobook: Already connected, loading immediately")
             loadPendingMedia()
         } else {
+            android.util.Log.d("CastHelper", "castAudiobook: Not connected yet, media will load when session starts")
         }
     }
 
@@ -388,22 +453,27 @@ class CastHelper @Inject constructor(
         coverUrl: String?,
         currentPosition: Long
     ) {
+        android.util.Log.d("CastHelper", "loadMedia: === LOADING MEDIA TO CAST ===")
+        android.util.Log.d("CastHelper", "loadMedia: title='${audiobook.title}', streamUrl=$streamUrl, position=$currentPosition")
+
         try {
             val castSession = getCastSession()
             if (castSession == null) {
-                android.util.Log.e("CastHelper", "No cast session available")
+                android.util.Log.e("CastHelper", "loadMedia: No cast session available")
                 return
             }
 
+            val deviceName = castSession.castDevice?.friendlyName ?: "unknown"
+            android.util.Log.d("CastHelper", "loadMedia: Cast session device='$deviceName', isConnected=${castSession.isConnected}")
+
             val remoteMediaClient = castSession.remoteMediaClient
             if (remoteMediaClient == null) {
-                android.util.Log.e("CastHelper", "No remote media client available")
+                android.util.Log.e("CastHelper", "loadMedia: No remote media client available")
                 return
             }
 
             // Register callback to listen for Cast state changes
             remoteMediaClient.registerCallback(remoteMediaClientCallback)
-
 
             // Add access token to stream URL for Cast receiver authentication
             val token = authRepository.getTokenSync()
@@ -412,6 +482,8 @@ class CastHelper @Inject constructor(
             } else {
                 streamUrl
             }
+
+            android.util.Log.d("CastHelper", "loadMedia: Using authenticated URL (token present: ${token != null})")
 
 
             val metadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
