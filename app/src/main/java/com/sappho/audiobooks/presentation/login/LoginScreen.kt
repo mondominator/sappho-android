@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -198,23 +199,34 @@ fun LoginScreen(
 
             // Error Message
             if (uiState is LoginUiState.Error) {
-                Box(
+                val errorMessage = (uiState as LoginUiState.Error).message
+                    .takeIf { it.isNotBlank() } ?: "Login failed. Please check your connection and try again."
+
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            color = SapphoError,
-                            shape = RoundedCornerShape(6.dp)
+                            color = Color(0xFF7F1D1D), // Dark red background
+                            shape = RoundedCornerShape(8.dp)
                         )
                         .border(
                             width = 1.dp,
-                            color = SapphoError,
-                            shape = RoundedCornerShape(6.dp)
+                            color = Color(0xFFDC2626), // Red border
+                            shape = RoundedCornerShape(8.dp)
                         )
-                        .padding(12.dp)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Error",
+                        tint = Color(0xFFFCA5A5), // Light red icon
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = (uiState as LoginUiState.Error).message,
-                        color = LegacyRedLight,
+                        text = errorMessage,
+                        color = Color(0xFFFECACA), // Light red text
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
