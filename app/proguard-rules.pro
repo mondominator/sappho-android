@@ -17,9 +17,28 @@
 -keep class com.sappho.audiobooks.data.remote.*Response { *; }
 -keep class com.sappho.audiobooks.data.remote.*Request { *; }
 
-# Keep UI state classes for proper error messages
--keep class com.sappho.audiobooks.presentation.login.LoginUiState { *; }
--keep class com.sappho.audiobooks.presentation.login.LoginUiState$* { *; }
+# Keep all presentation layer classes (ViewModels, UI states, etc.)
+-keep class com.sappho.audiobooks.presentation.** { *; }
+
+# Keep Kotlin sealed classes and data classes
+-keepclassmembers class * extends kotlin.Sealed {
+    <fields>;
+    <methods>;
+}
+
+# Keep exception classes for proper error message handling
+-keep class java.net.** { *; }
+-keep class javax.net.ssl.** { *; }
+-keep class java.io.IOException { *; }
+
+# Keep OkHttp/Retrofit error handling
+-keep class okhttp3.** { *; }
+-keep class retrofit2.** { *; }
+-keepclassmembers class retrofit2.Response { *; }
+
+# Keep Kotlin metadata for reflection
+-keepattributes RuntimeVisibleAnnotations
+-keep class kotlin.Metadata { *; }
 
 # Media3
 -keep class androidx.media3.** { *; }
