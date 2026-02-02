@@ -2,6 +2,7 @@ package com.sappho.audiobooks.presentation.home
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -566,8 +567,13 @@ fun AudiobookCard(
                 text = book.title,
                 fontSize = titleFontSize,
                 fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                color = SapphoText
+                maxLines = 1,
+                color = SapphoText,
+                modifier = Modifier.basicMarquee(
+                    iterations = Int.MAX_VALUE,
+                    delayMillis = 2000,
+                    velocity = 30.dp
+                )
             )
 
             // Author
