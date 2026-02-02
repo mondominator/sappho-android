@@ -1,6 +1,7 @@
 package com.sappho.audiobooks.presentation.admin
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,15 +43,15 @@ import com.sappho.audiobooks.data.remote.*
 import java.text.SimpleDateFormat
 import java.util.*
 
-enum class AdminTab(val title: String, val icon: ImageVector) {
-    STATISTICS("Statistics", Icons.Outlined.BarChart),
-    LIBRARY("Library", Icons.Outlined.LibraryBooks),
-    SERVER("Server", Icons.Outlined.Dns),
-    AI("AI", Icons.Outlined.Psychology),
-    USERS("Users", Icons.Outlined.People),
-    API_KEYS("API Keys", Icons.Outlined.Key),
-    BACKUP("Backup", Icons.Outlined.Backup),
-    LOGS("Logs", Icons.Outlined.Article)
+enum class AdminSection(val title: String, val description: String, val icon: ImageVector) {
+    STATISTICS("Statistics", "Usage analytics", Icons.Outlined.BarChart),
+    LIBRARY("Library", "Scan & organize", Icons.Outlined.LibraryBooks),
+    USERS("Users", "Manage accounts", Icons.Outlined.People),
+    SERVER("Server", "System settings", Icons.Outlined.Dns),
+    AI("AI", "AI features", Icons.Outlined.Psychology),
+    BACKUP("Backup", "Export & restore", Icons.Outlined.Backup),
+    API_KEYS("API Keys", "External access", Icons.Outlined.Key),
+    LOGS("Logs", "System logs", Icons.Outlined.Article)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,7 +61,7 @@ fun AdminScreen(
     onBookClick: (Int) -> Unit = {},
     viewModel: AdminViewModel = hiltViewModel()
 ) {
-    var selectedTab by remember { mutableStateOf(AdminTab.STATISTICS) }
+    var selectedSection by remember { mutableStateOf<AdminSection?>(null) }
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -72,23 +73,6 @@ fun AdminScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Admin Panel", color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SapphoBackground
-                )
-            )
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = SapphoBackground
     ) { paddingValues ->
@@ -96,68 +80,173 @@ fun AdminScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .padding(16.dp)
         ) {
-            // Tab Row - Scrollable horizontal tabs
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(SapphoSurfaceLight)
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(AdminTab.entries) { tab ->
-                    AdminTabChip(
-                        tab = tab,
-                        selected = selectedTab == tab,
-                        onClick = { selectedTab = tab }
-                    )
-                }
-            }
-
-            // Content - show tab immediately, let each tab handle its own loading
-            when (selectedTab) {
-                AdminTab.STATISTICS -> StatisticsTab(viewModel, onBookClick)
-                AdminTab.LIBRARY -> LibraryTab(viewModel)
-                AdminTab.SERVER -> ServerSettingsTab(viewModel)
-                AdminTab.AI -> AiSettingsTab(viewModel)
-                AdminTab.USERS -> UsersTab(viewModel)
-                AdminTab.API_KEYS -> ApiKeysTab(viewModel)
-                AdminTab.BACKUP -> BackupTab(viewModel)
-                AdminTab.LOGS -> LogsTab(viewModel)
+            if (selectedSection == null) {
+                // Main menu
+                AdminMenuHeader(onBack = onBack)
+                Spacer(modifier = Modifier.height(16.dp))
+                AdminMenuList(onSectionClick = { selectedSection = it })
+            } else {
+                // Section content with back button
+                AdminSectionHeader(
+                    section = selectedSection!!,
+                    onBack = { selectedSection = null }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                AdminSectionContent(
+                    section = selectedSection!!,
+                    viewModel = viewModel,
+                    onBookClick = onBookClick
+                )
             }
         }
     }
 }
 
 @Composable
-private fun AdminTabChip(
-    tab: AdminTab,
-    selected: Boolean,
+private fun AdminMenuHeader(onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Surface(
+            onClick = onBack,
+            shape = RoundedCornerShape(8.dp),
+            color = SapphoSurfaceLight,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Text(
+            text = "Settings",
+            color = Color.White,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun AdminMenuList(onSectionClick: (AdminSection) -> Unit) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        AdminSection.entries.forEach { section ->
+            AdminMenuItem(
+                section = section,
+                onClick = { onSectionClick(section) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdminMenuItem(
+    section: AdminSection,
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = if (selected) SapphoInfo else SapphoProgressTrack
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = SapphoSurfaceLight
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = section.title,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = section.description,
+                    color = SapphoTextMuted,
+                    fontSize = 13.sp
+                )
+            }
             Icon(
-                imageVector = tab.icon,
+                imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = Color.White,
+                tint = SapphoTextMuted,
                 modifier = Modifier.size(18.dp)
             )
-            Text(
-                text = tab.title,
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-            )
         }
+    }
+}
+
+@Composable
+private fun AdminSectionHeader(
+    section: AdminSection,
+    onBack: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Surface(
+            onClick = onBack,
+            shape = RoundedCornerShape(8.dp),
+            color = SapphoSurfaceLight,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Text(
+            text = section.title,
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun AdminSectionContent(
+    section: AdminSection,
+    viewModel: AdminViewModel,
+    onBookClick: (Int) -> Unit
+) {
+    when (section) {
+        AdminSection.STATISTICS -> StatisticsTab(viewModel, onBookClick)
+        AdminSection.LIBRARY -> LibraryTab(viewModel)
+        AdminSection.SERVER -> ServerSettingsTab(viewModel)
+        AdminSection.AI -> AiSettingsTab(viewModel)
+        AdminSection.USERS -> UsersTab(viewModel)
+        AdminSection.API_KEYS -> ApiKeysTab(viewModel)
+        AdminSection.BACKUP -> BackupTab(viewModel)
+        AdminSection.LOGS -> LogsTab(viewModel)
     }
 }
 
@@ -1377,7 +1466,8 @@ private fun UsersTab(viewModel: AdminViewModel) {
                 UserCard(
                     user = user,
                     onEdit = { editingUser = user },
-                    onDelete = { userToDelete = user }
+                    onDelete = { userToDelete = user },
+                    onToggleEnabled = { viewModel.toggleUserEnabled(user) }
                 )
             }
         }
@@ -1434,8 +1524,11 @@ private fun UsersTab(viewModel: AdminViewModel) {
 private fun UserCard(
     user: UserInfo,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onToggleEnabled: () -> Unit
 ) {
+    val isEnabled = !user.accountDisabled
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -1455,7 +1548,7 @@ private fun UserCard(
                 ) {
                     Text(
                         text = user.username,
-                        color = Color.White,
+                        color = if (isEnabled) Color.White else SapphoTextMuted,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -1472,6 +1565,19 @@ private fun UserCard(
                             )
                         }
                     }
+                    if (!isEnabled) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = SapphoError.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                "Disabled",
+                                color = SapphoError,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
                 user.email?.let { email ->
                     Text(
@@ -1481,11 +1587,28 @@ private fun UserCard(
                     )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onEdit) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(
+                    onClick = onToggleEnabled,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        if (isEnabled) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
+                        contentDescription = if (isEnabled) "Disable" else "Enable",
+                        tint = if (isEnabled) SapphoSuccess else SapphoTextMuted,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(40.dp)
+                ) {
                     Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
                 }
-                IconButton(onClick = onDelete) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(40.dp)
+                ) {
                     Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = SapphoError)
                 }
             }
@@ -1710,13 +1833,14 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "API Key Management",
+                        "API Keys",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f)
                     )
                     Button(
                         onClick = { showCreateDialog = true },
@@ -1863,11 +1987,31 @@ private fun ApiKeyCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${apiKey.keyPrefix}... • ${apiKey.permissions.replaceFirstChar { it.uppercase() }}",
+                        text = "${apiKey.keyPrefix}...",
                         color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
                 }
+                // Permission badge
+                val permissionColor = when (apiKey.permissions.lowercase()) {
+                    "read" -> SapphoSuccess
+                    "write" -> SapphoWarning
+                    "admin" -> SapphoError
+                    else -> SapphoIconDefault
+                }
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = permissionColor.copy(alpha = 0.2f)
+                ) {
+                    Text(
+                        apiKey.permissions.replaceFirstChar { it.uppercase() },
+                        color = permissionColor,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                // Active badge
                 Surface(
                     shape = RoundedCornerShape(4.dp),
                     color = if (isActive) SapphoSuccess.copy(alpha = 0.2f) else SapphoError.copy(alpha = 0.2f)
@@ -1889,7 +2033,7 @@ private fun ApiKeyCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Date info (uses weight to prevent overlap with buttons)
+                // Date info
                 Text(
                     text = try {
                         "Created ${dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(apiKey.createdAt) ?: Date())}"
@@ -1898,30 +2042,33 @@ private fun ApiKeyCard(
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
                 )
-                // Action buttons (compact layout)
-                Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                // Action buttons
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(
                         onClick = onToggleActive,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             if (isActive) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
                             contentDescription = if (isActive) "Deactivate" else "Activate",
                             tint = if (isActive) SapphoSuccess else SapphoTextMuted,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     IconButton(
                         onClick = onDelete,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             Icons.Outlined.Delete,
                             contentDescription = "Delete",
                             tint = SapphoError,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -2334,6 +2481,31 @@ private fun BackupCard(
     onRestore: () -> Unit,
     onDelete: () -> Unit
 ) {
+    // Parse backup filename to extract date: sappho_backup_2024-01-15_14-30-25.db
+    val displayName = remember(backup.filename) {
+        try {
+            val regex = Regex("""sappho_backup_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})\.db""")
+            val match = regex.find(backup.filename)
+            if (match != null) {
+                val (year, month, day, hour, minute, _) = match.destructured
+                val monthNames = listOf("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+                val monthName = monthNames.getOrElse(month.toIntOrNull() ?: 0) { "???" }
+                val hourInt = hour.toIntOrNull() ?: 0
+                val amPm = if (hourInt >= 12) "PM" else "AM"
+                val hour12 = when {
+                    hourInt == 0 -> 12
+                    hourInt > 12 -> hourInt - 12
+                    else -> hourInt
+                }
+                "$monthName $day, $year at $hour12:$minute $amPm"
+            } else {
+                backup.filename
+            }
+        } catch (e: Exception) {
+            backup.filename
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -2348,7 +2520,7 @@ private fun BackupCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = backup.filename,
+                    text = displayName,
                     color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
@@ -2356,11 +2528,6 @@ private fun BackupCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
                         text = backup.sizeFormatted ?: formatFileSize(backup.size),
-                        color = SapphoIconDefault,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = backup.createdFormatted ?: backup.created ?: "Unknown",
                         color = SapphoIconDefault,
                         fontSize = 12.sp
                     )
@@ -3344,26 +3511,34 @@ private fun FormatBooksDialog(
 private fun AdminSectionCard(
     title: String,
     modifier: Modifier = Modifier,
+    description: String? = null,
     icon: ImageVector? = null,
     action: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = SapphoProgressTrack,
+                shape = RoundedCornerShape(12.dp)
+            ),
+        shape = RoundedCornerShape(12.dp),
         color = SapphoSurfaceLight
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                    .padding(bottom = if (description != null) 4.dp else 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     icon?.let {
                         Icon(
@@ -3381,6 +3556,14 @@ private fun AdminSectionCard(
                     )
                 }
                 action?.invoke()
+            }
+            if (description != null) {
+                Text(
+                    text = description,
+                    fontSize = 13.sp,
+                    color = SapphoTextMuted,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
             }
             content()
         }
@@ -3470,8 +3653,13 @@ private fun StatCard(
     color: Color
 ) {
     Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+            .border(
+                width = 1.dp,
+                color = SapphoProgressTrack,
+                shape = RoundedCornerShape(10.dp)
+            ),
+        shape = RoundedCornerShape(10.dp),
         color = SapphoSurfaceLight
     ) {
         Column(

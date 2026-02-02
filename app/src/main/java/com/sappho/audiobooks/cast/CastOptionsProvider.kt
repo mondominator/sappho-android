@@ -29,6 +29,9 @@ class CastOptionsProvider : OptionsProvider {
         return CastOptions.Builder()
             .setReceiverApplicationId(com.google.android.gms.cast.CastMediaControlIntent.DEFAULT_MEDIA_RECEIVER_APPLICATION_ID)
             .setCastMediaOptions(mediaOptions)
+            // Disable auto-reconnection to last used device - user should explicitly choose
+            .setResumeSavedSession(false)
+            .setEnableReconnectionService(false)
             .build()
     }
 

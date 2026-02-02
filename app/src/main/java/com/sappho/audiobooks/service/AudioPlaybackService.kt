@@ -83,6 +83,9 @@ class AudioPlaybackService : MediaLibraryService() {
     private var audioFocusRequest: AudioFocusRequest? = null
     private var noisyReceiver: BecomingNoisyReceiver? = null
 
+    // Track playback session start time for progress sync delay
+    private var playbackSessionStartTime: Long = 0L
+
     companion object {
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "audiobook_playback"
@@ -94,6 +97,10 @@ class AudioPlaybackService : MediaLibraryService() {
 
         // Skip duration in seconds (hardcoded to 10 seconds)
         const val SKIP_SECONDS = 10L
+
+        // Minimum time (in seconds) before first progress sync
+        // This prevents recording progress for accidental plays or quick skips
+        private const val INITIAL_PROGRESS_DELAY_SECONDS = 20
 
         // Custom command actions
         const val ACTION_SKIP_FORWARD = "com.sappho.audiobooks.SKIP_FORWARD"
@@ -257,7 +264,10 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private fun requestAudioFocus(): Boolean {
-        val audioManager = audioManager ?: return false
+        val am = audioManager ?: return false
+
+        // Abandon any previous audio focus request to avoid conflicting listeners
+        audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -290,7 +300,7 @@ class AudioPlaybackService : MediaLibraryService() {
             .build()
 
         audioFocusRequest = focusRequest
-        return audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        return am.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
     private fun abandonAudioFocus() {
@@ -308,6 +318,15 @@ class AudioPlaybackService : MediaLibraryService() {
             .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
+                    val stateName = when (playbackState) {
+                        Player.STATE_IDLE -> "IDLE"
+                        Player.STATE_BUFFERING -> "BUFFERING"
+                        Player.STATE_READY -> "READY"
+                        Player.STATE_ENDED -> "ENDED"
+                        else -> "UNKNOWN($playbackState)"
+                    }
+                    android.util.Log.d("AudioPlaybackService", "onPlaybackStateChanged: $stateName, duration=${duration}ms, position=${currentPosition}ms")
+
                     when (playbackState) {
                         Player.STATE_READY -> {
                             playerState.updateDuration(duration / 1000)
@@ -328,6 +347,7 @@ class AudioPlaybackService : MediaLibraryService() {
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    android.util.Log.d("AudioPlaybackService", "onIsPlayingChanged: $isPlaying")
                     playerState.updatePlayingState(isPlaying)
                     if (isPlaying) {
                         startPositionUpdates()
@@ -988,13 +1008,22 @@ class AudioPlaybackService : MediaLibraryService() {
         }
 
         player?.let { exoPlayer ->
-            // Request audio focus before playing
-            if (!requestAudioFocus()) {
-                return
-            }
+            android.util.Log.d("AudioPlaybackService", "loadAndPlay: book=${audiobook.title}, startPosition=$startPosition")
 
+            // Stop any existing playback to ensure clean state
+            exoPlayer.stop()
+
+            // Always set position to what we intend to play
+            playerState.updatePosition(startPosition.toLong())
             playerState.updateAudiobook(audiobook)
             playerState.updateLoadingState(true)
+
+            // Request audio focus before playing
+            if (!requestAudioFocus()) {
+                android.util.Log.w("AudioPlaybackService", "Audio focus request failed")
+                playerState.updateLoadingState(false)
+                return
+            }
 
             // Load cover bitmap for notification
             loadCoverBitmap(audiobook)
@@ -1010,6 +1039,7 @@ class AudioPlaybackService : MediaLibraryService() {
             if (localFilePath != null && File(localFilePath).exists()) {
                 // Use local downloaded file
                 mediaUri = Uri.fromFile(File(localFilePath))
+                android.util.Log.d("AudioPlaybackService", "Using local file: $localFilePath")
             } else {
                 // Stream from server
                 if (serverUrl == null || token == null) {
@@ -1018,6 +1048,7 @@ class AudioPlaybackService : MediaLibraryService() {
                     return
                 }
                 mediaUri = Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream?token=$token")
+                android.util.Log.d("AudioPlaybackService", "Streaming from: $mediaUri")
             }
 
             // Build cover art URI for notification
@@ -1044,11 +1075,17 @@ class AudioPlaybackService : MediaLibraryService() {
             exoPlayer.setMediaItem(mediaItem)
             exoPlayer.prepare()
 
-            if (startPosition > 0) {
-                exoPlayer.seekTo(startPosition * 1000L)
-            }
+            // Always seek to the target position, even if it's 0
+            // This ensures consistent player state and mirrors the web player behavior
+            // that always sets currentTime after the audio is ready
+            android.util.Log.d("AudioPlaybackService", "Seeking to position: ${startPosition * 1000L}ms")
+            exoPlayer.seekTo(startPosition * 1000L)
 
+            android.util.Log.d("AudioPlaybackService", "Calling play()")
             exoPlayer.play()
+
+            // Mark the start of this playback session for progress sync delay
+            playbackSessionStartTime = System.currentTimeMillis()
 
             // Restore saved playback speed
             val savedSpeed = authRepository.getPlaybackSpeed()
@@ -1065,14 +1102,23 @@ class AudioPlaybackService : MediaLibraryService() {
         }
     }
 
-    fun togglePlayPause() {
-        player?.let {
-            if (it.isPlaying) {
-                it.pause()
-            } else {
-                it.play()
-            }
+    fun togglePlayPause(): Boolean {
+        val exoPlayer = player
+        if (exoPlayer == null) {
+            // Player is null - signal caller to restart playback
+            return false
         }
+
+        if (exoPlayer.isPlaying) {
+            exoPlayer.pause()
+        } else {
+            // Request audio focus before resuming playback
+            if (!requestAudioFocus()) {
+                return true // Still return true since player exists, just can't get focus
+            }
+            exoPlayer.play()
+        }
+        return true
     }
 
     fun seekTo(seconds: Long) {
@@ -1175,7 +1221,15 @@ class AudioPlaybackService : MediaLibraryService() {
                 val position = playerState.currentPosition.value.toInt()
                 val totalDuration = playerState.duration.value.toInt()
 
+                // Skip sync if near the end of the book
                 if (totalDuration > 0 && (totalDuration - position) < 30) {
+                    return@launch
+                }
+
+                // Skip sync if not enough time has passed since playback started
+                // This prevents recording progress for accidental plays or quick skips
+                val secondsSinceStart = (System.currentTimeMillis() - playbackSessionStartTime) / 1000
+                if (secondsSinceStart < INITIAL_PROGRESS_DELAY_SECONDS) {
                     return@launch
                 }
 

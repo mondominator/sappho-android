@@ -1,0 +1,6 @@
+• Fixed playback issues - books now reliably start playing
+• Fixed audio stopping when switching between books
+• New modern Cast dialog with device names and scanning animation
+• Admin: User enable/disable, better API key display
+• Moved some actions to overflow menu for cleaner UI
+• Improved progress tracking reliability

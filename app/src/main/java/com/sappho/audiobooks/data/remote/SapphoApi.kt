@@ -73,12 +73,9 @@ interface SapphoApi {
         @Body request: ProgressUpdateRequest = ProgressUpdateRequest(0, 1, "stopped")
     ): Response<Unit>
 
-    // Clear Progress - sends position: 0, completed: 0
-    @POST("api/audiobooks/{id}/progress")
-    suspend fun clearProgress(
-        @Path("id") audiobookId: Int,
-        @Body request: ProgressUpdateRequest = ProgressUpdateRequest(0, 0, "stopped")
-    ): Response<Unit>
+    // Clear Progress - deletes the progress record entirely
+    @DELETE("api/audiobooks/{id}/progress")
+    suspend fun clearProgress(@Path("id") audiobookId: Int): Response<Unit>
 
     // Chapters
     @GET("api/audiobooks/{id}/chapters")
@@ -180,6 +177,12 @@ interface SapphoApi {
 
     @DELETE("api/users/{id}")
     suspend fun deleteUser(@Path("id") id: Int): Response<Unit>
+
+    @POST("api/users/{id}/disable")
+    suspend fun disableUser(@Path("id") id: Int): Response<Unit>
+
+    @POST("api/users/{id}/enable")
+    suspend fun enableUser(@Path("id") id: Int): Response<Unit>
 
     // Admin - Maintenance
     @POST("api/maintenance/force-rescan")
@@ -580,6 +583,8 @@ data class UserInfo(
     val email: String?,
     @com.google.gson.annotations.SerializedName("is_admin")
     val isAdmin: Int,
+    @com.google.gson.annotations.SerializedName("account_disabled")
+    val accountDisabled: Boolean = false,
     @com.google.gson.annotations.SerializedName("created_at")
     val createdAt: String?
 )

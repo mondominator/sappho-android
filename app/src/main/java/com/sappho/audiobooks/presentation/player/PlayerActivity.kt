@@ -238,58 +238,268 @@ fun PlayerScreen(
                     )
                 }
 
-                // Cast Dialog
+                // Cast Dialog - Modern Design
                 if (showCastDialog) {
                     var isScanning by remember { mutableStateOf(true) }
                     val availableRoutes by castHelper.availableRoutes.collectAsState()
+                    val connectedDeviceName by castHelper.connectedDeviceName.collectAsState()
+
+                    // Start discovery and clean up when dialog closes
+                    DisposableEffect(Unit) {
+                        castHelper.startDiscovery(context)
+                        onDispose {
+                            castHelper.stopDiscovery()
+                        }
+                    }
 
                     LaunchedEffect(Unit) {
-                        castHelper.startDiscovery(context)
-                        kotlinx.coroutines.delay(2000)
+                        kotlinx.coroutines.delay(2500)
                         isScanning = false
                     }
 
+                    // Pulsing animation for scanning
+                    val pulseTransition = rememberInfiniteTransition(label = "pulse")
+                    val pulseScale by pulseTransition.animateFloat(
+                        initialValue = 1f,
+                        targetValue = 1.15f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "pulseScale"
+                    )
+                    val pulseAlpha by pulseTransition.animateFloat(
+                        initialValue = 0.6f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "pulseAlpha"
+                    )
+
                     AlertDialog(
                         onDismissRequest = { showCastDialog = false },
-                        title = { Text("Cast to Device", color = Color.White) },
-                        text = {
-                            Column {
-                                if (isCastConnected) {
-                                    Text(
-                                        "Currently casting",
-                                        color = SapphoSuccess,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(bottom = 8.dp)
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            Brush.linearGradient(
+                                                colors = listOf(SapphoInfo, LegacyPurpleLight)
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Cast,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
                                     )
-                                    TextButton(
+                                }
+                                Column {
+                                    Text(
+                                        "Cast Audio",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp
+                                    )
+                                    Text(
+                                        if (isCastConnected && connectedDeviceName != null)
+                                            "Connected to $connectedDeviceName"
+                                        else "Select a device",
+                                        color = if (isCastConnected) SapphoSuccess else SapphoIconDefault,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        },
+                        text = {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                if (isCastConnected) {
+                                    // Connected state - show current device
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = SapphoSuccess.copy(alpha = 0.12f),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            SapphoSuccess.copy(alpha = 0.3f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(44.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(SapphoSuccess.copy(alpha = 0.2f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Cast,
+                                                    contentDescription = null,
+                                                    tint = SapphoSuccess,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    connectedDeviceName ?: "Currently Casting",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    "Casting audio to this device",
+                                                    color = SapphoSuccess,
+                                                    fontSize = 12.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Disconnect button
+                                    Surface(
                                         onClick = {
                                             castHelper.disconnectCast()
                                             showCastDialog = false
                                         },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = SapphoError.copy(alpha = 0.12f)
                                     ) {
-                                        Text("Disconnect", color = SapphoError)
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(14.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Cast,
+                                                contentDescription = null,
+                                                tint = SapphoError,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                "Disconnect",
+                                                color = SapphoError,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
                                     }
                                 } else if (isScanning) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    // Scanning animation
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            color = SapphoInfo,
-                                            strokeWidth = 2.dp
+                                        Box(contentAlignment = Alignment.Center) {
+                                            // Outer pulse ring
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(80.dp)
+                                                    .scale(pulseScale)
+                                                    .clip(CircleShape)
+                                                    .background(SapphoInfo.copy(alpha = 0.1f * pulseAlpha))
+                                            )
+                                            // Inner circle
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(56.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        Brush.linearGradient(
+                                                            colors = listOf(
+                                                                SapphoInfo.copy(alpha = 0.3f),
+                                                                LegacyPurpleLight.copy(alpha = 0.3f)
+                                                            )
+                                                        )
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Cast,
+                                                    contentDescription = null,
+                                                    tint = SapphoInfo,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            "Scanning for devices...",
+                                            color = SapphoIconDefault,
+                                            fontSize = 14.sp
                                         )
-                                        Text("Scanning for Cast devices...", color = SapphoIconDefault)
                                     }
                                 } else if (availableRoutes.isEmpty()) {
-                                    Text("No Cast devices found.", color = SapphoIconDefault)
+                                    // No devices found
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(56.dp)
+                                                .clip(CircleShape)
+                                                .background(SapphoSurface),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Cast,
+                                                contentDescription = null,
+                                                tint = SapphoIconDefault.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
+                                        Text(
+                                            "No devices found",
+                                            color = SapphoIconDefault,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            "Make sure your Cast device is on\nand connected to the same network",
+                                            color = SapphoIconDefault.copy(alpha = 0.7f),
+                                            fontSize = 12.sp,
+                                            textAlign = TextAlign.Center,
+                                            lineHeight = 18.sp
+                                        )
+                                    }
                                 } else {
-                                    Text("Select a device:", color = SapphoIconDefault, modifier = Modifier.padding(bottom = 8.dp))
+                                    // Device list
                                     availableRoutes.forEachIndexed { index, route ->
-                                        TextButton(
-                                            onClick = {
+                                        val isTV = route.name.contains("TV", ignoreCase = true)
+                                        val isSpeaker = route.name.contains("Speaker", ignoreCase = true) ||
+                                                route.name.contains("Home", ignoreCase = true) ||
+                                                route.name.contains("Nest", ignoreCase = true)
 
+                                        Surface(
+                                            onClick = {
                                                 // Stop local playback
                                                 if (localIsPlaying) {
                                                     AudioPlaybackService.instance?.togglePlayPause()
@@ -307,24 +517,98 @@ fun PlayerScreen(
                                                     }
                                                 }
 
-                                                // Select route via CastHelper for better device selection
+                                                // Select route
                                                 castHelper.selectRoute(context, route)
                                                 showCastDialog = false
                                             },
-                                            modifier = Modifier.fillMaxWidth()
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(14.dp),
+                                            color = SapphoSurface
                                         ) {
-                                            Text(route.name, color = Color.White)
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(14.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                            ) {
+                                                // Device icon with gradient background
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(46.dp)
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(
+                                                            Brush.linearGradient(
+                                                                colors = when {
+                                                                    isTV -> listOf(LegacyPurpleLight.copy(alpha = 0.3f), SapphoInfo.copy(alpha = 0.2f))
+                                                                    isSpeaker -> listOf(SapphoSuccess.copy(alpha = 0.3f), LegacyBlueLight.copy(alpha = 0.2f))
+                                                                    else -> listOf(SapphoInfo.copy(alpha = 0.3f), LegacyPurpleLight.copy(alpha = 0.2f))
+                                                                }
+                                                            )
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = when {
+                                                            isTV -> Icons.Default.Cast
+                                                            isSpeaker -> Icons.Default.Cast
+                                                            else -> Icons.Default.Cast
+                                                        },
+                                                        contentDescription = null,
+                                                        tint = when {
+                                                            isTV -> LegacyPurpleLight
+                                                            isSpeaker -> SapphoSuccess
+                                                            else -> SapphoInfo
+                                                        },
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                }
+
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        route.name,
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Medium,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        when {
+                                                            isTV -> "Smart TV"
+                                                            isSpeaker -> "Smart Speaker"
+                                                            else -> "Cast Device"
+                                                        },
+                                                        color = SapphoIconDefault,
+                                                        fontSize = 12.sp
+                                                    )
+                                                }
+
+                                                // Arrow indicator
+                                                Icon(
+                                                    imageVector = Icons.Default.PlayArrow,
+                                                    contentDescription = null,
+                                                    tint = SapphoIconDefault,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         },
                         confirmButton = {
-                            TextButton(onClick = { showCastDialog = false }) {
-                                Text("Cancel", color = SapphoInfo)
+                            TextButton(
+                                onClick = { showCastDialog = false },
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .padding(horizontal = 8.dp)
+                            ) {
+                                Text("Close", color = SapphoIconDefault)
                             }
                         },
-                        containerColor = SapphoSurfaceLight
+                        containerColor = SapphoSurfaceLight,
+                        shape = RoundedCornerShape(24.dp)
                     )
                 }
             }
@@ -521,10 +805,9 @@ fun PlayerScreen(
                                     } else {
                                         // Control local playback
                                         val service = AudioPlaybackService.instance
-                                        if (service != null) {
-                                            service.togglePlayPause()
-                                        } else {
-                                            // Service was killed (e.g., after vehicle disconnect)
+                                        val playerHandled = service?.togglePlayPause() ?: false
+                                        if (!playerHandled) {
+                                            // Service was killed or player is null (e.g., after vehicle disconnect)
                                             // Restart playback from current position
                                             viewModel.loadAndStartPlayback(audiobookId, currentPosition.toInt())
                                         }
