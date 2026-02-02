@@ -45,10 +45,10 @@ jobs:
         run: |
           echo "$PLAY_STORE_JSON_KEY" | base64 --decode > play-store-key.json
 
-      - name: Deploy to Closed Testing
+      - name: Deploy to Internal Testing
         env:
           PLAY_STORE_JSON_KEY_PATH: ${{ github.workspace }}/play-store-key.json
-        run: fastlane closed
+        run: fastlane internal
 
       - name: Cleanup secrets
         if: always()
