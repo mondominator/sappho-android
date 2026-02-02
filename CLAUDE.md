@@ -42,7 +42,7 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ### Dynamic Server URL System
 The app implements a **runtime configurable server URL** architecture that requires understanding across multiple layers:
 
-1. **User Input**: Users enter server URL at login (e.g., `https://sapho.bitstorm.ca` or `http://192.168.1.100:3002`)
+1. **User Input**: Users enter server URL at login (e.g., `https://sappho.bitstorm.ca` or `http://192.168.1.100:3002`)
 
 2. **Storage**: `AuthRepository` stores both the server URL and auth token in `EncryptedSharedPreferences`
 
@@ -304,10 +304,10 @@ The Sappho PWA (Progressive Web App) is located at `/Users/mondo/Documents/git/s
 
 ```bash
 # Check server is reachable
-curl -I https://sapho.bitstorm.ca/api/audiobooks/meta/recent?limit=1
+curl -I https://sappho.bitstorm.ca/api/audiobooks/meta/recent?limit=1
 
 # Test authenticated endpoint (requires valid token)
-curl -H "Authorization: Bearer <token>" https://sapho.bitstorm.ca/api/audiobooks/5557/cover
+curl -H "Authorization: Bearer <token>" https://sappho.bitstorm.ca/api/audiobooks/5557/cover
 ```
 
 ## Working with Issues
