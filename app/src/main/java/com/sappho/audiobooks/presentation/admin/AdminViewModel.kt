@@ -338,6 +338,29 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    fun toggleUserEnabled(user: UserInfo) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val response = if (user.accountDisabled) {
+                    api.enableUser(user.id)
+                } else {
+                    api.disableUser(user.id)
+                }
+                if (response.isSuccessful) {
+                    _message.value = if (user.accountDisabled) "User enabled" else "User disabled"
+                    refreshUsers()
+                } else {
+                    _message.value = "Failed to update user status"
+                }
+            } catch (e: Exception) {
+                _message.value = "Error: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     // ============ Backups ============
     fun loadBackups() {
         if ("backups" in loadedSections) return

@@ -246,14 +246,16 @@ fun MinimizedPlayerBar(
                                 }
                             } else {
                                 val service = AudioPlaybackService.instance
-                                if (service != null) {
-                                    service.togglePlayPause()
-                                } else {
-                                    // Service is null (killed after vehicle disconnect, etc.)
-                                    // Restart playback from current position
-                                    book.id.let { id ->
-                                        onRestartPlayback(id, currentPosition.toInt())
+                                val playerHandled = service?.togglePlayPause() ?: false
+                                if (!playerHandled) {
+                                    // Service is null or player is null (killed after vehicle disconnect, etc.)
+                                    // Restart playback from current position or saved progress
+                                    val position = if (currentPosition > 0) {
+                                        currentPosition.toInt()
+                                    } else {
+                                        book.progress?.position ?: 0
                                     }
+                                    onRestartPlayback(book.id, position)
                                 }
                             }
                         },

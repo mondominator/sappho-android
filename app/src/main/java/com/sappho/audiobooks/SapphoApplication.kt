@@ -42,10 +42,11 @@ class SapphoApplication : Application(), ImageLoaderFactory {
     }
 
     private fun initializeCastAsync() {
-        // Initialize Cast in background thread to avoid blocking app startup
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        // CastContext.getSharedInstance() MUST be called from the main thread
+        // Using Dispatchers.Main to ensure this requirement is met
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
             try {
-                // Initialize Cast context lazily in background
+                // Initialize Cast context on main thread (required by Cast SDK)
                 CastContext.getSharedInstance(this@SapphoApplication)
                 castHelper.initialize(this@SapphoApplication)
                 android.util.Log.d("SapphoApplication", "Cast initialized successfully")
