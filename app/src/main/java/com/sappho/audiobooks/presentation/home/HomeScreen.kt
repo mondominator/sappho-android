@@ -571,7 +571,7 @@ fun AudiobookCard(
                 color = SapphoText,
                 modifier = Modifier.basicMarquee(
                     iterations = Int.MAX_VALUE,
-                    delayMillis = 2000,
+                    initialDelayMillis = 2000,
                     velocity = 30.dp
                 )
             )
