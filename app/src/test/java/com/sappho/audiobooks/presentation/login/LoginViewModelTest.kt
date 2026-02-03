@@ -161,13 +161,27 @@ class LoginViewModelTest {
     fun `updateServerUrl updates viewModel state`() = runTest {
         // Given
         val newUrl = "https://new.sappho.com"
-        
+
         // When
         viewModel.updateServerUrl(newUrl)
-        
+
         // Then - should update the state but NOT save to repository yet
         // (saving happens during login)
         assertThat(viewModel.serverUrl.value).isEqualTo(newUrl)
         verify(exactly = 0) { authRepository.saveServerUrl(any()) }
+    }
+
+    @Test
+    fun `serverUrl defaults to https prefix when no saved URL`() = runTest {
+        // Given
+        val api = mockk<SapphoApi>(relaxed = true)
+        val authRepository = mockk<AuthRepository>(relaxed = true)
+        every { authRepository.getServerUrlSync() } returns null
+
+        // When
+        val viewModel = LoginViewModel(api, authRepository)
+
+        // Then
+        assertThat(viewModel.serverUrl.value).isEqualTo("https://")
     }
 }
