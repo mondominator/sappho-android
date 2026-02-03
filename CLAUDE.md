@@ -497,9 +497,16 @@ docker pull (user will pull via Unraid UI)
 
 ## Release Checklist
 
-Before creating a new release, update the version number in `app/build.gradle.kts`:
-- `versionCode` - increment by 1
-- `versionName` - update to match the release tag (e.g., "0.8.0")
+**CRITICAL: Bump version in EVERY PR before merging.**
+
+CI automatically deploys to Play Store on every merge to main. The Play Store rejects uploads with duplicate version codes, so you MUST increment the version as part of each PR:
+
+1. Update `app/build.gradle.kts`:
+   - `versionCode` - increment by 1 (e.g., 19 → 20)
+   - `versionName` - increment patch version (e.g., "0.9.1" → "0.9.2")
+2. Include the version bump in your PR commit
+
+**Do NOT merge a PR without bumping the version** - the deploy will fail.
 
 The app version is displayed in two places which both use `BuildConfig.VERSION_NAME`:
 - User dropdown menu (HomeScreen.kt)
