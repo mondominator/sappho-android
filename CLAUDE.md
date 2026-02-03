@@ -507,15 +507,17 @@ The app version is displayed in two places which both use `BuildConfig.VERSION_N
 
 ### Versioning Guidelines
 
-**IMPORTANT: Follow semantic versioning carefully.**
+**IMPORTANT: Follow semantic versioning carefully and increment conservatively.**
 
 - **0.x.x** - Pre-release/development phase (current stage)
 - **1.0.0** - First stable production release (not yet reached)
 - Only bump to 1.0.0 when the app is considered stable and feature-complete
 
 Version increments:
-- **Patch (0.7.x)** - Bug fixes, minor tweaks
-- **Minor (0.x.0)** - New features, non-breaking changes
+- **Patch (0.8.x)** - Bug fixes, individual features, minor improvements (most common)
+- **Minor (0.x.0)** - Grouped releases with multiple features, significant changes
 - **Major (x.0.0)** - Breaking changes, major milestones
 
-Do NOT arbitrarily jump versions. Increment by one minor version per release during development (0.7.0 → 0.8.0 → 0.9.0, etc.).
+**Default to patch versions.** When merging a PR with a single feature or fix, increment the patch version (0.9.0 → 0.9.1 → 0.9.2). Only bump the minor version when intentionally grouping multiple features into a release.
+
+Do NOT bump minor version for every PR. Accumulate patch releases and periodically bump minor version for significant milestones.
