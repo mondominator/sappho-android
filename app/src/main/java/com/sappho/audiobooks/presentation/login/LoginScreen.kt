@@ -102,7 +102,7 @@ fun LoginScreen(
                 value = serverUrl,
                 onValueChange = { viewModel.updateServerUrl(it) },
                 label = { Text("Server URL", color = SapphoTextLight) },
-                placeholder = { Text("http://192.168.1.100:3002", color = SapphoTextMuted) },
+                placeholder = { Text("https://your-server.com", color = SapphoTextMuted) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),

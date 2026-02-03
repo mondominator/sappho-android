@@ -20,7 +20,7 @@ class LoginViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Initial)
     val uiState: StateFlow<LoginUiState> = _uiState
 
-    private val _serverUrl = MutableStateFlow(authRepository.getServerUrlSync() ?: "")
+    private val _serverUrl = MutableStateFlow(authRepository.getServerUrlSync() ?: "https://")
     val serverUrl: StateFlow<String> = _serverUrl
 
     fun updateServerUrl(url: String) {
