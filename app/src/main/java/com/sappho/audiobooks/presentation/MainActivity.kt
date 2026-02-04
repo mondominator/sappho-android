@@ -23,13 +23,16 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var inAppUpdateManager: InAppUpdateManager
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // Check for app updates
+    override fun onResume() {
+        super.onResume()
+        // Check for app updates every time app comes to foreground
         lifecycleScope.launch {
             inAppUpdateManager.checkForUpdate()
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
         // Get navigation extras from intent (e.g., from PlayerActivity)
         val navigateTo = intent.getStringExtra("NAVIGATE_TO")
