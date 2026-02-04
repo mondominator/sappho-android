@@ -544,12 +544,14 @@ fun AudiobookDetailScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Play/Pause Button with overflow menu
+                    // Play/Pause Button with download and overflow menu
                     // Disable button until progress is confirmed (unless book is already loaded in service)
                     val canPlay = isThisBookLoaded || !isProgressLoading
                     val playButtonHaptic = HapticPatterns.playButtonPress()
                     val progressCheck = progress
                     val hasProgress = progressCheck != null && (progressCheck.position > 0 || progressCheck.completed == 1)
+                    val hasChapters = book.isMultiFile == 1 && chapters.isNotEmpty()
+                    val showDownloadButton = isDownloading || isDownloaded || !isOffline
 
                     Row(
                         modifier = Modifier
@@ -618,13 +620,101 @@ fun AudiobookDetailScreen(
                             }
                         }
 
+                        // Download button (icon only)
+                        if (showDownloadButton) {
+                            val downloadStartHaptic = HapticPatterns.downloadStart()
+                            val downloadCancelHaptic = HapticPatterns.downloadCancel()
+                            IconButton(
+                                onClick = {
+                                    when {
+                                        isDownloading -> {
+                                            downloadCancelHaptic()
+                                            DownloadService.cancelDownload(context)
+                                        }
+                                        isDownloaded -> {
+                                            downloadCancelHaptic()
+                                            if (!isOffline) showDeleteDownloadDialog = true
+                                        }
+                                        hasDownloadError -> {
+                                            downloadStartHaptic()
+                                            viewModel.downloadAudiobook()
+                                        }
+                                        else -> {
+                                            downloadStartHaptic()
+                                            viewModel.downloadAudiobook()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        color = when {
+                                            hasDownloadError -> SapphoError.copy(alpha = 0.15f)
+                                            else -> SapphoSurfaceLight.copy(alpha = 0.5f)
+                                        },
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = Color.White.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                            ) {
+                                Crossfade(
+                                    targetState = when {
+                                        isDownloading -> "downloading"
+                                        isDownloaded -> "downloaded"
+                                        hasDownloadError -> "error"
+                                        else -> "idle"
+                                    },
+                                    animationSpec = tween(300),
+                                    label = "download_icon"
+                                ) { state ->
+                                    when (state) {
+                                        "downloading" -> {
+                                            CircularProgressIndicator(
+                                                progress = { downloadProgress },
+                                                modifier = Modifier.size(20.dp),
+                                                color = SapphoInfo,
+                                                strokeWidth = 2.dp
+                                            )
+                                        }
+                                        "downloaded" -> {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Downloaded",
+                                                modifier = Modifier.size(22.dp),
+                                                tint = SapphoSuccess
+                                            )
+                                        }
+                                        "error" -> {
+                                            Icon(
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = "Retry download",
+                                                modifier = Modifier.size(22.dp),
+                                                tint = SapphoError
+                                            )
+                                        }
+                                        else -> {
+                                            Icon(
+                                                imageVector = Icons.Default.Download,
+                                                contentDescription = "Download",
+                                                modifier = Modifier.size(22.dp),
+                                                tint = SapphoIconDefault
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Overflow menu button (only show when online)
                         if (!isOffline) {
                             Box {
                                 IconButton(
                                     onClick = { showOverflowMenu = true },
                                     modifier = Modifier
-                                        .size(56.dp)
+                                        .size(48.dp)
                                         .background(
                                             color = SapphoSurfaceLight.copy(alpha = 0.5f),
                                             shape = RoundedCornerShape(12.dp)
@@ -639,7 +729,7 @@ fun AudiobookDetailScreen(
                                         imageVector = Icons.Default.MoreVert,
                                         contentDescription = "More options",
                                         tint = SapphoIconDefault,
-                                        modifier = Modifier.size(24.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
 
@@ -648,6 +738,24 @@ fun AudiobookDetailScreen(
                                     onDismissRequest = { showOverflowMenu = false },
                                     modifier = Modifier.background(SapphoSurface)
                                 ) {
+                                    // Chapters (only for multi-file books)
+                                    if (hasChapters) {
+                                        DropdownMenuItem(
+                                            text = { Text("${chapters.size} Chapters", color = SapphoText) },
+                                            onClick = {
+                                                showOverflowMenu = false
+                                                showChaptersDialog = true
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Filled.List,
+                                                    contentDescription = null,
+                                                    tint = SapphoInfo
+                                                )
+                                            }
+                                        )
+                                    }
+
                                     // Collection
                                     DropdownMenuItem(
                                         text = { Text("Add to Collection", color = SapphoText) },
@@ -747,153 +855,6 @@ fun AudiobookDetailScreen(
                                 }
                             }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Chapters and Download row
-                    val hasChapters = book.isMultiFile == 1 && chapters.isNotEmpty()
-                    val showDownloadButton = isDownloading || isDownloaded || !isOffline
-
-                    if (hasChapters || showDownloadButton) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Chapters button
-                            if (hasChapters) {
-                                val chaptersHaptic = HapticPatterns.buttonPress()
-                                Button(
-                                    onClick = { 
-                                        chaptersHaptic()
-                                        showChaptersDialog = true 
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = SapphoInfo.copy(alpha = 0.15f),
-                                        contentColor = LegacyBluePale
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
-                                ) {
-                                    Text(
-                                        text = "${chapters.size} Chapters",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                            }
-
-                            // Download button
-                            if (showDownloadButton) {
-                                val downloadStartHaptic = HapticPatterns.downloadStart()
-                                val downloadCancelHaptic = HapticPatterns.downloadCancel()
-                                Button(
-                                    onClick = {
-                                        when {
-                                            isDownloading -> { 
-                                                downloadCancelHaptic()
-                                                // Cancel download via service
-                                                DownloadService.cancelDownload(context)
-                                            }
-                                            isDownloaded -> { 
-                                                downloadCancelHaptic()
-                                                if (!isOffline) showDeleteDownloadDialog = true 
-                                            }
-                                            hasDownloadError -> { 
-                                                downloadStartHaptic()
-                                                // Retry download
-                                                viewModel.downloadAudiobook() 
-                                            }
-                                            else -> { 
-                                                downloadStartHaptic()
-                                                viewModel.downloadAudiobook() 
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = when {
-                                            hasDownloadError -> SapphoError.copy(alpha = 0.15f)
-                                            else -> SapphoInfo.copy(alpha = 0.15f)
-                                        },
-                                        contentColor = when {
-                                            hasDownloadError -> LegacyRedLight
-                                            else -> LegacyBluePale
-                                        }
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
-                                ) {
-                                    // Animated icon: progress ring -> checkmark
-                                    Crossfade(
-                                        targetState = when {
-                                            isDownloading -> "downloading"
-                                            isDownloaded -> "downloaded"
-                                            hasDownloadError -> "error"
-                                            else -> "idle"
-                                        },
-                                        animationSpec = tween(300),
-                                        label = "download_icon"
-                                    ) { state ->
-                                        when (state) {
-                                            "downloading" -> {
-                                                CircularProgressIndicator(
-                                                    progress = { downloadProgress },
-                                                    modifier = Modifier.size(16.dp),
-                                                    color = LegacyBluePale,
-                                                    strokeWidth = 2.dp
-                                                )
-                                            }
-                                            "downloaded" -> {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = SapphoSuccess
-                                                )
-                                            }
-                                            "error" -> {
-                                                Icon(
-                                                    imageVector = Icons.Default.Refresh,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                            else -> {
-                                                Icon(
-                                                    imageVector = Icons.Default.Download,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = when {
-                                            isDownloading -> {
-                                                val percent = (downloadProgress * 100).toInt()
-                                                if (percent > 0) "$percent%" else "Starting..."
-                                            }
-                                            isDownloaded -> "Downloaded"
-                                            hasDownloadError -> "Retry"
-                                            else -> "Download"
-                                        },
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
 
                     // Progress Section (above About)
