@@ -26,9 +26,15 @@ import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.ui.text.style.TextOverflow
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -496,68 +502,191 @@ fun MainScreen(
             )
         }
 
-        // Downloads Dialog
+        // Downloads Dialog - Modern Design
         if (showDownloadsDialog) {
-            AlertDialog(
+            Dialog(
                 onDismissRequest = { showDownloadsDialog = false },
-                title = { Text("Downloaded Books", color = Color.White) },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(SapphoSurface)
+                        .padding(top = 20.dp, bottom = 16.dp)
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (downloadedBooks.isEmpty()) {
-                            Text(
-                                "No downloaded books yet. Download books from the book detail page to listen offline.",
-                                color = SapphoIconDefault
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDone,
+                                contentDescription = null,
+                                tint = SapphoInfo,
+                                modifier = Modifier.size(24.dp)
                             )
-                        } else {
-                            downloadedBooks.forEach { downloadedBook ->
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Downloads",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                        }
+                        IconButton(
+                            onClick = { showDownloadsDialog = false },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = SapphoTextMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (downloadedBooks.isEmpty()) {
+                        // Empty state
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp, horizontal = 20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = null,
+                                tint = SapphoTextMuted.copy(alpha = 0.5f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "No downloads yet",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = SapphoTextMuted
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Download books to listen offline",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SapphoTextMuted.copy(alpha = 0.7f)
+                            )
+                        }
+                    } else {
+                        // Stats bar
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .background(
+                                    SapphoInfo.copy(alpha = 0.1f),
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "${downloadedBooks.size} ${if (downloadedBooks.size == 1) "book" else "books"}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = SapphoInfo
+                            )
+                            Text(
+                                text = formatFileSize(downloadedBooks.sumOf { it.fileSize }),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = SapphoInfo
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Book list
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 400.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(downloadedBooks) { downloadedBook ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(SapphoSurfaceLight)
+                                        .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    // Cover image
+                                    val coverUrl = serverUrl?.let { url ->
+                                        "$url/api/audiobooks/${downloadedBook.audiobook.id}/cover"
+                                    }
+                                    AsyncImage(
+                                        model = coverUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    // Book info
                                     Column(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Text(
                                             text = downloadedBook.audiobook.title,
-                                            color = Color.White,
                                             style = MaterialTheme.typography.bodyMedium,
-                                            maxLines = 1
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
+                                        downloadedBook.audiobook.author?.let { author ->
+                                            Text(
+                                                text = author,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = SapphoTextMuted,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = formatFileSize(downloadedBook.fileSize),
-                                            color = SapphoIconDefault,
-                                            style = MaterialTheme.typography.labelMedium
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SapphoTextMuted.copy(alpha = 0.7f)
                                         )
                                     }
+
+                                    // Delete button
                                     IconButton(
-                                        onClick = {
-                                            downloadToDelete = downloadedBook.audiobook.id
-                                        }
+                                        onClick = { downloadToDelete = downloadedBook.audiobook.id },
+                                        modifier = Modifier.size(36.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Delete,
-                                            contentDescription = "Delete",
-                                            tint = SapphoError,
-                                            modifier = Modifier.size(20.dp)
+                                            contentDescription = "Remove download",
+                                            tint = SapphoTextMuted,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 }
                             }
                         }
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showDownloadsDialog = false }) {
-                        Text("Close", color = SapphoInfo)
-                    }
-                },
-                containerColor = SapphoSurfaceLight
-            )
+                }
+            }
         }
 
         // Delete Download Confirmation Dialog
