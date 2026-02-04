@@ -33,11 +33,11 @@ class InAppUpdateManager @Inject constructor(
             appUpdateInfo = info
 
             val isUpdateAvailable = info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
-            val isFlexibleAllowed = info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+            val isImmediateAllowed = info.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
 
-            _updateAvailable.value = isUpdateAvailable && isFlexibleAllowed
+            _updateAvailable.value = isUpdateAvailable && isImmediateAllowed
 
-            Log.d(TAG, "Update check: available=$isUpdateAvailable, flexibleAllowed=$isFlexibleAllowed")
+            Log.d(TAG, "Update check: available=$isUpdateAvailable, immediateAllowed=$isImmediateAllowed")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to check for update", e)
             _updateAvailable.value = false
@@ -54,7 +54,7 @@ class InAppUpdateManager @Inject constructor(
             appUpdateManager.startUpdateFlowForResult(
                 info,
                 activity,
-                AppUpdateOptions.defaultOptions(AppUpdateType.FLEXIBLE),
+                AppUpdateOptions.defaultOptions(AppUpdateType.IMMEDIATE),
                 UPDATE_REQUEST_CODE
             )
         } catch (e: Exception) {
