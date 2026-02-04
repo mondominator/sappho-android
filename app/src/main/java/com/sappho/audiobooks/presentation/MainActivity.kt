@@ -11,7 +11,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.sappho.audiobooks.data.update.InAppUpdateManager
-import com.sappho.audiobooks.presentation.components.UpdateDialog
+import com.sappho.audiobooks.data.update.UpdateState
+import com.sappho.audiobooks.presentation.components.UpdateAvailableDialog
+import com.sappho.audiobooks.presentation.components.UpdateDownloadingDialog
+import com.sappho.audiobooks.presentation.components.UpdateReadyDialog
+import com.sappho.audiobooks.presentation.components.UpdateFailedDialog
 import com.sappho.audiobooks.presentation.theme.SapphoTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -41,7 +45,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SapphoTheme {
-                val updateAvailable by inAppUpdateManager.updateAvailable.collectAsState()
+                val updateState by inAppUpdateManager.updateState.collectAsState()
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -52,15 +56,44 @@ class MainActivity : ComponentActivity() {
                         initialSeries = if (navigateTo == "library") series else null
                     )
 
-                    if (updateAvailable) {
-                        UpdateDialog(
-                            onUpdateClick = {
-                                inAppUpdateManager.startUpdate(this@MainActivity)
-                            },
-                            onDismiss = {
-                                inAppUpdateManager.dismissUpdate()
-                            }
-                        )
+                    // Show appropriate dialog based on update state
+                    when (val state = updateState) {
+                        is UpdateState.Available -> {
+                            UpdateAvailableDialog(
+                                onUpdateClick = {
+                                    inAppUpdateManager.startUpdate(this@MainActivity)
+                                },
+                                onDismiss = {
+                                    inAppUpdateManager.dismissUpdate()
+                                }
+                            )
+                        }
+                        is UpdateState.Downloading -> {
+                            UpdateDownloadingDialog(progress = state.progress)
+                        }
+                        is UpdateState.ReadyToInstall -> {
+                            UpdateReadyDialog(
+                                onRestartClick = {
+                                    inAppUpdateManager.completeUpdate()
+                                },
+                                onDismiss = {
+                                    inAppUpdateManager.dismissUpdate()
+                                }
+                            )
+                        }
+                        is UpdateState.Failed -> {
+                            UpdateFailedDialog(
+                                message = state.message,
+                                onRetryClick = {
+                                    inAppUpdateManager.clearError()
+                                    inAppUpdateManager.startUpdate(this@MainActivity)
+                                },
+                                onDismiss = {
+                                    inAppUpdateManager.clearError()
+                                }
+                            )
+                        }
+                        else -> { /* No dialog for None or Installing states */ }
                     }
                 }
             }
