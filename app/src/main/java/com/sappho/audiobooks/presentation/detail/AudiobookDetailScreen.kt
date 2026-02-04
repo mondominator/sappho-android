@@ -1,6 +1,8 @@
 package com.sappho.audiobooks.presentation.detail
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -818,14 +820,10 @@ fun AudiobookDetailScreen(
                                         .height(48.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = when {
-                                            isDownloading -> SapphoInfo.copy(alpha = 0.15f)
-                                            isDownloaded -> SapphoSuccess.copy(alpha = 0.15f)
                                             hasDownloadError -> SapphoError.copy(alpha = 0.15f)
                                             else -> SapphoInfo.copy(alpha = 0.15f)
                                         },
                                         contentColor = when {
-                                            isDownloading -> LegacyBluePale
-                                            isDownloaded -> LegacyGreenPale
                                             hasDownloadError -> LegacyRedLight
                                             else -> LegacyBluePale
                                         }
@@ -833,25 +831,51 @@ fun AudiobookDetailScreen(
                                     shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
                                 ) {
-                                    when {
-                                        isDownloading -> {
-                                            CircularProgressIndicator(
-                                                progress = downloadProgress,
-                                                modifier = Modifier.size(16.dp),
-                                                color = LegacyBluePale,
-                                                strokeWidth = 2.dp
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                        }
-                                        hasDownloadError -> {
-                                            Icon(
-                                                imageVector = Icons.Default.Refresh,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
+                                    // Animated icon: progress ring -> checkmark
+                                    Crossfade(
+                                        targetState = when {
+                                            isDownloading -> "downloading"
+                                            isDownloaded -> "downloaded"
+                                            hasDownloadError -> "error"
+                                            else -> "idle"
+                                        },
+                                        animationSpec = tween(300),
+                                        label = "download_icon"
+                                    ) { state ->
+                                        when (state) {
+                                            "downloading" -> {
+                                                CircularProgressIndicator(
+                                                    progress = { downloadProgress },
+                                                    modifier = Modifier.size(16.dp),
+                                                    color = LegacyBluePale,
+                                                    strokeWidth = 2.dp
+                                                )
+                                            }
+                                            "downloaded" -> {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = SapphoSuccess
+                                                )
+                                            }
+                                            "error" -> {
+                                                Icon(
+                                                    imageVector = Icons.Default.Refresh,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                            else -> {
+                                                Icon(
+                                                    imageVector = Icons.Default.Download,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
                                         }
                                     }
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = when {
                                             isDownloading -> {
