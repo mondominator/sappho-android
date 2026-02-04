@@ -26,6 +26,7 @@ class InAppUpdateManager @Inject constructor(
     val updateAvailable: StateFlow<Boolean> = _updateAvailable
 
     private var appUpdateInfo: AppUpdateInfo? = null
+    private var updateType: Int = AppUpdateType.IMMEDIATE
 
     suspend fun checkForUpdate() {
         try {
@@ -34,10 +35,18 @@ class InAppUpdateManager @Inject constructor(
 
             val isUpdateAvailable = info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
             val isImmediateAllowed = info.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
+            val isFlexibleAllowed = info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
 
-            _updateAvailable.value = isUpdateAvailable && isImmediateAllowed
+            // Prefer IMMEDIATE, fall back to FLEXIBLE
+            updateType = when {
+                isImmediateAllowed -> AppUpdateType.IMMEDIATE
+                isFlexibleAllowed -> AppUpdateType.FLEXIBLE
+                else -> AppUpdateType.IMMEDIATE
+            }
 
-            Log.d(TAG, "Update check: available=$isUpdateAvailable, immediateAllowed=$isImmediateAllowed")
+            _updateAvailable.value = isUpdateAvailable && (isImmediateAllowed || isFlexibleAllowed)
+
+            Log.d(TAG, "Update check: available=$isUpdateAvailable, immediateAllowed=$isImmediateAllowed, flexibleAllowed=$isFlexibleAllowed, usingType=$updateType")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to check for update", e)
             _updateAvailable.value = false
@@ -51,10 +60,11 @@ class InAppUpdateManager @Inject constructor(
         }
 
         try {
+            Log.d(TAG, "Starting update with type=$updateType")
             appUpdateManager.startUpdateFlowForResult(
                 info,
                 activity,
-                AppUpdateOptions.defaultOptions(AppUpdateType.IMMEDIATE),
+                AppUpdateOptions.defaultOptions(updateType),
                 UPDATE_REQUEST_CODE
             )
         } catch (e: Exception) {
