@@ -197,7 +197,7 @@ fun HomeScreen(
                         serverUrl = serverUrl,
                         onAudiobookClick = onAudiobookClick,
                         onToggleFavorite = { id -> viewModel.toggleFavorite(id) },
-                        cardSize = 180.dp,
+                        cardSize = AdaptiveCardSize.large,
                         titleSize = 18.sp
                     )
                 }
@@ -222,7 +222,7 @@ fun HomeScreen(
                                 viewModel.loadCollectionsForBook(id)
                                 showCollectionDialog = true
                             },
-                            cardSize = 180.dp,
+                            cardSize = AdaptiveCardSize.large,
                             titleSize = 20.sp
                         )
                     }
@@ -281,7 +281,7 @@ fun HomeScreen(
                                 viewModel.loadCollectionsForBook(id)
                                 showCollectionDialog = true
                             },
-                            cardSize = 120.dp,
+                            cardSize = AdaptiveCardSize.small,
                             titleSize = 14.sp,
                             showCompletedCheckmark = false
                         )
