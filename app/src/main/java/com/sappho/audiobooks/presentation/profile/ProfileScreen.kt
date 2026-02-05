@@ -3,7 +3,9 @@ package com.sappho.audiobooks.presentation.profile
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,18 +18,17 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
@@ -43,7 +44,9 @@ import java.util.*
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     onAvatarChanged: () -> Unit = {},
+    onBookClick: (Int) -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -56,30 +59,40 @@ fun ProfileScreen(
     val avatarUri by viewModel.avatarUri.collectAsState()
     val serverVersion by viewModel.serverVersion.collectAsState()
     val avatarUpdated by viewModel.avatarUpdated.collectAsState()
-    
+
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Form state
+    var displayName by remember(user) { mutableStateOf(user?.displayName ?: "") }
+    var email by remember(user) { mutableStateOf(user?.email ?: "") }
+
+    // Password state
+    var showPasswordSection by remember { mutableStateOf(false) }
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var showCurrentPassword by remember { mutableStateOf(false) }
+    var showNewPassword by remember { mutableStateOf(false) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+
     // Avatar picker
-    var selectedAvatarFile by remember { mutableStateOf<File?>(null) }
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             viewModel.setAvatarUri(it)
             try {
-                // Load and compress image to avoid "File too large" errors (server limit is 5MB)
                 val inputStream = context.contentResolver.openInputStream(it)
                 val originalBitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
                 inputStream?.close()
 
                 if (originalBitmap != null) {
-                    // Scale down to max 800x800 while maintaining aspect ratio
                     val maxSize = 800
                     val scale = minOf(
                         maxSize.toFloat() / originalBitmap.width,
                         maxSize.toFloat() / originalBitmap.height,
-                        1f // Don't upscale
+                        1f
                     )
                     val scaledBitmap = if (scale < 1f) {
                         android.graphics.Bitmap.createScaledBitmap(
@@ -92,28 +105,23 @@ fun ProfileScreen(
                         originalBitmap
                     }
 
-                    // Save as compressed JPEG
                     val tempFile = File(context.cacheDir, "avatar_temp.jpg")
                     tempFile.outputStream().use { output ->
                         scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, output)
                     }
 
-                    // Clean up bitmaps
                     if (scaledBitmap != originalBitmap) {
                         scaledBitmap.recycle()
                     }
                     originalBitmap.recycle()
 
-                    selectedAvatarFile = tempFile
                     viewModel.updateProfileWithAvatar(null, null, tempFile, "image/jpeg")
                 }
             } catch (e: OutOfMemoryError) {
-                android.util.Log.e("ProfileScreen", "Out of memory while processing image", e)
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar("Image too large. Please choose a smaller image.")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("ProfileScreen", "Failed to process image", e)
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar("Failed to process image. Please try again.")
                 }
@@ -128,7 +136,6 @@ fun ProfileScreen(
         }
     }
 
-    // Watch for avatar updates
     LaunchedEffect(avatarUpdated) {
         if (avatarUpdated) {
             onAvatarChanged()
@@ -140,8 +147,6 @@ fun ProfileScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = SapphoBackground
     ) { paddingValues ->
-        var showEditDialog by remember { mutableStateOf(false) }
-
         PullToRefreshBox(
             isRefreshing = isLoading,
             onRefresh = { viewModel.refresh() },
@@ -153,576 +158,595 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.M)
             ) {
-                // Hero section - avatar left, info right
+                Spacer(modifier = Modifier.height(Spacing.L))
+
+                // ===== HEADER WITH AVATAR =====
                 val avatarGradient = LibraryGradients.forAvatar(user?.username ?: "U")
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SapphoSurfaceLight)
-                        .padding(Spacing.M),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Avatar (display only - edit via Edit Profile dialog)
+                    // Avatar (100dp, clickable with "Edit" overlay)
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(100.dp)
                             .clip(CircleShape)
-                            .background(Brush.verticalGradient(avatarGradient)),
+                            .clickable { imagePickerLauncher.launch("image/*") },
                         contentAlignment = Alignment.Center
                     ) {
-                        when {
-                            avatarUri != null -> {
-                                AsyncImage(
-                                    model = avatarUri,
-                                    contentDescription = "Avatar Preview",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            user?.avatar != null && serverUrl != null -> {
-                                // Force fresh load with timestamp
-                                val avatarUrl = "$serverUrl/api/profile/avatar?_=${System.currentTimeMillis()}"
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(avatarUrl)
-                                        .diskCachePolicy(CachePolicy.DISABLED)
-                                        .memoryCachePolicy(CachePolicy.DISABLED)
-                                        .crossfade(false)
-                                        .build(),
-                                    contentDescription = "Avatar",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            else -> {
-                                Text(
-                                    text = (user?.displayName ?: user?.username)?.firstOrNull()?.uppercaseChar()?.toString() ?: "U",
-                                    color = SapphoText,
-                                    style = MaterialTheme.typography.headlineMedium
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(Spacing.M))
-
-                    // User info
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = user?.displayName ?: user?.username ?: "User",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = SapphoText
-                        )
-                        Text(
-                            text = "@${user?.username ?: ""}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = SapphoIconDefault
-                        )
-                        Spacer(modifier = Modifier.height(Spacing.XXS))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Spacing.XS)
+                        // Avatar background/image
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Brush.verticalGradient(avatarGradient)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(Spacing.S),
-                                color = if (user?.isAdmin == 1) SapphoSuccess.copy(alpha = 0.15f)
-                                else SapphoInfo.copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    text = if (user?.isAdmin == 1) "Admin" else "User",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (user?.isAdmin == 1) SapphoSuccess else SapphoInfo,
-                                    modifier = Modifier.padding(horizontal = Spacing.XS, vertical = 2.dp)
-                                )
-                            }
-                            user?.createdAt?.let { createdAt ->
-                                val dateText = try {
-                                    val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-                                    val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-                                    val parsed = inputFormat.parse(createdAt.split(".")[0])
-                                    "Joined ${outputFormat.format(parsed ?: Date())}"
-                                } catch (e: Exception) { "" }
-                                if (dateText.isNotEmpty()) {
+                            when {
+                                avatarUri != null -> {
+                                    AsyncImage(
+                                        model = avatarUri,
+                                        contentDescription = "Avatar Preview",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                user?.avatar != null && serverUrl != null -> {
+                                    val avatarUrl = "$serverUrl/api/profile/avatar?_=${System.currentTimeMillis()}"
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(avatarUrl)
+                                            .diskCachePolicy(CachePolicy.DISABLED)
+                                            .memoryCachePolicy(CachePolicy.DISABLED)
+                                            .crossfade(false)
+                                            .build(),
+                                        contentDescription = "Avatar",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                else -> {
                                     Text(
-                                        text = dateText,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = SapphoTextMuted
+                                        text = (user?.displayName ?: user?.username)?.firstOrNull()?.uppercaseChar()?.toString() ?: "U",
+                                        color = SapphoText,
+                                        style = MaterialTheme.typography.headlineLarge
                                     )
                                 }
                             }
                         }
+
+                        // "Edit" overlay at bottom
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .background(SapphoBackground.copy(alpha = 0.7f))
+                                .padding(vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Edit",
+                                color = SapphoText,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
 
-                    // Edit button
-                    IconButton(onClick = { showEditDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Outlined.Edit,
-                            contentDescription = "Edit Profile",
-                            tint = SapphoIconDefault
-                        )
+                    // Remove photo link
+                    if (user?.avatar != null || avatarUri != null) {
+                        TextButton(
+                            onClick = {
+                                viewModel.setAvatarUri(null)
+                                if (user?.avatar != null) {
+                                    viewModel.deleteAvatar()
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = Spacing.XS, vertical = 0.dp)
+                        ) {
+                            Text(
+                                "Remove photo",
+                                color = SapphoTextMuted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(Spacing.XS))
                     }
+
+                    // Name
+                    Text(
+                        text = user?.displayName ?: user?.username ?: "User",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = SapphoText
+                    )
+
+                    // Admin/Member since date
+                    val memberSinceText = user?.createdAt?.let { createdAt ->
+                        try {
+                            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                            val outputFormat = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+                            val parsed = inputFormat.parse(createdAt.split(".")[0])
+                            outputFormat.format(parsed ?: Date())
+                        } catch (e: Exception) { null }
+                    }
+                    Text(
+                        text = "${if (user?.isAdmin == 1) "Admin" else "Member"} since ${memberSinceText ?: ""}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SapphoTextMuted
+                    )
                 }
 
-                // Profile content
-                ProfileTab(
-                    stats = stats,
-                    serverUrl = serverUrl,
-                    serverVersion = serverVersion,
-                    onLogout = onLogout
-                )
-            }
-
-            // Edit Profile Dialog
-            if (showEditDialog) {
-                EditProfileDialog(
-                    user = user,
-                    avatarUri = avatarUri,
-                    serverUrl = serverUrl,
-                    onDismiss = { showEditDialog = false },
-                    onPickImage = { imagePickerLauncher.launch("image/*") },
-                    onRemoveAvatar = {
-                        selectedAvatarFile = null
-                        viewModel.setAvatarUri(null)
-                        if (user?.avatar != null) {
-                            viewModel.deleteAvatar()
-                        }
-                    },
-                    onSave = { displayName, email ->
-                        viewModel.updateProfileWithAvatar(displayName, email, null)
-                        showEditDialog = false
-                    },
-                    onUpdatePassword = { currentPassword, newPassword ->
-                        viewModel.updatePassword(currentPassword, newPassword)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileTab(
-    stats: com.sappho.audiobooks.domain.model.UserStats?,
-    serverUrl: String?,
-    serverVersion: String?,
-    onLogout: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(Spacing.M)
-    ) {
-        stats?.let { userStats ->
-            // Main stats row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.S)
-            ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = formatListenTime(userStats.totalListenTime),
-                    label = "Listen Time",
-                    icon = Icons.Outlined.Headphones,
-                    color = SapphoInfo
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = userStats.booksCompleted.toString(),
-                    label = "Completed",
-                    icon = Icons.Outlined.CheckCircle,
-                    color = SapphoSuccess
-                )
-            }
-
-            Spacer(modifier = Modifier.height(Spacing.S))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.S)
-            ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = userStats.currentlyListening.toString(),
-                    label = "In Progress",
-                    icon = Icons.Outlined.PlayCircle,
-                    color = SapphoWarning
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = "${userStats.currentStreak} days",
-                    label = "Streak",
-                    icon = Icons.Outlined.LocalFireDepartment,
-                    color = SapphoError
-                )
-            }
-
-            Spacer(modifier = Modifier.height(Spacing.S))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.S)
-            ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = userStats.booksStarted.toString(),
-                    label = "Started",
-                    icon = Icons.Outlined.MenuBook,
-                    color = SapphoInfo
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    value = "${userStats.activeDaysLast30}",
-                    label = "Active Days",
-                    icon = Icons.Outlined.CalendarMonth,
-                    color = SapphoIconDefault
-                )
-            }
-
-            // Top authors
-            if (userStats.topAuthors.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(Spacing.L))
-                SectionCard(
-                    title = "Top Authors",
-                    icon = Icons.Outlined.Person
-                ) {
-                    userStats.topAuthors.take(3).forEach { author ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = Spacing.XS),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+
+                // ===== STATS ROW =====
+                stats?.let { userStats ->
+                    val listenTime = formatListenTime(userStats.totalListenTime)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Spacing.M),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Listen time
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    text = listenTime.first.toString(),
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = SapphoText
+                                )
+                                Text(
+                                    text = "h",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SapphoTextMuted,
+                                    modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = listenTime.second.toString(),
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = SapphoText
+                                )
+                                Text(
+                                    text = "m",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SapphoTextMuted,
+                                    modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
+                                )
+                            }
                             Text(
-                                text = author.author,
-                                color = SapphoText,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
+                                text = "listened",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SapphoTextMuted
+                            )
+                        }
+
+                        // Divider
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = Spacing.L)
+                                .width(1.dp)
+                                .height(40.dp)
+                                .background(SapphoProgressTrack)
+                        )
+
+                        // Finished
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = userStats.booksCompleted.toString(),
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = SapphoText
                             )
                             Text(
-                                text = "${author.bookCount} books • ${formatListenTime(author.listenTime)}",
-                                color = SapphoIconDefault,
-                                style = MaterialTheme.typography.labelMedium
+                                text = "finished",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SapphoTextMuted
+                            )
+                        }
+
+                        // Divider
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = Spacing.L)
+                                .width(1.dp)
+                                .height(40.dp)
+                                .background(SapphoProgressTrack)
+                        )
+
+                        // In progress
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = userStats.currentlyListening.toString(),
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = SapphoText
+                            )
+                            Text(
+                                text = "in progress",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SapphoTextMuted
                             )
                         }
                     }
-                }
-            }
 
-            // Top genres
-            if (userStats.topGenres.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(Spacing.S))
-                SectionCard(
-                    title = "Top Genres",
-                    icon = Icons.Outlined.Category
-                ) {
-                    userStats.topGenres.take(3).forEach { genre ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = Spacing.XS),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = genre.genre,
-                                color = SapphoText,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = "${genre.bookCount} books • ${formatListenTime(genre.listenTime)}",
-                                color = SapphoIconDefault,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                    }
-                }
-            }
+                    HorizontalDivider(color = SapphoProgressTrack)
 
-            // Recent Activity
-            if (userStats.recentActivity.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(Spacing.S))
-                SectionCard(
-                    title = "Recent Activity",
-                    icon = Icons.Outlined.History
-                ) {
-                    userStats.recentActivity.take(5).forEach { item ->
+                    // ===== RECENT BOOKS =====
+                    if (userStats.recentActivity.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(Spacing.L))
+
+                        SectionTitle("Recent")
+
+                        Spacer(modifier = Modifier.height(Spacing.S))
+
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = Spacing.XS),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.S)
                         ) {
-                            // Cover image
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(SapphoProgressTrack)
-                            ) {
-                                if (item.coverImage != null && serverUrl != null) {
-                                    AsyncImage(
-                                        model = "$serverUrl/api/audiobooks/${item.id}/cover",
-                                        contentDescription = item.title,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = item.title.take(1).uppercase(),
-                                            color = SapphoIconDefault,
-                                            style = MaterialTheme.typography.titleMedium
+                            userStats.recentActivity.take(4).forEach { book ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(Spacing.XS))
+                                        .background(SapphoSurfaceLight)
+                                        .clickable { onBookClick(book.id) }
+                                ) {
+                                    if (book.coverImage != null && serverUrl != null) {
+                                        AsyncImage(
+                                            model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                                            contentDescription = book.title,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = book.title.take(1).uppercase(),
+                                                color = SapphoTextMuted,
+                                                style = MaterialTheme.typography.titleLarge
+                                            )
+                                        }
+                                    }
+
+                                    // Progress bar at bottom
+                                    if (book.duration != null && book.duration > 0) {
+                                        val progress = (book.position.toFloat() / book.duration).coerceIn(0f, 1f)
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomStart)
+                                                .fillMaxWidth(progress)
+                                                .height(3.dp)
+                                                .background(SapphoPrimary)
                                         )
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.width(Spacing.S))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = item.title,
-                                    color = SapphoText,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                item.author?.let { author ->
-                                    Text(
-                                        text = author,
-                                        color = SapphoTextMuted,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                            // Fill remaining slots if less than 4 books
+                            repeat(4 - userStats.recentActivity.take(4).size) {
+                                Box(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.XL))
+
+                // ===== ACCOUNT SECTION =====
+                SectionTitle("Account")
+
+                Spacer(modifier = Modifier.height(Spacing.S))
+
+                val textFieldColors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = SapphoPrimary,
+                    unfocusedBorderColor = SapphoProgressTrack,
+                    focusedLabelColor = SapphoPrimary,
+                    unfocusedLabelColor = SapphoTextMuted,
+                    cursorColor = SapphoPrimary,
+                    focusedTextColor = SapphoText,
+                    unfocusedTextColor = SapphoText
+                )
+
+                OutlinedTextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    label = { Text("Display Name") },
+                    placeholder = { Text(user?.username ?: "") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors,
+                    shape = RoundedCornerShape(Spacing.XS)
+                )
+
+                Spacer(modifier = Modifier.height(Spacing.S))
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    placeholder = { Text("your@email.com") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = textFieldColors,
+                    shape = RoundedCornerShape(Spacing.XS)
+                )
+
+                Spacer(modifier = Modifier.height(Spacing.M))
+
+                Button(
+                    onClick = {
+                        viewModel.updateProfileWithAvatar(
+                            displayName.ifBlank { null },
+                            email.ifBlank { null },
+                            null
+                        )
+                    },
+                    enabled = !isSaving,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = SapphoPrimary),
+                    shape = RoundedCornerShape(Spacing.XS)
+                ) {
+                    Text(if (isSaving) "Saving..." else "Save Changes")
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.XL))
+
+                // ===== SECURITY SECTION =====
+                SectionTitle("Security")
+
+                Spacer(modifier = Modifier.height(Spacing.S))
+
+                // Password change
+                if (!showPasswordSection) {
+                    OutlinedButton(
+                        onClick = { showPasswordSection = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SapphoText),
+                        shape = RoundedCornerShape(Spacing.XS)
+                    ) {
+                        Text("Change Password")
+                    }
+                } else {
+                    AnimatedVisibility(
+                        visible = showPasswordSection,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.S)
+                        ) {
+                            OutlinedTextField(
+                                value = currentPassword,
+                                onValueChange = {
+                                    currentPassword = it
+                                    passwordError = null
+                                },
+                                label = { Text("Current Password") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                visualTransformation = if (showCurrentPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { showCurrentPassword = !showCurrentPassword }) {
+                                        Icon(
+                                            imageVector = if (showCurrentPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                            contentDescription = if (showCurrentPassword) "Hide" else "Show",
+                                            tint = SapphoIconDefault
+                                        )
+                                    }
+                                },
+                                colors = textFieldColors,
+                                shape = RoundedCornerShape(Spacing.XS)
+                            )
+
+                            OutlinedTextField(
+                                value = newPassword,
+                                onValueChange = {
+                                    newPassword = it
+                                    passwordError = null
+                                },
+                                label = { Text("New Password") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                visualTransformation = if (showNewPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { showNewPassword = !showNewPassword }) {
+                                        Icon(
+                                            imageVector = if (showNewPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                            contentDescription = if (showNewPassword) "Hide" else "Show",
+                                            tint = SapphoIconDefault
+                                        )
+                                    }
+                                },
+                                colors = textFieldColors,
+                                shape = RoundedCornerShape(Spacing.XS)
+                            )
+
+                            OutlinedTextField(
+                                value = confirmPassword,
+                                onValueChange = {
+                                    confirmPassword = it
+                                    passwordError = null
+                                },
+                                label = { Text("Confirm Password") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                visualTransformation = if (showNewPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                                isError = passwordError != null,
+                                supportingText = passwordError?.let { { Text(it, color = SapphoError) } },
+                                colors = textFieldColors,
+                                shape = RoundedCornerShape(Spacing.XS)
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.S)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        showPasswordSection = false
+                                        currentPassword = ""
+                                        newPassword = ""
+                                        confirmPassword = ""
+                                        passwordError = null
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SapphoTextMuted),
+                                    shape = RoundedCornerShape(Spacing.XS)
+                                ) {
+                                    Text("Cancel")
+                                }
+                                Button(
+                                    onClick = {
+                                        when {
+                                            currentPassword.isEmpty() -> passwordError = "Enter current password"
+                                            newPassword.isEmpty() -> passwordError = "Enter new password"
+                                            newPassword.length < 6 -> passwordError = "Password must be at least 6 characters"
+                                            newPassword != confirmPassword -> passwordError = "Passwords don't match"
+                                            else -> {
+                                                viewModel.updatePassword(currentPassword, newPassword)
+                                                currentPassword = ""
+                                                newPassword = ""
+                                                confirmPassword = ""
+                                                showPasswordSection = false
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = SapphoPrimary),
+                                    shape = RoundedCornerShape(Spacing.XS)
+                                ) {
+                                    Text("Change Password")
                                 }
                             }
-                            // Progress indicator
-                            if (item.completed == 1) {
-                                Icon(
-                                    imageVector = Icons.Outlined.CheckCircle,
-                                    contentDescription = "Completed",
-                                    tint = SapphoSuccess,
-                                    modifier = Modifier.size(IconSize.Medium)
-                                )
-                            } else if (item.duration != null && item.duration > 0) {
-                                val progress = (item.position.toFloat() / item.duration).coerceIn(0f, 1f)
+                        }
+                    }
+                }
+
+                // TODO: MFA toggle would go here when backend supports it
+
+                Spacer(modifier = Modifier.height(Spacing.XL))
+
+                // ===== PLAYER SECTION =====
+                SectionTitle("Player")
+
+                Spacer(modifier = Modifier.height(Spacing.S))
+
+                // Settings button (links to Settings screen for playback preferences)
+                OutlinedButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SapphoText),
+                    shape = RoundedCornerShape(Spacing.XS)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Settings,
+                        contentDescription = null,
+                        modifier = Modifier.size(IconSize.Small)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.XS))
+                    Text("Playback Settings")
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.XL))
+
+                // ===== ABOUT SECTION =====
+                SectionTitle("About")
+
+                Spacer(modifier = Modifier.height(Spacing.S))
+
+                // Version info
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(Spacing.XS),
+                    color = SapphoSurfaceLight
+                ) {
+                    Column(modifier = Modifier.padding(Spacing.M)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "App Version",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = SapphoTextMuted
+                            )
+                            Text(
+                                text = BuildConfig.VERSION_NAME,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = SapphoText
+                            )
+                        }
+                        serverVersion?.let { version ->
+                            Spacer(modifier = Modifier.height(Spacing.XS))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
                                 Text(
-                                    text = "${(progress * 100).toInt()}%",
-                                    color = SapphoInfo,
-                                    style = MaterialTheme.typography.labelMedium
+                                    text = "Server Version",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SapphoTextMuted
+                                )
+                                Text(
+                                    text = version,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = SapphoText
                                 )
                             }
                         }
                     }
                 }
-            }
-        } ?: run {
-            // No stats available - improved empty state
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = Spacing.XL),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Headphones,
-                    contentDescription = null,
-                    tint = SapphoIconMuted,
-                    modifier = Modifier.size(IconSize.Hero)
-                )
+
                 Spacer(modifier = Modifier.height(Spacing.M))
-                Text(
-                    text = "No listening stats yet",
-                    color = SapphoTextMuted,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Spacer(modifier = Modifier.height(Spacing.XS))
-                Text(
-                    text = "Start listening to see your stats!",
-                    color = SapphoIconMuted,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
 
-        // About section
-        Spacer(modifier = Modifier.height(Spacing.L))
-
-        SectionCard(
-            title = "About",
-            icon = Icons.Outlined.Info
-        ) {
-            // App Version
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = Spacing.XS),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "App Version",
-                    color = SapphoTextMuted,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = BuildConfig.VERSION_NAME,
-                    color = SapphoText,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            // Server Version
-            serverVersion?.let { version ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = Spacing.XS),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Logout button
+                Button(
+                    onClick = onLogout,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SapphoError.copy(alpha = 0.15f),
+                        contentColor = SapphoError
+                    ),
+                    shape = RoundedCornerShape(Spacing.XS)
                 ) {
-                    Text(
-                        text = "Server Version",
-                        color = SapphoTextMuted,
-                        style = MaterialTheme.typography.bodyMedium
+                    Icon(
+                        imageVector = Icons.Outlined.Logout,
+                        contentDescription = null,
+                        modifier = Modifier.size(IconSize.Small)
                     )
-                    Text(
-                        text = version,
-                        color = SapphoText,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Spacer(modifier = Modifier.width(Spacing.XS))
+                    Text("Logout")
                 }
+
+                Spacer(modifier = Modifier.height(Spacing.XL))
             }
-
-            Spacer(modifier = Modifier.height(Spacing.XS))
-
-            // Logout button
-            Button(
-                onClick = onLogout,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SapphoError.copy(alpha = 0.15f),
-                    contentColor = SapphoError
-                ),
-                shape = RoundedCornerShape(Spacing.S)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Logout,
-                    contentDescription = null,
-                    modifier = Modifier.size(IconSize.Small + 2.dp)
-                )
-                Spacer(modifier = Modifier.width(Spacing.XS))
-                Text("Logout")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.L))
-    }
-}
-
-@Composable
-private fun StatCard(
-    modifier: Modifier = Modifier,
-    value: String,
-    label: String,
-    icon: ImageVector,
-    color: Color
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(Spacing.M),
-        color = SapphoSurfaceLight
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(Spacing.M)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(IconSize.Standard)
-            )
-            Spacer(modifier = Modifier.height(Spacing.XS))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                color = SapphoText,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = SapphoIconDefault,
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
 
 @Composable
-private fun SectionCard(
-    title: String,
-    icon: ImageVector,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(Spacing.M),
-        color = SapphoSurfaceLight
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(Spacing.M)
-                .animateContentSize()
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = Spacing.S)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = SapphoInfo,
-                    modifier = Modifier.size(IconSize.Medium)
-                )
-                Spacer(modifier = Modifier.width(Spacing.XS))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = SapphoText
-                )
-            }
-            content()
-        }
-    }
+private fun SectionTitle(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = SapphoTextMuted,
+        letterSpacing = 0.5.sp
+    )
 }
 
-private fun formatListenTime(seconds: Long): String {
-    val hours = seconds / 3600
-    val minutes = (seconds % 3600) / 60
-
-    return when {
-        hours >= 24 -> {
-            val days = hours / 24
-            val remainingHours = hours % 24
-            if (remainingHours > 0) "${days}d ${remainingHours}h" else "${days}d"
-        }
-        hours > 0 -> "${hours}h ${minutes}m"
-        minutes > 0 -> "${minutes}m"
-        else -> "${seconds}s"
-    }
+/**
+ * Format listen time to hours and minutes
+ * Returns Pair(hours, minutes)
+ */
+private fun formatListenTime(seconds: Long): Pair<Int, Int> {
+    val totalMinutes = (seconds / 60).toInt()
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return Pair(hours, minutes)
 }

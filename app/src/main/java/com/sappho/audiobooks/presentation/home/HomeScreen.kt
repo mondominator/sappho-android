@@ -127,7 +127,7 @@ fun HomeScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CloudOff,
-                        contentDescription = null,
+                        contentDescription = SapphoAccessibility.ContentDescriptions.OFFLINE,
                         tint = SapphoWarning,
                         modifier = Modifier.size(IconSize.Medium)
                     )
@@ -169,15 +169,14 @@ fun HomeScreen(
                 )
             }
             
-            // TODO: Add sync status banner back
-            // Sync Status Banner
-            // if (syncStatus.pendingCount > 0 || syncStatus.errorMessage != null) {
-            //     SyncStatusBanner(
-            //         syncStatus = syncStatus,
-            //         onTriggerSync = { viewModel.triggerManualSync() },
-            //         onDismissError = { viewModel.clearSyncError() }
-            //     )
-            // }
+            // Sync Status Banner - shows pending sync count and errors
+            if (syncStatus.pendingCount > 0 || syncStatus.errorMessage != null) {
+                SyncStatusBanner(
+                    syncStatus = syncStatus,
+                    onTriggerSync = { viewModel.triggerManualSync() },
+                    onDismissError = { viewModel.clearSyncError() }
+                )
+            }
 
             LazyColumn(
                 modifier = Modifier
@@ -320,7 +319,7 @@ fun HomeScreen(
                     ) {
                         Icon(
                             imageVector = if (isOffline) Icons.Outlined.CloudOff else Icons.Outlined.LibraryBooks,
-                            contentDescription = null,
+                            contentDescription = if (isOffline) SapphoAccessibility.ContentDescriptions.OFFLINE else "Empty library",
                             modifier = Modifier.size(IconSize.XLarge),
                             tint = SapphoIconDefault
                         )
@@ -403,7 +402,8 @@ fun AudiobookSection(
                     onToggleFavorite = { onToggleFavorite(book.id) },
                     onAddToCollection = { onAddToCollection(book.id) },
                     cardSize = cardSize,
-                    showCompletedCheckmark = showCompletedCheckmark
+                    showCompletedCheckmark = showCompletedCheckmark,
+                    modifier = Modifier.animateItem()
                 )
             }
         }
@@ -622,7 +622,12 @@ fun SyncStatusBanner(
                 syncStatus.pendingCount > 0 -> Icons.Default.Sync
                 else -> Icons.Default.CheckCircle
             },
-            contentDescription = null,
+            contentDescription = when {
+                syncStatus.errorMessage != null -> SapphoAccessibility.ContentDescriptions.SYNC_ERROR
+                syncStatus.issyncing -> SapphoAccessibility.ContentDescriptions.SYNC_IN_PROGRESS
+                syncStatus.pendingCount > 0 -> SapphoAccessibility.ContentDescriptions.SYNC_PENDING
+                else -> SapphoAccessibility.ContentDescriptions.SYNC_COMPLETE
+            },
             tint = iconTint,
             modifier = Modifier.size(IconSize.Medium)
         )

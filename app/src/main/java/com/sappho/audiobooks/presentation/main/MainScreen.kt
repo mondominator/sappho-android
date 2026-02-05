@@ -55,6 +55,11 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -236,7 +241,28 @@ fun MainScreen(
             NavHost(
                 navController = navController,
                 startDestination = Screen.Home.route,
-                modifier = Modifier.padding(paddingValues)
+                modifier = Modifier.padding(paddingValues),
+                enterTransition = {
+                    fadeIn(animationSpec = tween(200)) + slideInHorizontally(
+                        initialOffsetX = { it / 4 },
+                        animationSpec = tween(200)
+                    )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(150))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(200)) + slideInHorizontally(
+                        initialOffsetX = { -it / 4 },
+                        animationSpec = tween(200)
+                    )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(150)) + slideOutHorizontally(
+                        targetOffsetX = { it / 4 },
+                        animationSpec = tween(150)
+                    )
+                }
             ) {
             composable(Screen.Home.route) {
                 HomeScreen(
@@ -310,8 +336,12 @@ fun MainScreen(
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onLogout = onLogout,
-                    onAvatarChanged = { 
-                        viewModel.refreshProfile() 
+                    onSettingsClick = { navController.navigate(Screen.Settings.route) },
+                    onAvatarChanged = {
+                        viewModel.refreshProfile()
+                    },
+                    onBookClick = { audiobookId ->
+                        navController.navigate(Screen.AudiobookDetail.createRoute(audiobookId))
                     }
                 )
             }

@@ -813,6 +813,25 @@ fun SeriesListCard(
                         )
                     }
                 }
+                // Average rating from books in the series
+                val ratedBooks = books.mapNotNull { it.userRating ?: it.averageRating }
+                if (ratedBooks.isNotEmpty()) {
+                    val avgRating = ratedBooks.average().toFloat()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = SapphoWarning,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = String.format(java.util.Locale.US, "%.1f", avgRating),
+                            fontSize = 12.sp,
+                            color = SapphoIconDefault
+                        )
+                    }
+                }
             }
         }
 
@@ -1411,6 +1430,10 @@ fun SeriesBooksView(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Calculate average rating for the series
+                val ratedBooks = books.mapNotNull { it.userRating ?: it.averageRating }
+                val seriesAvgRating = if (ratedBooks.isNotEmpty()) ratedBooks.average().toFloat() else null
+
                 // Stats cards
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1434,6 +1457,40 @@ fun SeriesBooksView(
                         icon = Icons.Default.CheckCircle,
                         modifier = Modifier.weight(1f)
                     )
+                }
+
+                // Rating row (separate to avoid cramped layout)
+                if (seriesAvgRating != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(SapphoSurfaceLight)
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = SapphoWarning,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = String.format(java.util.Locale.US, "%.1f", seriesAvgRating),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "(${ratedBooks.size} ${if (ratedBooks.size == 1) "book" else "books"} rated)",
+                            fontSize = 13.sp,
+                            color = SapphoTextMuted
+                        )
+                    }
                 }
 
                 // Overall progress bar

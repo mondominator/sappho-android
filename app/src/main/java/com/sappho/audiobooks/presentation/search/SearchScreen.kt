@@ -118,12 +118,7 @@ fun SearchScreen(
         // Results
         when {
             isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = SapphoInfo)
-                }
+                SkeletonSearchResults()
             }
             searchQuery.isEmpty() -> {
                 // Empty state
@@ -150,33 +145,10 @@ fun SearchScreen(
                 }
             }
             results.books.isEmpty() && results.series.isEmpty() && results.authors.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = SapphoProgressTrack,
-                            modifier = Modifier.size(IconSize.XLarge)
-                        )
-                        Spacer(modifier = Modifier.height(Spacing.M))
-                        Text(
-                            text = "No Results Found",
-                            color = SapphoText,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Spacer(modifier = Modifier.height(Spacing.XS))
-                        Text(
-                            text = "Try a different search term",
-                            color = SapphoTextMuted,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
+                EmptySearchResults(
+                    query = searchQuery,
+                    onClearSearch = { viewModel.clearSearch() }
+                )
             }
             else -> {
                 LazyColumn(

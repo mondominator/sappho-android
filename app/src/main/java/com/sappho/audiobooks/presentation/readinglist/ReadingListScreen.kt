@@ -100,7 +100,7 @@ fun ReadingListScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.BookmarkAdded,
-                        contentDescription = null,
+                        contentDescription = "Empty reading list",
                         tint = SapphoInfo,
                         modifier = Modifier.size(48.dp)
                     )

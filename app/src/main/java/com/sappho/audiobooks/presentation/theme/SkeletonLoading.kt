@@ -350,3 +350,131 @@ fun SkeletonAudiobookDetail(
         )
     }
 }
+
+/**
+ * Skeleton loading for search results
+ */
+@Composable
+fun SkeletonSearchResults(
+    modifier: Modifier = Modifier,
+    showShimmer: Boolean = true
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Section header skeleton
+        SkeletonBox(
+            modifier = Modifier.width(80.dp),
+            height = 14.dp,
+            showShimmer = showShimmer
+        )
+
+        // Search result items
+        repeat(5) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Cover thumbnail
+                SkeletonBox(
+                    modifier = Modifier.size(56.dp),
+                    showShimmer = showShimmer
+                )
+
+                // Text content
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    SkeletonBox(
+                        modifier = Modifier.fillMaxWidth(0.8f),
+                        height = 16.dp,
+                        showShimmer = showShimmer
+                    )
+                    SkeletonBox(
+                        modifier = Modifier.fillMaxWidth(0.5f),
+                        height = 12.dp,
+                        showShimmer = showShimmer
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Another section
+        SkeletonBox(
+            modifier = Modifier.width(60.dp),
+            height = 14.dp,
+            showShimmer = showShimmer
+        )
+
+        repeat(3) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SkeletonCircle(size = 40.dp, showShimmer = showShimmer)
+                SkeletonBox(
+                    modifier = Modifier.weight(1f),
+                    height = 16.dp,
+                    showShimmer = showShimmer
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Skeleton loading for library grid
+ */
+@Composable
+fun SkeletonLibraryGrid(
+    modifier: Modifier = Modifier,
+    columns: Int = 3,
+    rows: Int = 4,
+    showShimmer: Boolean = true
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        repeat(rows) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                repeat(columns) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SkeletonBox(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f),
+                            showShimmer = showShimmer
+                        )
+                        SkeletonBox(
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            height = 14.dp,
+                            showShimmer = showShimmer
+                        )
+                        SkeletonBox(
+                            modifier = Modifier.fillMaxWidth(0.6f),
+                            height = 12.dp,
+                            showShimmer = showShimmer
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

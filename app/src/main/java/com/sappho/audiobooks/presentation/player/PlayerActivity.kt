@@ -154,7 +154,7 @@ fun PlayerScreen(
         if (isCastConnected) {
             while (true) {
                 castPosition = castHelper.getCurrentPosition()
-                kotlinx.coroutines.delay(1000) // Update every second
+                kotlinx.coroutines.delay(Timing.POLL_INTERVAL_MS)
             }
         }
     }
@@ -221,7 +221,7 @@ fun PlayerScreen(
                 IconButton(onClick = onMinimize) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Minimize",
+                        contentDescription = SapphoAccessibility.ContentDescriptions.MINIMIZE,
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
@@ -232,7 +232,7 @@ fun PlayerScreen(
                 IconButton(onClick = { showCastDialog = true }) {
                     Icon(
                         imageVector = Icons.Default.Cast,
-                        contentDescription = "Cast",
+                        contentDescription = if (isCastConnected) SapphoAccessibility.ContentDescriptions.CAST_CONNECTED else SapphoAccessibility.ContentDescriptions.CAST,
                         tint = if (isCastConnected) SapphoInfo else SapphoIconDefault,
                         modifier = Modifier.size(24.dp)
                     )
@@ -253,7 +253,7 @@ fun PlayerScreen(
                     }
 
                     LaunchedEffect(Unit) {
-                        kotlinx.coroutines.delay(2500)
+                        kotlinx.coroutines.delay(Timing.FEEDBACK_MEDIUM_MS)
                         isScanning = false
                     }
 
@@ -748,7 +748,7 @@ fun PlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.SkipPrevious,
-                                contentDescription = "Previous chapter",
+                                contentDescription = SapphoAccessibility.ContentDescriptions.PREVIOUS_CHAPTER,
                                 tint = if (chapters.isEmpty()) LegacyGrayDark else Color.White,
                                 modifier = Modifier
                                     .size(32.dp)
@@ -772,7 +772,7 @@ fun PlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Replay10,
-                                contentDescription = "Skip backward 10s",
+                                contentDescription = SapphoAccessibility.ContentDescriptions.SKIP_BACKWARD,
                                 tint = Color.White,
                                 modifier = Modifier
                                     .size(36.dp)
@@ -829,7 +829,7 @@ fun PlayerScreen(
                             } else {
                                 Icon(
                                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                    contentDescription = if (isPlaying) SapphoAccessibility.ContentDescriptions.PAUSE_BUTTON else SapphoAccessibility.ContentDescriptions.PLAY_BUTTON,
                                     tint = Color.White,
                                     modifier = Modifier.size(36.dp)
                                 )
@@ -852,7 +852,7 @@ fun PlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Forward10,
-                                contentDescription = "Skip forward 10s",
+                                contentDescription = SapphoAccessibility.ContentDescriptions.SKIP_FORWARD,
                                 tint = Color.White,
                                 modifier = Modifier
                                     .size(36.dp)
@@ -883,7 +883,7 @@ fun PlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.SkipNext,
-                                contentDescription = "Next chapter",
+                                contentDescription = SapphoAccessibility.ContentDescriptions.NEXT_CHAPTER,
                                 tint = if (chapters.isEmpty()) LegacyGrayDark else Color.White,
                                 modifier = Modifier
                                     .size(32.dp)
@@ -1020,7 +1020,7 @@ fun PlayerScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.List,
-                                    contentDescription = "Chapters",
+                                    contentDescription = SapphoAccessibility.ContentDescriptions.CHAPTERS,
                                     modifier = Modifier.size(24.dp),
                                     tint = LegacyBlueLight
                                 )
@@ -1052,7 +1052,7 @@ fun PlayerScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Speed,
-                                    contentDescription = "Speed",
+                                    contentDescription = SapphoAccessibility.ContentDescriptions.PLAYBACK_SPEED,
                                     modifier = Modifier.size(24.dp),
                                     tint = LegacyPurpleLight
                                 )
@@ -1083,7 +1083,7 @@ fun PlayerScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Bedtime,
-                                    contentDescription = "Sleep Timer",
+                                    contentDescription = SapphoAccessibility.ContentDescriptions.SLEEP_TIMER,
                                     modifier = Modifier.size(24.dp),
                                     tint = if (hasSleepTimer) SapphoStarFilled else SapphoWarning
                                 )

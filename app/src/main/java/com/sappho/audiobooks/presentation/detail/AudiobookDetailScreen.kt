@@ -130,6 +130,7 @@ fun AudiobookDetailScreen(
     val previousBookCompleted by viewModel.previousBookCompleted.collectAsState()
     var showRecapDialog by remember { mutableStateOf(false) }
     var isDescriptionExpanded by remember { mutableStateOf(false) }
+    var showRatingPicker by remember { mutableStateOf(false) }
 
     // Check if this audiobook is currently playing or loaded
     val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
@@ -257,7 +258,7 @@ fun AudiobookDetailScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CloudOff,
-                                contentDescription = null,
+                                contentDescription = SapphoAccessibility.ContentDescriptions.OFFLINE,
                                 tint = SapphoWarning,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -291,7 +292,7 @@ fun AudiobookDetailScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Download,
-                                    contentDescription = null,
+                                    contentDescription = "Download failed",
                                     tint = SapphoError,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -453,6 +454,11 @@ fun AudiobookDetailScreen(
 
                     // Rating Section (below cover, only when online)
                     if (!isOffline) {
+                        // Close picker on back press
+                        BackHandler(enabled = showRatingPicker) {
+                            showRatingPicker = false
+                        }
+
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Column(
@@ -461,90 +467,114 @@ fun AudiobookDetailScreen(
                                 .padding(horizontal = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Your rating stars
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                for (starIndex in 1..5) {
-                                    val isSelected = userRating != null && starIndex <= userRating!!
-
-                                    Box(
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clickable(enabled = !isUpdatingRating) {
-                                                if (userRating == starIndex) {
-                                                    viewModel.clearRating()
-                                                } else {
-                                                    viewModel.setRating(starIndex)
-                                                }
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                            contentDescription = "Rate $starIndex stars",
-                                            tint = if (isSelected) SapphoStarFilled else LegacyGrayDark,
-                                            modifier = Modifier.size(32.dp)
-                                        )
-                                    }
-                                }
-
-                                if (isUpdatingRating) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = SapphoStarFilled,
-                                        strokeWidth = 2.dp
-                                    )
-                                }
-                            }
-
-                            // Rating info text
-                            Spacer(modifier = Modifier.height(4.dp))
+                            // Main row: Average rating + Rate button
                             Row(
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (userRating != null) {
-                                    Text(
-                                        text = "Your rating",
-                                        fontSize = 12.sp,
-                                        color = SapphoIconDefault
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Tap to rate",
-                                        fontSize = 12.sp,
-                                        color = SapphoTextMuted
-                                    )
-                                }
-
+                                // Show average rating
                                 averageRating?.let { avg ->
                                     if (avg.count > 0) {
-                                        Text(
-                                            text = "  •  ",
-                                            fontSize = 12.sp,
-                                            color = LegacyGrayDark
-                                        )
                                         Icon(
                                             imageVector = Icons.Filled.Star,
                                             contentDescription = null,
                                             tint = SapphoStarFilled,
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = String.format(java.util.Locale.US, "%.1f", avg.average ?: 0f),
-                                            fontSize = 12.sp,
+                                            fontSize = 15.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = LegacyWhite
+                                            color = SapphoText
                                         )
                                         Text(
                                             text = " (${avg.count})",
-                                            fontSize = 12.sp,
-                                            color = SapphoIconDefault
+                                            fontSize = 13.sp,
+                                            color = SapphoTextMuted
                                         )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                    }
+                                }
+
+                                // Rate button - filled star if rated, outline with "Rate" if not
+                                Box(
+                                    modifier = Modifier
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (userRating != null) SapphoStarFilled.copy(alpha = 0.5f) else SapphoTextMuted.copy(alpha = 0.3f),
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .clickable { showRatingPicker = !showRatingPicker }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isUpdatingRating) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(14.dp),
+                                            color = SapphoStarFilled,
+                                            strokeWidth = 1.5.dp
+                                        )
+                                    } else if (userRating != null) {
+                                        // Rated - just show filled star
+                                        Icon(
+                                            imageVector = Icons.Filled.Star,
+                                            contentDescription = "Rated",
+                                            tint = SapphoStarFilled,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    } else {
+                                        // Not rated - show outline star + "Rate" text
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Filled.StarBorder,
+                                                contentDescription = null,
+                                                tint = SapphoTextMuted,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "Rate",
+                                                fontSize = 13.sp,
+                                                color = SapphoTextMuted
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Expandable star picker with animation
+                            SapphoAnimatedVisibility(
+                                visible = showRatingPicker,
+                                enter = SapphoAnimations.normalFadeIn + SapphoAnimations.scaleInAnimation,
+                                exit = SapphoAnimations.fastFadeOut + SapphoAnimations.scaleOutAnimation
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        for (starIndex in 1..5) {
+                                            val isSelected = userRating != null && starIndex <= userRating!!
+
+                                            Icon(
+                                                imageVector = if (isSelected) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                                contentDescription = "Rate $starIndex stars",
+                                                tint = if (isSelected) SapphoStarFilled else SapphoTextMuted.copy(alpha = 0.4f),
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .bouncyClickable(enabled = !isUpdatingRating) {
+                                                        if (userRating == starIndex) {
+                                                            viewModel.clearRating()
+                                                        } else {
+                                                            viewModel.setRating(starIndex)
+                                                            showRatingPicker = false
+                                                        }
+                                                    }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1056,57 +1086,64 @@ fun AudiobookDetailScreen(
                                 }
                             }
 
-                            // Description with inline "...more" / "less"
+                            // Description with animated expand/collapse
                             val isLongDescription = description.length > 200
-                            if (isDescriptionExpanded || !isLongDescription) {
-                                // Show full text
+
+                            Box {
                                 Text(
                                     text = description,
                                     fontSize = 16.sp,
                                     color = SapphoTextLight,
-                                    lineHeight = 28.8.sp
+                                    lineHeight = 28.8.sp,
+                                    maxLines = if (isDescriptionExpanded || !isLongDescription) Int.MAX_VALUE else 4,
+                                    overflow = TextOverflow.Clip
                                 )
-                                if (isLongDescription) {
-                                    Text(
-                                        text = "less",
-                                        fontSize = 16.sp,
-                                        color = SapphoInfo,
-                                        fontWeight = FontWeight.Medium,
+
+                                // Gradient fade overlay when collapsed
+                                if (!isDescriptionExpanded && isLongDescription) {
+                                    Box(
                                         modifier = Modifier
-                                            .padding(top = 4.dp)
-                                            .clickable { isDescriptionExpanded = false }
+                                            .matchParentSize()
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    colors = listOf(
+                                                        Color.Transparent,
+                                                        Color.Transparent,
+                                                        SapphoBackground.copy(alpha = 0.8f),
+                                                        SapphoBackground
+                                                    ),
+                                                    startY = 0f,
+                                                    endY = Float.POSITIVE_INFINITY
+                                                )
+                                            )
                                     )
                                 }
-                            } else {
-                                // Show truncated text at word boundary with "...more" inline
-                                val truncatedText = remember(description) {
-                                    val maxLength = 200
-                                    if (description.length <= maxLength) {
-                                        description
-                                    } else {
-                                        // Find last space before maxLength to avoid cutting words
-                                        val lastSpace = description.lastIndexOf(' ', maxLength)
-                                        if (lastSpace > 100) {
-                                            description.substring(0, lastSpace)
-                                        } else {
-                                            // Fallback if no good break point
-                                            description.substring(0, maxLength)
-                                        }
-                                    }
+                            }
+
+                            // Show more/less button
+                            if (isLongDescription) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { isDescriptionExpanded = !isDescriptionExpanded }
+                                        .padding(vertical = 4.dp, horizontal = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isDescriptionExpanded) "Show less" else "Show more",
+                                        fontSize = 14.sp,
+                                        color = SapphoInfo,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = if (isDescriptionExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        tint = SapphoInfo,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
-                                Text(
-                                    buildAnnotatedString {
-                                        append(truncatedText)
-                                        append(" ")
-                                        withStyle(SpanStyle(color = SapphoInfo, fontWeight = FontWeight.Medium)) {
-                                            append("...more")
-                                        }
-                                    },
-                                    fontSize = 16.sp,
-                                    color = SapphoTextLight,
-                                    lineHeight = 28.8.sp,
-                                    modifier = Modifier.clickable { isDescriptionExpanded = true }
-                                )
                             }
                         }
                     }
@@ -1893,1872 +1930,3 @@ private fun AverageRatingDisplay(
     }
 }
 
-@Composable
-fun EditMetadataDialog(
-    audiobook: com.sappho.audiobooks.domain.model.Audiobook,
-    isSaving: Boolean,
-    isSearching: Boolean,
-    isEmbedding: Boolean,
-    isFetchingChapters: Boolean,
-    searchResults: List<MetadataSearchResult>,
-    searchError: String?,
-    embedResult: String?,
-    fetchChaptersResult: String?,
-    onDismiss: () -> Unit,
-    onSave: (AudiobookUpdateRequest) -> Unit,
-    onSaveAndEmbed: (AudiobookUpdateRequest) -> Unit,
-    onSearch: (String, String) -> Unit,
-    onClearSearch: () -> Unit,
-    onFetchChapters: (String) -> Unit
-) {
-    var title by remember { mutableStateOf(audiobook.title) }
-    var subtitle by remember { mutableStateOf(audiobook.subtitle ?: "") }
-    var author by remember { mutableStateOf(audiobook.author ?: "") }
-    var narrator by remember { mutableStateOf(audiobook.narrator ?: "") }
-    var series by remember { mutableStateOf(audiobook.series ?: "") }
-    var seriesPosition by remember { mutableStateOf(audiobook.seriesPosition?.toString() ?: "") }
-    var genre by remember { mutableStateOf(audiobook.genre ?: "") }
-    var tags by remember { mutableStateOf(audiobook.tags ?: "") }
-    var publishedYear by remember { mutableStateOf(audiobook.publishYear?.toString() ?: "") }
-    var copyrightYear by remember { mutableStateOf(audiobook.copyrightYear?.toString() ?: "") }
-    var publisher by remember { mutableStateOf(audiobook.publisher ?: "") }
-    var description by remember { mutableStateOf(audiobook.description ?: "") }
-    var isbn by remember { mutableStateOf(audiobook.isbn ?: "") }
-    var asin by remember { mutableStateOf(audiobook.asin ?: "") }
-    var language by remember { mutableStateOf(audiobook.language ?: "") }
-    var bookRating by remember { mutableStateOf(audiobook.rating?.toString() ?: "") }
-    var abridged by remember { mutableStateOf((audiobook.abridged ?: 0) == 1) }
-    var coverUrl by remember { mutableStateOf("") }
-    var showSearchResults by remember { mutableStateOf(false) }
-    var selectedResultHasChapters by remember { mutableStateOf(false) }
-    var selectedResultForPreview by remember { mutableStateOf<MetadataSearchResult?>(null) }
-
-    // When search results come in, show them
-    LaunchedEffect(searchResults) {
-        if (searchResults.isNotEmpty()) {
-            showSearchResults = true
-        }
-    }
-
-    val isBusy = isSaving || isSearching || isEmbedding || isFetchingChapters
-
-    Dialog(onDismissRequest = { if (!isBusy) onDismiss() }) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.9f),
-            shape = RoundedCornerShape(16.dp),
-            color = SapphoSurfaceLight
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // Header with title and X button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Edit Metadata",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                    IconButton(
-                        onClick = onDismiss,
-                        enabled = !isBusy,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = if (!isBusy) SapphoIconDefault else LegacyGrayDark
-                        )
-                    }
-                }
-
-                // Scrollable content
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                // Embed result message
-                embedResult?.let { result ->
-                    val isSuccess = result.contains("success", ignoreCase = true)
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSuccess) SapphoSuccess.copy(alpha = 0.15f) else SapphoError.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = result,
-                            fontSize = 12.sp,
-                            color = if (isSuccess) LegacyGreenLight else LegacyRedLight,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
-
-                // Fetch chapters result message
-                fetchChaptersResult?.let { result ->
-                    val isSuccess = result.contains("success", ignoreCase = true)
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSuccess) SapphoSuccess.copy(alpha = 0.15f) else SapphoError.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = result,
-                            fontSize = 12.sp,
-                            color = if (isSuccess) LegacyGreenLight else LegacyRedLight,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
-
-                // Embedding progress indicator
-                if (isEmbedding) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = SapphoSuccess,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Embedding metadata into file...",
-                            fontSize = 12.sp,
-                            color = LegacyGreenLight
-                        )
-                    }
-                }
-
-                // Fetching chapters progress indicator
-                if (isFetchingChapters) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = LegacyPurple,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Fetching chapters from Audnexus...",
-                            fontSize = 12.sp,
-                            color = LegacyPurpleLight
-                        )
-                    }
-                }
-
-                // Lookup Button
-                Button(
-                    onClick = {
-                        onSearch(title, author)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isBusy && (title.isNotBlank() || author.isNotBlank()),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = LegacyPurple.copy(alpha = 0.15f),
-                        contentColor = LegacyPurpleLight
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    if (isSearching) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = LegacyPurpleLight,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Searching...")
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Lookup Metadata")
-                    }
-                }
-
-                // Search Results Section
-                if (showSearchResults && searchResults.isNotEmpty()) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = SapphoProgressTrack.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, LegacyPurple.copy(alpha = 0.3f))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "${searchResults.size} Results",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = LegacyPurpleLight
-                                )
-                                TextButton(
-                                    onClick = {
-                                        showSearchResults = false
-                                        onClearSearch()
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text("Hide", color = SapphoIconDefault, fontSize = 12.sp)
-                                }
-                            }
-
-                            searchResults.forEach { result ->
-                                MetadataSearchResultItem(
-                                    result = result,
-                                    onSelect = {
-                                        // Show preview dialog instead of directly applying
-                                        selectedResultForPreview = result
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Search Error
-                searchError?.let { error ->
-                    Text(
-                        text = error,
-                        fontSize = 12.sp,
-                        color = SapphoError
-                    )
-                }
-
-                Divider(color = SapphoProgressTrack)
-
-                // ===== BASIC INFO SECTION =====
-                Text(
-                    text = "Basic Info",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = SapphoIconDefault,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                // Title
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // Subtitle
-                OutlinedTextField(
-                    value = subtitle,
-                    onValueChange = { subtitle = it },
-                    label = { Text("Subtitle") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // Author
-                OutlinedTextField(
-                    value = author,
-                    onValueChange = { author = it },
-                    label = { Text("Author") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // Narrator
-                OutlinedTextField(
-                    value = narrator,
-                    onValueChange = { narrator = it },
-                    label = { Text("Narrator") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // Series row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = series,
-                        onValueChange = { series = it },
-                        label = { Text("Series") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = editTextFieldColors()
-                    )
-                    OutlinedTextField(
-                        value = seriesPosition,
-                        onValueChange = { seriesPosition = it },
-                        label = { Text("#") },
-                        modifier = Modifier.width(60.dp),
-                        singleLine = true,
-                        colors = editTextFieldColors()
-                    )
-                }
-
-                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
-
-                // ===== CLASSIFICATION SECTION =====
-                Text(
-                    text = "Classification",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = SapphoIconDefault
-                )
-
-                // Genre
-                OutlinedTextField(
-                    value = genre,
-                    onValueChange = { genre = it },
-                    label = { Text("Genre") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // Tags
-                OutlinedTextField(
-                    value = tags,
-                    onValueChange = { tags = it },
-                    label = { Text("Tags (comma-separated)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // Language
-                OutlinedTextField(
-                    value = language,
-                    onValueChange = { language = it },
-                    label = { Text("Language") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // Rating and Abridged row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = bookRating,
-                        onValueChange = { bookRating = it },
-                        label = { Text("Rating") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = editTextFieldColors()
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Checkbox(
-                            checked = abridged,
-                            onCheckedChange = { abridged = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = SapphoInfo,
-                                uncheckedColor = SapphoIconDefault
-                            )
-                        )
-                        Text(
-                            text = "Abridged",
-                            color = SapphoText,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-
-                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
-
-                // ===== PUBLISHING SECTION =====
-                Text(
-                    text = "Publishing",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = SapphoIconDefault
-                )
-
-                // Publisher
-                OutlinedTextField(
-                    value = publisher,
-                    onValueChange = { publisher = it },
-                    label = { Text("Publisher") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // Published Year and Copyright Year row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = publishedYear,
-                        onValueChange = { publishedYear = it },
-                        label = { Text("Published Year") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = editTextFieldColors()
-                    )
-                    OutlinedTextField(
-                        value = copyrightYear,
-                        onValueChange = { copyrightYear = it },
-                        label = { Text("Copyright Year") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = editTextFieldColors()
-                    )
-                }
-
-                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
-
-                // ===== IDENTIFIERS SECTION =====
-                Text(
-                    text = "Identifiers",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = SapphoIconDefault
-                )
-
-                // ISBN
-                OutlinedTextField(
-                    value = isbn,
-                    onValueChange = { isbn = it },
-                    label = { Text("ISBN") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                // ASIN with Fetch Chapters button
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = asin,
-                        onValueChange = {
-                            asin = it
-                            // Enable fetch chapters if valid ASIN format
-                            selectedResultHasChapters = it.matches(Regex("^[A-Z0-9]{10}$", RegexOption.IGNORE_CASE))
-                        },
-                        label = { Text("ASIN") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        colors = editTextFieldColors()
-                    )
-                    Button(
-                        onClick = { onFetchChapters(asin) },
-                        enabled = !isBusy && asin.isNotBlank() && asin.matches(Regex("^[A-Z0-9]{10}$", RegexOption.IGNORE_CASE)),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = LegacyPurple
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.List,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Chapters", fontSize = 12.sp)
-                    }
-                }
-
-                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
-
-                // ===== COVER SECTION =====
-                Text(
-                    text = "Cover Image",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = SapphoIconDefault
-                )
-
-                // Cover URL
-                OutlinedTextField(
-                    value = coverUrl,
-                    onValueChange = { coverUrl = it },
-                    label = { Text("Cover Image URL") },
-                    placeholder = { Text("Enter URL to download cover", color = SapphoTextMuted) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = editTextFieldColors()
-                )
-
-                if (coverUrl.isNotBlank()) {
-                    Text(
-                        text = "Cover will be downloaded from URL when saved",
-                        fontSize = 11.sp,
-                        color = SapphoSuccess,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
-                }
-
-                Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
-
-                // ===== DESCRIPTION SECTION =====
-                Text(
-                    text = "Description",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = SapphoIconDefault
-                )
-
-                // Description (multi-line)
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 100.dp),
-                    maxLines = 5,
-                    colors = editTextFieldColors()
-                )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Bottom buttons
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Save button
-                    Button(
-                        onClick = {
-                            val request = AudiobookUpdateRequest(
-                                title = title.ifBlank { null },
-                                subtitle = subtitle.ifBlank { null },
-                                author = author.ifBlank { null },
-                                narrator = narrator.ifBlank { null },
-                                series = series.ifBlank { null },
-                                seriesPosition = seriesPosition.toFloatOrNull(),
-                                genre = genre.ifBlank { null },
-                                tags = tags.ifBlank { null },
-                                publishedYear = publishedYear.toIntOrNull(),
-                                copyrightYear = copyrightYear.toIntOrNull(),
-                                publisher = publisher.ifBlank { null },
-                                description = description.ifBlank { null },
-                                isbn = isbn.ifBlank { null },
-                                asin = asin.ifBlank { null },
-                                language = language.ifBlank { null },
-                                rating = bookRating.toFloatOrNull(),
-                                abridged = if (abridged) true else null,
-                                coverUrl = coverUrl.ifBlank { null }
-                            )
-                            onSave(request)
-                        },
-                        enabled = !isBusy,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SapphoInfo
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        if (isSaving && !isEmbedding) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        Text("Save")
-                    }
-
-                    // Save & Embed button
-                    Button(
-                        onClick = {
-                            val request = AudiobookUpdateRequest(
-                                title = title.ifBlank { null },
-                                subtitle = subtitle.ifBlank { null },
-                                author = author.ifBlank { null },
-                                narrator = narrator.ifBlank { null },
-                                series = series.ifBlank { null },
-                                seriesPosition = seriesPosition.toFloatOrNull(),
-                                genre = genre.ifBlank { null },
-                                tags = tags.ifBlank { null },
-                                publishedYear = publishedYear.toIntOrNull(),
-                                copyrightYear = copyrightYear.toIntOrNull(),
-                                publisher = publisher.ifBlank { null },
-                                description = description.ifBlank { null },
-                                isbn = isbn.ifBlank { null },
-                                asin = asin.ifBlank { null },
-                                language = language.ifBlank { null },
-                                rating = bookRating.toFloatOrNull(),
-                                abridged = if (abridged) true else null,
-                                coverUrl = coverUrl.ifBlank { null }
-                            )
-                            onSaveAndEmbed(request)
-                        },
-                        enabled = !isBusy,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SapphoSuccess
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        if (isSaving && isEmbedding) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        Text("Save & Embed")
-                    }
-                }
-            }
-        }
-    }
-
-    // Metadata Preview Dialog - shows when a search result is selected
-    selectedResultForPreview?.let { result ->
-        MetadataPreviewDialog(
-            result = result,
-            currentTitle = title,
-            currentSubtitle = subtitle,
-            currentAuthor = author,
-            currentNarrator = narrator,
-            currentSeries = series,
-            currentSeriesPosition = seriesPosition,
-            currentGenre = genre,
-            currentTags = tags,
-            currentPublisher = publisher,
-            currentPublishedYear = publishedYear,
-            currentCopyrightYear = copyrightYear,
-            currentIsbn = isbn,
-            currentDescription = description,
-            currentLanguage = language,
-            currentRating = bookRating,
-            currentAsin = asin,
-            currentCoverUrl = coverUrl,
-            onDismiss = { selectedResultForPreview = null },
-            onApply = { selectedFields ->
-                // Apply only selected fields
-                if (selectedFields.contains("title")) result.title?.let { title = it }
-                if (selectedFields.contains("subtitle")) result.subtitle?.let { subtitle = it }
-                if (selectedFields.contains("author")) result.author?.let { author = it }
-                if (selectedFields.contains("narrator")) result.narrator?.let { narrator = it }
-                if (selectedFields.contains("series")) result.series?.let { series = it }
-                if (selectedFields.contains("seriesPosition")) result.seriesPosition?.let { seriesPosition = it.toString() }
-                if (selectedFields.contains("genre")) result.genre?.let { genre = it }
-                if (selectedFields.contains("tags")) result.tags?.let { tags = it }
-                if (selectedFields.contains("publisher")) result.publisher?.let { publisher = it }
-                if (selectedFields.contains("publishedYear")) result.publishedYear?.let { publishedYear = it.toString() }
-                if (selectedFields.contains("copyrightYear")) result.copyrightYear?.let { copyrightYear = it.toString() }
-                if (selectedFields.contains("isbn")) result.isbn?.let { isbn = it }
-                if (selectedFields.contains("description")) result.description?.let { description = it }
-                if (selectedFields.contains("language")) result.language?.let { language = it }
-                if (selectedFields.contains("rating")) result.rating?.let { bookRating = it.toString() }
-                if (selectedFields.contains("asin")) result.asin?.let { asin = it }
-                if (selectedFields.contains("coverUrl")) result.image?.let { coverUrl = it }
-
-                // Update chapter availability
-                selectedResultHasChapters = result.hasChapters == true && result.asin != null
-
-                selectedResultForPreview = null
-                showSearchResults = false
-            }
-        )
-    }
-}
-
-@Composable
-private fun MetadataPreviewDialog(
-    result: MetadataSearchResult,
-    currentTitle: String,
-    currentSubtitle: String,
-    currentAuthor: String,
-    currentNarrator: String,
-    currentSeries: String,
-    currentSeriesPosition: String,
-    currentGenre: String,
-    currentTags: String,
-    currentPublisher: String,
-    currentPublishedYear: String,
-    currentCopyrightYear: String,
-    currentIsbn: String,
-    currentDescription: String,
-    currentLanguage: String,
-    currentRating: String,
-    currentAsin: String,
-    currentCoverUrl: String,
-    onDismiss: () -> Unit,
-    onApply: (Set<String>) -> Unit
-) {
-    // Track which fields are selected
-    val selectedFields = remember { mutableStateMapOf<String, Boolean>() }
-
-    // Initialize with fields that have new values different from current
-    LaunchedEffect(result) {
-        if (result.title != null && result.title != currentTitle) selectedFields["title"] = true
-        if (result.subtitle != null && result.subtitle != currentSubtitle) selectedFields["subtitle"] = true
-        if (result.author != null && result.author != currentAuthor) selectedFields["author"] = true
-        if (result.narrator != null && result.narrator != currentNarrator) selectedFields["narrator"] = true
-        if (result.series != null && result.series != currentSeries) selectedFields["series"] = true
-        if (result.seriesPosition != null && result.seriesPosition.toString() != currentSeriesPosition) selectedFields["seriesPosition"] = true
-        if (result.genre != null && result.genre != currentGenre) selectedFields["genre"] = true
-        if (result.tags != null && result.tags != currentTags) selectedFields["tags"] = true
-        if (result.publisher != null && result.publisher != currentPublisher) selectedFields["publisher"] = true
-        if (result.publishedYear != null && result.publishedYear.toString() != currentPublishedYear) selectedFields["publishedYear"] = true
-        if (result.copyrightYear != null && result.copyrightYear.toString() != currentCopyrightYear) selectedFields["copyrightYear"] = true
-        if (result.isbn != null && result.isbn != currentIsbn) selectedFields["isbn"] = true
-        if (result.description != null && result.description != currentDescription) selectedFields["description"] = true
-        if (result.language != null && result.language != currentLanguage) selectedFields["language"] = true
-        if (result.rating != null && result.rating.toString() != currentRating) selectedFields["rating"] = true
-        if (result.asin != null && result.asin != currentAsin) selectedFields["asin"] = true
-        if (result.image != null && result.image != currentCoverUrl) selectedFields["coverUrl"] = true
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.85f),
-            shape = RoundedCornerShape(16.dp),
-            color = SapphoSurfaceLight
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // Header with title and X button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Apply Metadata",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = SapphoIconDefault
-                        )
-                    }
-                }
-
-                // Scrollable content
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Select fields to apply:",
-                        fontSize = 12.sp,
-                        color = SapphoIconDefault
-                    )
-
-                // Field rows with checkboxes
-                result.title?.let { newValue ->
-                    if (newValue != currentTitle) {
-                        FieldPreviewRow(
-                            fieldName = "Title",
-                            fieldKey = "title",
-                            oldValue = currentTitle.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["title"] ?: false,
-                            onSelectionChange = { selectedFields["title"] = it }
-                        )
-                    }
-                }
-
-                result.subtitle?.let { newValue ->
-                    if (newValue != currentSubtitle) {
-                        FieldPreviewRow(
-                            fieldName = "Subtitle",
-                            fieldKey = "subtitle",
-                            oldValue = currentSubtitle.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["subtitle"] ?: false,
-                            onSelectionChange = { selectedFields["subtitle"] = it }
-                        )
-                    }
-                }
-
-                result.author?.let { newValue ->
-                    if (newValue != currentAuthor) {
-                        FieldPreviewRow(
-                            fieldName = "Author",
-                            fieldKey = "author",
-                            oldValue = currentAuthor.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["author"] ?: false,
-                            onSelectionChange = { selectedFields["author"] = it }
-                        )
-                    }
-                }
-
-                result.narrator?.let { newValue ->
-                    if (newValue != currentNarrator) {
-                        FieldPreviewRow(
-                            fieldName = "Narrator",
-                            fieldKey = "narrator",
-                            oldValue = currentNarrator.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["narrator"] ?: false,
-                            onSelectionChange = { selectedFields["narrator"] = it }
-                        )
-                    }
-                }
-
-                result.series?.let { newValue ->
-                    if (newValue != currentSeries) {
-                        FieldPreviewRow(
-                            fieldName = "Series",
-                            fieldKey = "series",
-                            oldValue = currentSeries.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["series"] ?: false,
-                            onSelectionChange = { selectedFields["series"] = it }
-                        )
-                    }
-                }
-
-                result.seriesPosition?.let { newValue ->
-                    if (newValue.toString() != currentSeriesPosition) {
-                        FieldPreviewRow(
-                            fieldName = "Series #",
-                            fieldKey = "seriesPosition",
-                            oldValue = currentSeriesPosition.ifBlank { "(empty)" },
-                            newValue = newValue.toString(),
-                            isSelected = selectedFields["seriesPosition"] ?: false,
-                            onSelectionChange = { selectedFields["seriesPosition"] = it }
-                        )
-                    }
-                }
-
-                result.genre?.let { newValue ->
-                    if (newValue != currentGenre) {
-                        FieldPreviewRow(
-                            fieldName = "Genre",
-                            fieldKey = "genre",
-                            oldValue = currentGenre.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["genre"] ?: false,
-                            onSelectionChange = { selectedFields["genre"] = it }
-                        )
-                    }
-                }
-
-                result.tags?.let { newValue ->
-                    if (newValue != currentTags) {
-                        FieldPreviewRow(
-                            fieldName = "Tags",
-                            fieldKey = "tags",
-                            oldValue = currentTags.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["tags"] ?: false,
-                            onSelectionChange = { selectedFields["tags"] = it }
-                        )
-                    }
-                }
-
-                result.publisher?.let { newValue ->
-                    if (newValue != currentPublisher) {
-                        FieldPreviewRow(
-                            fieldName = "Publisher",
-                            fieldKey = "publisher",
-                            oldValue = currentPublisher.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["publisher"] ?: false,
-                            onSelectionChange = { selectedFields["publisher"] = it }
-                        )
-                    }
-                }
-
-                result.publishedYear?.let { newValue ->
-                    if (newValue.toString() != currentPublishedYear) {
-                        FieldPreviewRow(
-                            fieldName = "Published Year",
-                            fieldKey = "publishedYear",
-                            oldValue = currentPublishedYear.ifBlank { "(empty)" },
-                            newValue = newValue.toString(),
-                            isSelected = selectedFields["publishedYear"] ?: false,
-                            onSelectionChange = { selectedFields["publishedYear"] = it }
-                        )
-                    }
-                }
-
-                result.copyrightYear?.let { newValue ->
-                    if (newValue.toString() != currentCopyrightYear) {
-                        FieldPreviewRow(
-                            fieldName = "Copyright Year",
-                            fieldKey = "copyrightYear",
-                            oldValue = currentCopyrightYear.ifBlank { "(empty)" },
-                            newValue = newValue.toString(),
-                            isSelected = selectedFields["copyrightYear"] ?: false,
-                            onSelectionChange = { selectedFields["copyrightYear"] = it }
-                        )
-                    }
-                }
-
-                result.isbn?.let { newValue ->
-                    if (newValue != currentIsbn) {
-                        FieldPreviewRow(
-                            fieldName = "ISBN",
-                            fieldKey = "isbn",
-                            oldValue = currentIsbn.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["isbn"] ?: false,
-                            onSelectionChange = { selectedFields["isbn"] = it }
-                        )
-                    }
-                }
-
-                result.language?.let { newValue ->
-                    if (newValue != currentLanguage) {
-                        FieldPreviewRow(
-                            fieldName = "Language",
-                            fieldKey = "language",
-                            oldValue = currentLanguage.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["language"] ?: false,
-                            onSelectionChange = { selectedFields["language"] = it }
-                        )
-                    }
-                }
-
-                result.rating?.let { newValue ->
-                    if (newValue.toString() != currentRating) {
-                        FieldPreviewRow(
-                            fieldName = "Rating",
-                            fieldKey = "rating",
-                            oldValue = currentRating.ifBlank { "(empty)" },
-                            newValue = newValue.toString(),
-                            isSelected = selectedFields["rating"] ?: false,
-                            onSelectionChange = { selectedFields["rating"] = it }
-                        )
-                    }
-                }
-
-                result.asin?.let { newValue ->
-                    if (newValue != currentAsin) {
-                        FieldPreviewRow(
-                            fieldName = "ASIN",
-                            fieldKey = "asin",
-                            oldValue = currentAsin.ifBlank { "(empty)" },
-                            newValue = newValue,
-                            isSelected = selectedFields["asin"] ?: false,
-                            onSelectionChange = { selectedFields["asin"] = it }
-                        )
-                    }
-                }
-
-                result.image?.let { newValue ->
-                    if (newValue != currentCoverUrl) {
-                        FieldPreviewRow(
-                            fieldName = "Cover URL",
-                            fieldKey = "coverUrl",
-                            oldValue = if (currentCoverUrl.isBlank()) "(empty)" else "(current)",
-                            newValue = "(new cover)",
-                            isSelected = selectedFields["coverUrl"] ?: false,
-                            onSelectionChange = { selectedFields["coverUrl"] = it }
-                        )
-                    }
-                }
-
-                result.description?.let { newValue ->
-                    if (newValue != currentDescription) {
-                        FieldPreviewRow(
-                            fieldName = "Description",
-                            fieldKey = "description",
-                            oldValue = if (currentDescription.isBlank()) "(empty)" else "(${currentDescription.take(30)}...)",
-                            newValue = "(${newValue.take(30)}...)",
-                            isSelected = selectedFields["description"] ?: false,
-                            onSelectionChange = { selectedFields["description"] = it }
-                        )
-                    }
-                }
-
-                    if (selectedFields.isEmpty()) {
-                        Text(
-                            text = "No new values to apply - all fields match current values.",
-                            fontSize = 12.sp,
-                            color = SapphoTextMuted,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Bottom button
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = SapphoSurfaceLight
-                ) {
-                    Button(
-                        onClick = {
-                            onApply(selectedFields.filter { it.value }.keys)
-                        },
-                        enabled = selectedFields.any { it.value },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SapphoInfo
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text("Apply Selected")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FieldPreviewRow(
-    fieldName: String,
-    fieldKey: String,
-    oldValue: String,
-    newValue: String,
-    isSelected: Boolean,
-    onSelectionChange: (Boolean) -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(6.dp),
-        color = if (isSelected) SapphoInfo.copy(alpha = 0.1f) else Color.Transparent
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onSelectionChange(!isSelected) }
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = onSelectionChange,
-                colors = CheckboxDefaults.colors(
-                    checkedColor = SapphoInfo,
-                    uncheckedColor = SapphoTextMuted
-                ),
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = fieldName,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = oldValue,
-                        fontSize = 11.sp,
-                        color = SapphoError,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Text(
-                        text = " → ",
-                        fontSize = 11.sp,
-                        color = SapphoTextMuted
-                    )
-                    Text(
-                        text = newValue,
-                        fontSize = 11.sp,
-                        color = SapphoSuccess,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MetadataSearchResultItem(
-    result: MetadataSearchResult,
-    onSelect: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(6.dp),
-        color = SapphoSurfaceLight
-    ) {
-        Row(
-            modifier = Modifier.padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Cover image preview
-            if (!result.image.isNullOrBlank()) {
-                AsyncImage(
-                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                        .data(result.image)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Cover",
-                    modifier = Modifier
-                        .size(50.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                // Placeholder when no image
-                Surface(
-                    modifier = Modifier.size(50.dp),
-                    shape = RoundedCornerShape(4.dp),
-                    color = SapphoProgressTrack
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Description,
-                            contentDescription = null,
-                            tint = SapphoTextMuted,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
-
-            // Text content
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = result.title ?: "Unknown Title",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Chapter availability indicator
-                        if (result.hasChapters == true) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = LegacyPurple.copy(alpha = 0.2f)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.List,
-                                        contentDescription = null,
-                                        tint = LegacyPurpleLight,
-                                        modifier = Modifier.size(10.dp)
-                                    )
-                                    Text(
-                                        text = "Ch",
-                                        fontSize = 10.sp,
-                                        color = LegacyPurpleLight
-                                    )
-                                }
-                            }
-                        }
-                        // Source badge
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = when (result.source.lowercase()) {
-                                "audible" -> LegacyOrange.copy(alpha = 0.2f)
-                                "google" -> SapphoInfo.copy(alpha = 0.2f)
-                                else -> SapphoSuccess.copy(alpha = 0.2f)
-                            }
-                        ) {
-                            Text(
-                                text = result.source.replaceFirstChar { it.uppercase() },
-                                fontSize = 10.sp,
-                                color = when (result.source.lowercase()) {
-                                    "audible" -> SapphoWarning
-                                    "google" -> LegacyBlueLight
-                                    else -> LegacyGreenLight
-                                },
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-
-                result.author?.let { author ->
-                    Text(
-                        text = "by $author",
-                        fontSize = 12.sp,
-                        color = SapphoIconDefault,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    result.narrator?.let { narrator ->
-                        Text(
-                            text = "Narrated: $narrator",
-                            fontSize = 11.sp,
-                            color = SapphoTextMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                    }
-                    result.series?.let { series ->
-                        val seriesText = if (result.seriesPosition != null) {
-                            "$series #${result.seriesPosition}"
-                        } else {
-                            series
-                        }
-                        Text(
-                            text = seriesText,
-                            fontSize = 11.sp,
-                            color = LegacyPurple,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun editTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White,
-    unfocusedTextColor = SapphoTextLight,
-    focusedBorderColor = SapphoInfo,
-    unfocusedBorderColor = SapphoProgressTrack,
-    focusedLabelColor = SapphoInfo,
-    unfocusedLabelColor = SapphoIconDefault,
-    cursorColor = SapphoInfo
-)
-
-@Composable
-private fun ChaptersDialog(
-    chapters: List<com.sappho.audiobooks.domain.model.Chapter>,
-    audiobook: com.sappho.audiobooks.domain.model.Audiobook?,
-    currentAudiobook: com.sappho.audiobooks.domain.model.Audiobook?,
-    currentPosition: Long,
-    isAdmin: Boolean,
-    isSavingChapters: Boolean,
-    chapterSaveResult: String?,
-    isFetchingChapters: Boolean,
-    fetchChaptersResult: String?,
-    onChapterClick: (com.sappho.audiobooks.domain.model.Chapter) -> Unit,
-    onSaveChapters: (List<ChapterUpdate>) -> Unit,
-    onFetchChapters: (String) -> Unit,
-    onClearChapterSaveResult: () -> Unit,
-    onClearFetchChaptersResult: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var isEditMode by remember { mutableStateOf(false) }
-    var editedTitles by remember(chapters) {
-        mutableStateOf(chapters.associate { it.id to (it.title ?: "Chapter ${chapters.indexOf(it) + 1}") })
-    }
-    var showAsinInput by remember { mutableStateOf(false) }
-    var asinInput by remember(audiobook) { mutableStateOf(audiobook?.asin ?: "") }
-
-    val isBusy = isSavingChapters || isFetchingChapters
-
-    // Determine if this book is currently playing
-    val isCurrentBook = audiobook != null && currentAudiobook?.id == audiobook.id
-
-    // Find the current chapter index based on position
-    val currentChapterIndex = remember(chapters, currentPosition, isCurrentBook) {
-        if (!isCurrentBook || chapters.isEmpty()) -1
-        else {
-            chapters.indexOfLast { it.startTime <= currentPosition }
-        }
-    }
-
-    // LazyListState for auto-scrolling
-    val listState = rememberLazyListState()
-
-    // Auto-scroll to current chapter when dialog opens
-    LaunchedEffect(currentChapterIndex) {
-        if (currentChapterIndex > 0) {
-            // Scroll to center the current chapter
-            listState.animateScrollToItem(
-                index = maxOf(0, currentChapterIndex - 2),
-                scrollOffset = 0
-            )
-        }
-    }
-
-    // Reset edit mode when chapters change (after save/fetch)
-    LaunchedEffect(chapters) {
-        if (!isBusy) {
-            editedTitles = chapters.associate { it.id to (it.title ?: "Chapter ${chapters.indexOf(it) + 1}") }
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = { if (!isBusy) onDismiss() },
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Chapters", color = Color.White)
-                if (isAdmin && !isEditMode) {
-                    IconButton(
-                        onClick = { isEditMode = true },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit chapters",
-                            tint = SapphoInfo,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Result messages
-                chapterSaveResult?.let { result ->
-                    val isSuccess = result.contains("success", ignoreCase = true)
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSuccess) SapphoSuccess.copy(alpha = 0.15f) else SapphoError.copy(alpha = 0.15f)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = result,
-                                fontSize = 12.sp,
-                                color = if (isSuccess) LegacyGreenLight else LegacyRedLight,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(
-                                onClick = onClearChapterSaveResult,
-                                contentPadding = PaddingValues(4.dp)
-                            ) {
-                                Text("Dismiss", fontSize = 10.sp, color = SapphoIconDefault)
-                            }
-                        }
-                    }
-                }
-
-                fetchChaptersResult?.let { result ->
-                    val isSuccess = result.contains("success", ignoreCase = true)
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSuccess) SapphoSuccess.copy(alpha = 0.15f) else SapphoError.copy(alpha = 0.15f)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = result,
-                                fontSize = 12.sp,
-                                color = if (isSuccess) LegacyGreenLight else LegacyRedLight,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(
-                                onClick = onClearFetchChaptersResult,
-                                contentPadding = PaddingValues(4.dp)
-                            ) {
-                                Text("Dismiss", fontSize = 10.sp, color = SapphoIconDefault)
-                            }
-                        }
-                    }
-                }
-
-                // Admin controls when in edit mode
-                if (isAdmin && isEditMode) {
-                    // ASIN lookup section
-                    if (showAsinInput) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedTextField(
-                                value = asinInput,
-                                onValueChange = { asinInput = it },
-                                label = { Text("ASIN", fontSize = 12.sp) },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                enabled = !isBusy,
-                                colors = editTextFieldColors(),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
-                            )
-                            Button(
-                                onClick = {
-                                    if (asinInput.isNotBlank()) {
-                                        onFetchChapters(asinInput)
-                                        showAsinInput = false
-                                    }
-                                },
-                                enabled = !isBusy && asinInput.isNotBlank(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = LegacyPurple
-                                ),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                if (isFetchingChapters) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
-                                        color = Color.White,
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Text("Fetch", fontSize = 12.sp)
-                                }
-                            }
-                            TextButton(
-                                onClick = { showAsinInput = false },
-                                enabled = !isBusy
-                            ) {
-                                Text("Cancel", fontSize = 12.sp, color = SapphoIconDefault)
-                            }
-                        }
-                    } else {
-                        Button(
-                            onClick = { showAsinInput = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isBusy,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = LegacyPurple.copy(alpha = 0.15f),
-                                contentColor = LegacyPurpleLight
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Lookup Chapters from Audnexus")
-                        }
-                    }
-
-                    Divider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 4.dp))
-                }
-
-                // Chapter list
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.heightIn(max = 350.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    itemsIndexed(chapters) { index, chapter ->
-                        val isCurrentChapter = index == currentChapterIndex
-                        if (isEditMode && isAdmin) {
-                            // Edit mode - show text fields
-                            OutlinedTextField(
-                                value = editedTitles[chapter.id] ?: "",
-                                onValueChange = { newTitle ->
-                                    editedTitles = editedTitles.toMutableMap().apply {
-                                        put(chapter.id, newTitle)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                enabled = !isBusy,
-                                leadingIcon = {
-                                    Text(
-                                        text = "${index + 1}.",
-                                        color = SapphoIconDefault,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    )
-                                },
-                                trailingIcon = {
-                                    Text(
-                                        text = formatTime(chapter.startTime.toLong()),
-                                        color = SapphoIconDefault,
-                                        fontSize = 10.sp,
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    )
-                                },
-                                colors = editTextFieldColors(),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
-                            )
-                        } else {
-                            // View mode - clickable chapter with highlighting for current chapter
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isCurrentChapter) SapphoInfo.copy(alpha = 0.15f) else Color.Transparent
-                            ) {
-                                TextButton(
-                                    onClick = { onChapterClick(chapter) },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.weight(1f),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            if (isCurrentChapter) {
-                                                Icon(
-                                                    imageVector = Icons.Default.PlayArrow,
-                                                    contentDescription = "Currently playing",
-                                                    tint = SapphoInfo,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                            Text(
-                                                text = chapter.title ?: "Chapter ${index + 1}",
-                                                color = if (isCurrentChapter) SapphoInfo else Color.White,
-                                                fontWeight = if (isCurrentChapter) FontWeight.SemiBold else FontWeight.Normal,
-                                                modifier = Modifier.padding(end = 8.dp),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                        Text(
-                                            text = formatTime(chapter.startTime.toLong()),
-                                            color = if (isCurrentChapter) SapphoInfo else SapphoIconDefault,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            if (isEditMode && isAdmin) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    TextButton(
-                        onClick = {
-                            isEditMode = false
-                            // Reset to original titles
-                            editedTitles = chapters.associate { it.id to (it.title ?: "Chapter ${chapters.indexOf(it) + 1}") }
-                        },
-                        enabled = !isBusy
-                    ) {
-                        Text("Cancel", color = SapphoIconDefault)
-                    }
-                    Button(
-                        onClick = {
-                            val updates = editedTitles.map { (id, title) ->
-                                ChapterUpdate(id, title)
-                            }
-                            onSaveChapters(updates)
-                            isEditMode = false
-                        },
-                        enabled = !isBusy,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SapphoInfo
-                        )
-                    ) {
-                        if (isSavingChapters) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        Text("Save")
-                    }
-                }
-            } else {
-                TextButton(onClick = onDismiss) {
-                    Text("Close", color = SapphoInfo)
-                }
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-@Composable
-private fun AddToCollectionDialog(
-    collections: List<com.sappho.audiobooks.data.remote.Collection>,
-    bookCollections: Set<Int>,
-    isLoading: Boolean,
-    onDismiss: () -> Unit,
-    onToggleCollection: (Int) -> Unit,
-    onCreateCollection: (String) -> Unit
-) {
-    var showCreateForm by remember { mutableStateOf(false) }
-    var newCollectionName by remember { mutableStateOf("") }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = SapphoSurfaceLight
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Add to Collection",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White
-                    )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = SapphoIconDefault
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (isLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = SapphoInfo)
-                    }
-                } else {
-                    // Create new collection form or button
-                    if (showCreateForm) {
-                        Column {
-                            OutlinedTextField(
-                                value = newCollectionName,
-                                onValueChange = { newCollectionName = it },
-                                placeholder = { Text("Collection name", color = SapphoTextMuted) },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedBorderColor = SapphoInfo,
-                                    unfocusedBorderColor = SapphoProgressTrack,
-                                    cursorColor = SapphoInfo
-                                ),
-                                singleLine = true
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                TextButton(onClick = {
-                                    showCreateForm = false
-                                    newCollectionName = ""
-                                }) {
-                                    Text("Cancel", color = SapphoIconDefault)
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = {
-                                        if (newCollectionName.isNotBlank()) {
-                                            onCreateCollection(newCollectionName.trim())
-                                            newCollectionName = ""
-                                            showCreateForm = false
-                                        }
-                                    },
-                                    enabled = newCollectionName.isNotBlank(),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = SapphoInfo
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text("Create & Add")
-                                }
-                            }
-                        }
-                    } else {
-                        Button(
-                            onClick = { showCreateForm = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SapphoProgressTrack
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("New Collection")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Collections list
-                    if (collections.isEmpty()) {
-                        Text(
-                            text = "No collections yet. Create one above!",
-                            color = SapphoIconDefault,
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
-                    } else {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            collections.forEach { collection ->
-                                val isInCollection = bookCollections.contains(collection.id)
-                                Surface(
-                                    onClick = { onToggleCollection(collection.id) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isInCollection) SapphoInfo.copy(alpha = 0.15f) else SapphoProgressTrack
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = collection.name,
-                                                color = Color.White,
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                            Text(
-                                                text = "${collection.bookCount ?: 0} books",
-                                                color = SapphoIconDefault,
-                                                fontSize = 12.sp
-                                            )
-                                        }
-                                        if (isInCollection) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = "In collection",
-                                                tint = SapphoInfo,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Done button
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SapphoInfo
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Done")
-                }
-            }
-        }
-    }
-}
