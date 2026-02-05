@@ -171,11 +171,20 @@ fun AudiobookDetailScreen(
             }
         } else {
             audiobook?.let { book ->
+                // Adaptive layout for tablets
+                val screenSize = rememberScreenSize()
+                val horizontalPadding = when (screenSize) {
+                    ScreenSize.COMPACT -> 0.dp
+                    ScreenSize.MEDIUM -> 48.dp
+                    ScreenSize.EXPANDED -> 120.dp
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = 80.dp)
+                        .padding(horizontal = horizontalPadding)
                 ) {
                     // Back Button and Edit Button (admin only)
                     Row(

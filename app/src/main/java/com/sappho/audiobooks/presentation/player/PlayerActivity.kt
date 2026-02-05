@@ -614,18 +614,24 @@ fun PlayerScreen(
             }
 
             audiobook?.let { book ->
+                val isLandscapeMode = isLandscape()
+                // Smaller cover and scrollable content in landscape
+                val coverFraction = if (isLandscapeMode) 0.35f else 0.75f
+                val coverSpacing = if (isLandscapeMode) 16.dp else 32.dp
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .then(if (isLandscapeMode) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                         .padding(horizontal = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(if (isLandscapeMode) 8.dp else 16.dp))
 
-                    // Cover art
+                    // Cover art - smaller in landscape
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.75f)
+                            .fillMaxWidth(coverFraction)
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(SapphoSurfaceLight)
@@ -651,12 +657,12 @@ fun PlayerScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(coverSpacing))
 
                     // Title
                     Text(
                         text = book.title,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = if (isLandscapeMode) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
                         color = Color.White,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
