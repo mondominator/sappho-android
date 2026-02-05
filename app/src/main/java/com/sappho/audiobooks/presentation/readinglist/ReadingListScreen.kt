@@ -118,12 +118,12 @@ fun ReadingListScreen(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = AdaptiveGrid.libraryGrid,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(horizontal = AdaptiveSpacing.screenPadding),
+                horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 items(books) { book ->
