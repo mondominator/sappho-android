@@ -69,8 +69,12 @@ fun SapphoTheme(
     // Always use dark theme (Sappho is dark-themed)
     val colorScheme = DarkColorScheme
     val sapphoColors = SapphoColors()
+    val reduceMotion = rememberReduceMotion()
 
-    CompositionLocalProvider(LocalSapphoColors provides sapphoColors) {
+    CompositionLocalProvider(
+        LocalSapphoColors provides sapphoColors,
+        LocalReduceMotion provides reduceMotion
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,

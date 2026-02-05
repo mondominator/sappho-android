@@ -3,6 +3,54 @@ package com.sappho.audiobooks.presentation.theme
 import androidx.compose.ui.unit.dp
 
 /**
+ * Timing constants for animations, delays, and intervals.
+ * Use semantic names for consistent behavior.
+ */
+object Timing {
+    // Animation durations
+    /** 100ms - Micro interactions, button press feedback */
+    const val ANIMATION_FAST_MS = 100
+    /** 200ms - Standard transitions, fade effects */
+    const val ANIMATION_STANDARD_MS = 200
+    /** 300ms - Slide transitions, expanding content */
+    const val ANIMATION_MEDIUM_MS = 300
+    /** 600ms - Emphasis animations, staggered reveals */
+    const val ANIMATION_SLOW_MS = 600
+
+    // Debounce delays
+    /** 200ms - Search input debounce */
+    const val DEBOUNCE_SEARCH_MS = 200L
+    /** 500ms - Layout measurement delay */
+    const val DEBOUNCE_LAYOUT_MS = 500L
+
+    // Polling/sync intervals
+    /** 1000ms - Position updates, progress polling */
+    const val POLL_INTERVAL_MS = 1000L
+    /** 10000ms - Background sync interval */
+    const val SYNC_INTERVAL_MS = 10000L
+
+    // UI feedback delays
+    /** 1500ms - Toast/snackbar duration, marquee pause */
+    const val FEEDBACK_SHORT_MS = 1500L
+    /** 2500ms - Scanning animation, loading states */
+    const val FEEDBACK_MEDIUM_MS = 2500L
+    /** 3000ms - Success message display */
+    const val FEEDBACK_LONG_MS = 3000L
+    /** 5000ms - Extended operations feedback */
+    const val FEEDBACK_EXTENDED_MS = 5000L
+}
+
+/**
+ * Playback-related constants.
+ */
+object PlaybackDefaults {
+    /** Default skip forward/backward duration in seconds */
+    const val SKIP_DURATION_SECONDS = 10
+    /** Skip duration in milliseconds */
+    const val SKIP_DURATION_MS = SKIP_DURATION_SECONDS * 1000L
+}
+
+/**
  * Standardized spacing scale based on 4dp base unit.
  * Use semantic names for consistent visual rhythm.
  */

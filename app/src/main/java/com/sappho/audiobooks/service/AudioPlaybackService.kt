@@ -40,8 +40,10 @@ import com.sappho.audiobooks.R
 import com.sappho.audiobooks.data.remote.ProgressUpdateRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
+import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.download.DownloadManager
+import com.sappho.audiobooks.presentation.theme.Timing
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -70,6 +72,9 @@ class AudioPlaybackService : MediaLibraryService() {
 
     @Inject
     lateinit var okHttpClient: okhttp3.OkHttpClient
+
+    @Inject
+    lateinit var userPreferences: UserPreferencesRepository
 
     private var player: ExoPlayer? = null
     private var currentCoverBitmap: android.graphics.Bitmap? = null
@@ -113,6 +118,10 @@ class AudioPlaybackService : MediaLibraryService() {
 
     // Cache for audiobooks to avoid re-fetching
     private val audiobookCache = mutableMapOf<Int, Audiobook>()
+
+    // Search state for Android Auto search
+    private var lastSearchQuery: String = ""
+    private var lastSearchResults: List<MediaItem> = emptyList()
 
     private inner class BecomingNoisyReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -310,11 +319,12 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private fun initializePlayer() {
-        val skipMs = SKIP_SECONDS * 1000L
+        val skipBackMs = userPreferences.skipBackwardSeconds.value * 1000L
+        val skipForwardMs = userPreferences.skipForwardSeconds.value * 1000L
 
         player = ExoPlayer.Builder(this)
-            .setSeekBackIncrementMs(skipMs)
-            .setSeekForwardIncrementMs(skipMs)
+            .setSeekBackIncrementMs(skipBackMs)
+            .setSeekForwardIncrementMs(skipForwardMs)
             .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -382,8 +392,11 @@ class AudioPlaybackService : MediaLibraryService() {
 
         // Create command buttons for notification using standard player commands
         // This helps the notification provider recognize them as seek buttons
+        val skipBackSeconds = userPreferences.skipBackwardSeconds.value
+        val skipForwardSeconds = userPreferences.skipForwardSeconds.value
+
         val seekBackButton = CommandButton.Builder()
-            .setDisplayName("Rewind ${SKIP_SECONDS}s")
+            .setDisplayName("Rewind ${skipBackSeconds}s")
             .setIconResId(R.drawable.ic_replay_15)
             .setPlayerCommand(Player.COMMAND_SEEK_BACK)
             .build()
@@ -395,7 +408,7 @@ class AudioPlaybackService : MediaLibraryService() {
             .build()
 
         val seekForwardButton = CommandButton.Builder()
-            .setDisplayName("Forward ${SKIP_SECONDS}s")
+            .setDisplayName("Forward ${skipForwardSeconds}s")
             .setIconResId(R.drawable.ic_forward_15)
             .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
             .build()
@@ -608,6 +621,38 @@ class AudioPlaybackService : MediaLibraryService() {
             val mediaItem = mediaItems.first()
             val mediaId = mediaItem.mediaId
 
+            // Check for voice search query in request metadata
+            // This handles "Hey Google, play X on Sappho" commands
+            val searchQuery = mediaItem.requestMetadata.searchQuery
+            if (!searchQuery.isNullOrBlank()) {
+                android.util.Log.d("AutoService", "Voice search detected: $searchQuery")
+                serviceScope.launch {
+                    try {
+                        val response = api.getAudiobooks(search = searchQuery, limit = 5)
+                        if (response.isSuccessful) {
+                            val audiobooks = response.body()?.audiobooks ?: emptyList()
+                            if (audiobooks.isNotEmpty()) {
+                                val audiobook = audiobooks.first()
+                                android.util.Log.d("AutoService", "Voice search - playing: ${audiobook.title}")
+                                val startPosition = audiobook.progress?.position ?: 0
+                                val playableItem = buildPlayableMediaItem(audiobook, startPosition)
+                                future.set(mutableListOf(playableItem))
+                                loadAndPlay(audiobook, startPosition)
+                            } else {
+                                android.util.Log.w("AutoService", "Voice search - no results for: $searchQuery")
+                                future.set(mutableListOf())
+                            }
+                        } else {
+                            future.set(mutableListOf())
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("AutoService", "Voice search error", e)
+                        future.set(mutableListOf())
+                    }
+                }
+                return future
+            }
+
             // Check if it's a chapter request
             if (mediaId.contains("_chapter_")) {
                 val parts = mediaId.split("_chapter_")
@@ -681,7 +726,158 @@ class AudioPlaybackService : MediaLibraryService() {
             return future
         }
 
+        override fun onSearch(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            query: String,
+            params: LibraryParams?
+        ): ListenableFuture<LibraryResult<Void>> {
+            android.util.Log.d("AutoService", "onSearch called with query: $query")
 
+            // Store the search query for later use in onGetSearchResult
+            lastSearchQuery = query
+
+            // Perform search asynchronously and notify when results are ready
+            serviceScope.launch {
+                performSearch(query)
+                // Notify that search results are available
+                session.notifySearchResultChanged(browser, query, lastSearchResults.size, params)
+            }
+
+            return Futures.immediateFuture(LibraryResult.ofVoid())
+        }
+
+        override fun onGetSearchResult(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            query: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+            android.util.Log.d("AutoService", "onGetSearchResult called with query: $query, page: $page")
+
+            // Return cached search results
+            val startIndex = page * pageSize
+            val endIndex = minOf(startIndex + pageSize, lastSearchResults.size)
+
+            return if (startIndex < lastSearchResults.size) {
+                val pageResults = lastSearchResults.subList(startIndex, endIndex)
+                Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.copyOf(pageResults), params))
+            } else {
+                Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params))
+            }
+        }
+
+        override fun onPlaybackResumption(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            android.util.Log.d("AutoService", "onPlaybackResumption called")
+            val future = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
+
+            serviceScope.launch {
+                try {
+                    // Try to resume the last played audiobook
+                    val response = api.getInProgress(limit = 1)
+                    if (response.isSuccessful) {
+                        val audiobooks: List<Audiobook> = response.body() ?: emptyList()
+                        if (audiobooks.isNotEmpty()) {
+                            val audiobook: Audiobook = audiobooks.first()
+                            val startPosition = audiobook.progress?.position ?: 0
+                            val playableItem = buildPlayableMediaItem(audiobook, startPosition)
+
+                            future.set(MediaSession.MediaItemsWithStartPosition(
+                                listOf(playableItem),
+                                0,
+                                startPosition.toLong() * 1000 // Convert to milliseconds
+                            ))
+
+                            // Trigger actual playback
+                            loadAndPlay(audiobook, startPosition)
+                        } else {
+                            future.setException(Exception("No audiobooks to resume"))
+                        }
+                    } else {
+                        future.setException(Exception("Failed to load audiobooks"))
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("AutoService", "Error in playback resumption", e)
+                    future.setException(e)
+                }
+            }
+
+            return future
+        }
+
+    }
+
+    /**
+     * Perform search and cache results for Android Auto.
+     * Results are stored in lastSearchResults for retrieval via onGetSearchResult.
+     */
+    private suspend fun performSearch(query: String) {
+        if (query.isBlank()) {
+            lastSearchResults = emptyList()
+            return
+        }
+
+        // Check authentication
+        val serverUrl = authRepository.getServerUrlSync()
+        val token = authRepository.getTokenSync()
+        if (serverUrl.isNullOrEmpty() || token.isNullOrEmpty()) {
+            android.util.Log.w("AutoService", "Missing authentication for search")
+            lastSearchResults = emptyList()
+            return
+        }
+
+        try {
+            android.util.Log.d("AutoService", "Searching for: $query")
+            val response = api.getAudiobooks(search = query, limit = 20)
+            if (response.isSuccessful) {
+                val audiobooks = response.body()?.audiobooks ?: emptyList()
+                android.util.Log.d("AutoService", "Search found ${audiobooks.size} results for '$query'")
+
+                lastSearchResults = audiobooks.map { book ->
+                    createPlayableMediaItem(book)
+                }
+            } else {
+                android.util.Log.e("AutoService", "Search failed: ${response.code()}")
+                lastSearchResults = emptyList()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AutoService", "Exception during search", e)
+            lastSearchResults = emptyList()
+        }
+    }
+
+    /**
+     * Search and auto-play the best matching audiobook.
+     * Used by voice search ("Hey Google, play X on Sappho").
+     */
+    private fun searchAndPlayAudiobook(query: String) {
+        if (query.isBlank()) return
+
+        serviceScope.launch {
+            try {
+                android.util.Log.d("AutoService", "Voice search - searching for: $query")
+                val response = api.getAudiobooks(search = query, limit = 5)
+                if (response.isSuccessful) {
+                    val audiobooks = response.body()?.audiobooks ?: emptyList()
+                    if (audiobooks.isNotEmpty()) {
+                        // Play the best match (first result)
+                        val audiobook = audiobooks.first()
+                        android.util.Log.d("AutoService", "Voice search - playing: ${audiobook.title}")
+                        val startPosition = audiobook.progress?.position ?: 0
+                        loadAndPlay(audiobook, startPosition)
+                    } else {
+                        android.util.Log.w("AutoService", "Voice search - no results for: $query")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AutoService", "Voice search error", e)
+            }
+        }
     }
 
     private fun buildPlayableMediaItem(audiobook: Audiobook, startPosition: Int = 0): MediaItem {
@@ -1078,8 +1274,11 @@ class AudioPlaybackService : MediaLibraryService() {
             // Always seek to the target position, even if it's 0
             // This ensures consistent player state and mirrors the web player behavior
             // that always sets currentTime after the audio is ready
-            android.util.Log.d("AudioPlaybackService", "Seeking to position: ${startPosition * 1000L}ms")
-            exoPlayer.seekTo(startPosition * 1000L)
+            // Apply rewind on resume if resuming from a saved position
+            val rewindSeconds = if (startPosition > 0) userPreferences.rewindOnResumeSeconds.value else 0
+            val adjustedPosition = (startPosition - rewindSeconds).coerceAtLeast(0)
+            android.util.Log.d("AudioPlaybackService", "Seeking to position: ${adjustedPosition * 1000L}ms (rewind: ${rewindSeconds}s)")
+            exoPlayer.seekTo(adjustedPosition * 1000L)
 
             android.util.Log.d("AudioPlaybackService", "Calling play()")
             exoPlayer.play()
@@ -1087,10 +1286,16 @@ class AudioPlaybackService : MediaLibraryService() {
             // Mark the start of this playback session for progress sync delay
             playbackSessionStartTime = System.currentTimeMillis()
 
-            // Restore saved playback speed
+            // Restore saved playback speed, or use default preference if not set
             val savedSpeed = authRepository.getPlaybackSpeed()
-            exoPlayer.setPlaybackSpeed(savedSpeed)
-            playerState.updatePlaybackSpeed(savedSpeed)
+            val effectiveSpeed = if (savedSpeed == 1.0f) {
+                // No custom speed saved, use default preference
+                userPreferences.defaultPlaybackSpeed.value
+            } else {
+                savedSpeed
+            }
+            exoPlayer.setPlaybackSpeed(effectiveSpeed)
+            playerState.updatePlaybackSpeed(effectiveSpeed)
 
             startProgressSync()
 
@@ -1140,14 +1345,16 @@ class AudioPlaybackService : MediaLibraryService() {
 
     fun skipForward() {
         player?.let {
-            val newPosition = (it.currentPosition / 1000 + SKIP_SECONDS).coerceAtMost(playerState.duration.value)
+            val skipSeconds = userPreferences.skipForwardSeconds.value.toLong()
+            val newPosition = (it.currentPosition / 1000 + skipSeconds).coerceAtMost(playerState.duration.value)
             seekTo(newPosition)
         }
     }
 
     fun skipBackward() {
         player?.let {
-            val newPosition = (it.currentPosition / 1000 - SKIP_SECONDS).coerceAtLeast(0)
+            val skipSeconds = userPreferences.skipBackwardSeconds.value.toLong()
+            val newPosition = (it.currentPosition / 1000 - skipSeconds).coerceAtLeast(0)
             seekTo(newPosition)
         }
     }
@@ -1209,7 +1416,7 @@ class AudioPlaybackService : MediaLibraryService() {
         progressSyncJob?.cancel()
         progressSyncJob = serviceScope.launch {
             while (isActive) {
-                delay(10000) // Sync every 10 seconds
+                delay(Timing.SYNC_INTERVAL_MS)
                 syncProgress()
             }
         }

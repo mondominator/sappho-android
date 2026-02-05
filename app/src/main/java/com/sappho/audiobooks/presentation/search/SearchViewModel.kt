@@ -11,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.sappho.audiobooks.presentation.theme.Timing
 import javax.inject.Inject
 
 data class SearchResults(
@@ -57,7 +58,7 @@ class SearchViewModel @Inject constructor(
 
         // Debounce search
         searchJob = viewModelScope.launch {
-            delay(200) // 200ms debounce
+            delay(Timing.DEBOUNCE_SEARCH_MS)
             performSearch(query)
         }
     }

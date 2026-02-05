@@ -50,7 +50,7 @@ fun DownloadStatusBanner(
             
             Icon(
                 imageVector = Icons.Default.Download,
-                contentDescription = null,
+                contentDescription = SapphoAccessibility.ContentDescriptions.DOWNLOAD_PROGRESS,
                 tint = SapphoInfo,
                 modifier = Modifier
                     .size(IconSize.Medium)
@@ -99,7 +99,7 @@ fun DownloadStatusBanner(
             ) {
                 Icon(
                     imageVector = Icons.Default.Download,
-                    contentDescription = null,
+                    contentDescription = "Download failed",
                     tint = SapphoError,
                     modifier = Modifier.size(IconSize.Medium)
                 )

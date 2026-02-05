@@ -52,6 +52,16 @@ class UserPreferencesRepository @Inject constructor(
     private val _libraryFilterOption = MutableStateFlow(getLibraryFilterOptionSync())
     val libraryFilterOption: StateFlow<LibraryFilterOption> = _libraryFilterOption.asStateFlow()
 
+    // Playback settings
+    private val _defaultPlaybackSpeed = MutableStateFlow(getDefaultPlaybackSpeedSync())
+    val defaultPlaybackSpeed: StateFlow<Float> = _defaultPlaybackSpeed.asStateFlow()
+
+    private val _rewindOnResumeSeconds = MutableStateFlow(getRewindOnResumeSecondsSync())
+    val rewindOnResumeSeconds: StateFlow<Int> = _rewindOnResumeSeconds.asStateFlow()
+
+    private val _defaultSleepTimerMinutes = MutableStateFlow(getDefaultSleepTimerMinutesSync())
+    val defaultSleepTimerMinutes: StateFlow<Int> = _defaultSleepTimerMinutes.asStateFlow()
+
     // Skip forward options: 10s, 15s, 30s, 45s, 60s, 90s
     fun setSkipForwardSeconds(seconds: Int) {
         prefs.edit().putInt(KEY_SKIP_FORWARD, seconds).apply()
@@ -112,6 +122,36 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
+    // Default playback speed (0.5x to 3.0x)
+    fun setDefaultPlaybackSpeed(speed: Float) {
+        prefs.edit().putFloat(KEY_DEFAULT_PLAYBACK_SPEED, speed).apply()
+        _defaultPlaybackSpeed.value = speed
+    }
+
+    fun getDefaultPlaybackSpeedSync(): Float {
+        return prefs.getFloat(KEY_DEFAULT_PLAYBACK_SPEED, DEFAULT_PLAYBACK_SPEED)
+    }
+
+    // Rewind on resume (0, 5, 10, 15, 30 seconds)
+    fun setRewindOnResumeSeconds(seconds: Int) {
+        prefs.edit().putInt(KEY_REWIND_ON_RESUME, seconds).apply()
+        _rewindOnResumeSeconds.value = seconds
+    }
+
+    fun getRewindOnResumeSecondsSync(): Int {
+        return prefs.getInt(KEY_REWIND_ON_RESUME, DEFAULT_REWIND_ON_RESUME)
+    }
+
+    // Default sleep timer (0 = disabled, or minutes: 5, 10, 15, 30, 45, 60)
+    fun setDefaultSleepTimerMinutes(minutes: Int) {
+        prefs.edit().putInt(KEY_DEFAULT_SLEEP_TIMER, minutes).apply()
+        _defaultSleepTimerMinutes.value = minutes
+    }
+
+    fun getDefaultSleepTimerMinutesSync(): Int {
+        return prefs.getInt(KEY_DEFAULT_SLEEP_TIMER, DEFAULT_SLEEP_TIMER)
+    }
+
     companion object {
         private const val PREFS_NAME = "user_preferences"
         private const val KEY_SKIP_FORWARD = "skip_forward_seconds"
@@ -119,15 +159,30 @@ class UserPreferencesRepository @Inject constructor(
         private const val KEY_LIBRARY_SORT = "library_sort_option"
         private const val KEY_LIBRARY_SORT_ASC = "library_sort_ascending"
         private const val KEY_LIBRARY_FILTER = "library_filter_option"
+        private const val KEY_DEFAULT_PLAYBACK_SPEED = "default_playback_speed"
+        private const val KEY_REWIND_ON_RESUME = "rewind_on_resume_seconds"
+        private const val KEY_DEFAULT_SLEEP_TIMER = "default_sleep_timer_minutes"
 
         const val DEFAULT_SKIP_FORWARD = 15
         const val DEFAULT_SKIP_BACKWARD = 15
         val DEFAULT_LIBRARY_SORT = LibrarySortOption.TITLE
         const val DEFAULT_SORT_ASCENDING = true
         val DEFAULT_LIBRARY_FILTER = LibraryFilterOption.ALL
+        const val DEFAULT_PLAYBACK_SPEED = 1.0f
+        const val DEFAULT_REWIND_ON_RESUME = 0
+        const val DEFAULT_SLEEP_TIMER = 0
 
         // Available options for skip intervals
         val SKIP_FORWARD_OPTIONS = listOf(10, 15, 30, 45, 60, 90)
         val SKIP_BACKWARD_OPTIONS = listOf(5, 10, 15, 30)
+
+        // Available playback speed options
+        val PLAYBACK_SPEED_OPTIONS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f)
+
+        // Rewind on resume options (seconds)
+        val REWIND_ON_RESUME_OPTIONS = listOf(0, 5, 10, 15, 30)
+
+        // Sleep timer default options (minutes, 0 = disabled)
+        val SLEEP_TIMER_OPTIONS = listOf(0, 5, 10, 15, 30, 45, 60)
     }
 }

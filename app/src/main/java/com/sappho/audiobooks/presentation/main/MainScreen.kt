@@ -55,6 +55,11 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -146,49 +151,61 @@ fun MainScreen(
     val downloadManager = viewModel.downloadManager
     val downloadedBooks by downloadManager.downloadedBooks.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopBar(
-                navController = navController,
-                user = user,
-                serverUrl = serverUrl,
-                serverVersion = serverVersion,
-                cachedAvatarFile = cachedAvatarFile,
-                showUserMenu = showUserMenu,
-                onUserMenuToggle = { showUserMenu = !showUserMenu },
-                onProfileClick = {
-                    showUserMenu = false
-                    navController.navigate(Screen.Profile.route) {
-                        launchSingleTop = true
-                    }
-                },
-                onAdminClick = {
-                    showUserMenu = false
-                    navController.navigate(Screen.Admin.route) {
-                        launchSingleTop = true
-                    }
-                },
-                onLogout = {
-                    showUserMenu = false
-                    onLogout()
-                },
-                onDismissMenu = { showUserMenu = false },
-                onLogoClick = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) {
-                            inclusive = true
+    // Check if we should show navigation rail (tablets/landscape)
+    val useNavigationRail = shouldShowNavigationRail()
+
+    // Main content with conditional navigation rail
+    Row(modifier = Modifier.fillMaxSize()) {
+        // Navigation Rail for tablets/landscape
+        if (useNavigationRail) {
+            SapphoNavigationRail(navController = navController)
+        }
+
+        // Main content area
+        Scaffold(
+            topBar = {
+                TopBar(
+                    navController = navController,
+                    user = user,
+                    serverUrl = serverUrl,
+                    serverVersion = serverVersion,
+                    cachedAvatarFile = cachedAvatarFile,
+                    showUserMenu = showUserMenu,
+                    onUserMenuToggle = { showUserMenu = !showUserMenu },
+                    onProfileClick = {
+                        showUserMenu = false
+                        navController.navigate(Screen.Profile.route) {
+                            launchSingleTop = true
                         }
-                        launchSingleTop = true
-                    }
-                },
-                onDownloadsClick = {
-                    showUserMenu = false
-                    showDownloadsDialog = true
-                },
-                downloadCount = downloadedBooks.size
-            )
-        },
-        bottomBar = {
+                    },
+                    onAdminClick = {
+                        showUserMenu = false
+                        navController.navigate(Screen.Admin.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onLogout = {
+                        showUserMenu = false
+                        onLogout()
+                    },
+                    onDismissMenu = { showUserMenu = false },
+                    onLogoClick = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
+                    },
+                    onDownloadsClick = {
+                        showUserMenu = false
+                        showDownloadsDialog = true
+                    },
+                    downloadCount = downloadedBooks.size,
+                    showNavButtons = !useNavigationRail
+                )
+            },
+            bottomBar = {
             if (currentAudiobook != null) {
                 MinimizedPlayerBar(
                     playerState = viewModel.playerState,
@@ -224,7 +241,28 @@ fun MainScreen(
             NavHost(
                 navController = navController,
                 startDestination = Screen.Home.route,
-                modifier = Modifier.padding(paddingValues)
+                modifier = Modifier.padding(paddingValues),
+                enterTransition = {
+                    fadeIn(animationSpec = tween(200)) + slideInHorizontally(
+                        initialOffsetX = { it / 4 },
+                        animationSpec = tween(200)
+                    )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(150))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(200)) + slideInHorizontally(
+                        initialOffsetX = { -it / 4 },
+                        animationSpec = tween(200)
+                    )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(150)) + slideOutHorizontally(
+                        targetOffsetX = { it / 4 },
+                        animationSpec = tween(150)
+                    )
+                }
             ) {
             composable(Screen.Home.route) {
                 HomeScreen(
@@ -298,8 +336,12 @@ fun MainScreen(
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onLogout = onLogout,
-                    onAvatarChanged = { 
-                        viewModel.refreshProfile() 
+                    onSettingsClick = { navController.navigate(Screen.Settings.route) },
+                    onAvatarChanged = {
+                        viewModel.refreshProfile()
+                    },
+                    onBookClick = { audiobookId ->
+                        navController.navigate(Screen.AudiobookDetail.createRoute(audiobookId))
                     }
                 )
             }
@@ -730,6 +772,7 @@ fun MainScreen(
             )
         }
     }
+    } // Close Row
 }
 
 @Composable
@@ -1022,7 +1065,8 @@ fun TopBar(
     onDismissMenu: () -> Unit,
     onLogoClick: () -> Unit,
     onDownloadsClick: () -> Unit,
-    downloadCount: Int
+    downloadCount: Int,
+    showNavButtons: Boolean = true
 ) {
     val appVersion = BuildConfig.VERSION_NAME
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -1052,43 +1096,48 @@ fun TopBar(
                     .clickable(onClick = onLogoClick)
             )
 
-            // Center Navigation Buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val navItems = listOf(
-                    Triple(Screen.Home, Icons.Default.Home, "Home"),
-                    Triple(Screen.Library, Icons.Default.MenuBook, "Library"),
-                    Triple(Screen.Search, Icons.Default.Search, "Search")
-                )
+            // Center Navigation Buttons (hidden when NavigationRail is shown)
+            if (showNavButtons) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val navItems = listOf(
+                        Triple(Screen.Home, Icons.Default.Home, "Home"),
+                        Triple(Screen.Library, Icons.Default.MenuBook, "Library"),
+                        Triple(Screen.Search, Icons.Default.Search, "Search")
+                    )
 
-                navItems.forEach { (screen, icon, label) ->
-                    IconButton(
-                        onClick = {
-                            // Use base route for Library (without parameters)
-                            val route = when (screen) {
-                                Screen.Library -> Screen.Library.baseRoute
-                                else -> screen.route
-                            }
-                            navController.navigate(route) {
-                                // Pop up to home to avoid building up a large back stack
-                                popUpTo(Screen.Home.route) {
-                                    saveState = false
+                    navItems.forEach { (screen, icon, label) ->
+                        IconButton(
+                            onClick = {
+                                // Use base route for Library (without parameters)
+                                val route = when (screen) {
+                                    Screen.Library -> Screen.Library.baseRoute
+                                    else -> screen.route
                                 }
-                                launchSingleTop = true
-                            }
-                        },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = label,
-                            tint = SapphoIconDefault,
-                            modifier = Modifier.size(24.dp)
-                        )
+                                navController.navigate(route) {
+                                    // Pop up to home to avoid building up a large back stack
+                                    popUpTo(Screen.Home.route) {
+                                        saveState = false
+                                    }
+                                    launchSingleTop = true
+                                }
+                            },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = label,
+                                tint = SapphoIconDefault,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
+            } else {
+                // Spacer to maintain layout when nav buttons are hidden
+                Spacer(modifier = Modifier.weight(1f))
             }
 
             // User Avatar
@@ -1234,6 +1283,71 @@ fun UserMenuItem(
             color = SapphoTextLight,
             style = MaterialTheme.typography.bodyMedium
         )
+    }
+}
+
+/**
+ * Navigation Rail for tablet/landscape layouts
+ */
+@Composable
+fun SapphoNavigationRail(
+    navController: NavHostController,
+    modifier: Modifier = Modifier
+) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    NavigationRail(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(SapphoSurface),
+        containerColor = SapphoSurface,
+        contentColor = SapphoText
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Navigation items
+        val navItems = listOf(
+            Triple(Screen.Home, Icons.Default.Home, "Home"),
+            Triple(Screen.Library, Icons.Default.MenuBook, "Library"),
+            Triple(Screen.Search, Icons.Default.Search, "Search")
+        )
+
+        navItems.forEach { (screen, icon, label) ->
+            val route = when (screen) {
+                Screen.Library -> Screen.Library.baseRoute
+                else -> screen.route
+            }
+            val isSelected = when (screen) {
+                Screen.Library -> currentRoute?.startsWith("library") == true
+                else -> currentRoute == screen.route
+            }
+
+            NavigationRailItem(
+                selected = isSelected,
+                onClick = {
+                    navController.navigate(route) {
+                        popUpTo(Screen.Home.route) { saveState = false }
+                        launchSingleTop = true
+                    }
+                },
+                icon = {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor = SapphoInfo,
+                    selectedTextColor = SapphoInfo,
+                    unselectedIconColor = SapphoIconDefault,
+                    unselectedTextColor = SapphoTextMuted,
+                    indicatorColor = SapphoInfo.copy(alpha = 0.15f)
+                )
+            )
+        }
     }
 }
 

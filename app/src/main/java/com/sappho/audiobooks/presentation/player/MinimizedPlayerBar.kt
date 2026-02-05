@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import com.sappho.audiobooks.presentation.theme.*
+import com.sappho.audiobooks.presentation.theme.Timing
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -62,7 +63,7 @@ fun MinimizedPlayerBar(
         if (isCastConnected) {
             while (true) {
                 castPosition = castHelper.getCurrentPosition()
-                delay(1000)
+                delay(Timing.POLL_INTERVAL_MS)
             }
         }
     }
@@ -175,7 +176,7 @@ fun MinimizedPlayerBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Replay10,
-                        contentDescription = "Seek back 10 seconds",
+                        contentDescription = SapphoAccessibility.ContentDescriptions.SKIP_BACKWARD,
                         tint = SapphoIconDefault,
                         modifier = Modifier.size(32.dp)
                     )
@@ -263,7 +264,7 @@ fun MinimizedPlayerBar(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = if (isPlaying) SapphoAccessibility.ContentDescriptions.PAUSE_BUTTON else SapphoAccessibility.ContentDescriptions.PLAY_BUTTON,
                         tint = Color.White,
                         modifier = Modifier.size(36.dp)
                     )
@@ -283,7 +284,7 @@ fun MinimizedPlayerBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Forward10,
-                        contentDescription = "Skip forward 10 seconds",
+                        contentDescription = SapphoAccessibility.ContentDescriptions.SKIP_FORWARD,
                         tint = SapphoIconDefault,
                         modifier = Modifier.size(32.dp)
                     )
@@ -319,7 +320,7 @@ fun MarqueeText(
 
     // Start scrolling after a short delay to let layout complete
     LaunchedEffect(text) {
-        delay(500) // Wait for layout
+        delay(Timing.DEBOUNCE_LAYOUT_MS)
         while (true) {
             if (scrollState.maxValue > 0) {
                 // Scroll to end
@@ -330,7 +331,7 @@ fun MarqueeText(
                         easing = LinearEasing
                     )
                 )
-                delay(1500) // Pause at end
+                delay(Timing.FEEDBACK_SHORT_MS) // Pause at end
                 // Scroll back to start
                 scrollState.animateScrollTo(
                     0,
@@ -339,9 +340,9 @@ fun MarqueeText(
                         easing = LinearEasing
                     )
                 )
-                delay(1500) // Pause at start
+                delay(Timing.FEEDBACK_SHORT_MS) // Pause at start
             } else {
-                delay(500) // Check again later
+                delay(Timing.DEBOUNCE_LAYOUT_MS) // Check again later
             }
         }
     }
