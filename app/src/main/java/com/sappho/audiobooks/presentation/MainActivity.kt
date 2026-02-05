@@ -6,6 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -16,6 +19,7 @@ import com.sappho.audiobooks.presentation.components.UpdateAvailableDialog
 import com.sappho.audiobooks.presentation.components.UpdateDownloadingDialog
 import com.sappho.audiobooks.presentation.components.UpdateReadyDialog
 import com.sappho.audiobooks.presentation.components.UpdateFailedDialog
+import com.sappho.audiobooks.presentation.theme.LocalWindowSizeClass
 import com.sappho.audiobooks.presentation.theme.SapphoTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -44,10 +48,14 @@ class MainActivity : ComponentActivity() {
         val series = intent.getStringExtra("SERIES")
 
         setContent {
-            SapphoTheme {
-                val updateState by inAppUpdateManager.updateState.collectAsState()
+            @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
+            val windowSizeClass = calculateWindowSizeClass(this)
 
-                Surface(
+            CompositionLocalProvider(LocalWindowSizeClass provides windowSizeClass) {
+                SapphoTheme {
+                    val updateState by inAppUpdateManager.updateState.collectAsState()
+
+                    Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
@@ -96,6 +104,7 @@ class MainActivity : ComponentActivity() {
                         else -> { /* No dialog for None or Installing states */ }
                     }
                 }
+            }
             }
         }
     }

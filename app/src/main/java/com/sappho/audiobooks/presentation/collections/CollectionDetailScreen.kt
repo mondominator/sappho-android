@@ -229,10 +229,10 @@ fun CollectionDetailScreen(
                 }
                 else -> {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        columns = AdaptiveGrid.audiobookGrid,
+                        contentPadding = PaddingValues(AdaptiveSpacing.screenPadding),
+                        horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                        verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(collection?.books ?: emptyList()) { book ->

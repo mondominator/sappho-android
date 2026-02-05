@@ -2944,11 +2944,11 @@ fun AllBooksView(
                 }
             }
 
-            // Books Grid
+            // Books Grid (adaptive for tablets)
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                columns = AdaptiveGrid.libraryGrid,
+                horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(sortedBooks.size) { index ->

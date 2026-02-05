@@ -212,10 +212,10 @@ fun CollectionsScreen(
                 }
                 else -> {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        columns = AdaptiveGrid.categoryGrid,
+                        contentPadding = PaddingValues(AdaptiveSpacing.screenPadding),
+                        horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                        verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(collections) { collection ->
