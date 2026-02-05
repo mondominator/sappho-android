@@ -29,8 +29,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.debugInspectorInfo
 import androidx.compose.ui.semantics.Role
+import android.provider.Settings
+
+/**
+ * CompositionLocal for reduce motion preference
+ */
+val LocalReduceMotion = compositionLocalOf { false }
+
+/**
+ * Check if system "reduce motion" / "remove animations" setting is enabled
+ */
+@Composable
+fun rememberReduceMotion(): Boolean {
+    val context = LocalContext.current
+    return remember {
+        try {
+            val scale = Settings.Global.getFloat(
+                context.contentResolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            )
+            scale == 0f
+        } catch (e: Exception) {
+            false
+        }
+    }
+}
 
 /**
  * Common animation specifications used throughout the app
@@ -74,7 +101,8 @@ object SapphoAnimations {
 }
 
 /**
- * Animated visibility with common enter/exit animations
+ * Animated visibility with common enter/exit animations.
+ * Respects system "reduce motion" setting by using instant transitions.
  */
 @Composable
 fun SapphoAnimatedVisibility(
@@ -84,11 +112,13 @@ fun SapphoAnimatedVisibility(
     exit: androidx.compose.animation.ExitTransition = SapphoAnimations.fastFadeOut + SapphoAnimations.scaleOutAnimation,
     content: @Composable AnimatedVisibilityScope.() -> Unit
 ) {
+    val reduceMotion = LocalReduceMotion.current
+
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = enter,
-        exit = exit,
+        enter = if (reduceMotion) fadeIn(animationSpec = tween(0)) else enter,
+        exit = if (reduceMotion) fadeOut(animationSpec = tween(0)) else exit,
         content = content
     )
 }
@@ -112,7 +142,8 @@ fun SlideInFromBottomAnimatedVisibility(
 }
 
 /**
- * Bouncy clickable modifier with scale animation
+ * Bouncy clickable modifier with scale animation.
+ * Respects system "reduce motion" setting.
  */
 fun Modifier.bouncyClickable(
     enabled: Boolean = true,
@@ -128,18 +159,23 @@ fun Modifier.bouncyClickable(
         properties["onClick"] = onClick
     }
 ) {
+    val reduceMotion = LocalReduceMotion.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    
+
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
+        targetValue = if (isPressed && !reduceMotion) 0.95f else 1f,
+        animationSpec = if (reduceMotion) {
+            tween(0)
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessHigh
+            )
+        },
         label = "scale"
     )
-    
+
     this
         .scale(scale)
         .clickable(

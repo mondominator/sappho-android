@@ -238,7 +238,7 @@ fun AnimatedAudiobookIllustration(
         
         // Background circle
         drawCircle(
-            color = Color(0xFF3B82F6),
+            color = SapphoInfo,
             radius = radius * pulse,
             center = center,
             alpha = 0.1f
@@ -246,7 +246,7 @@ fun AnimatedAudiobookIllustration(
         
         // Rotating book icon representation
         drawArc(
-            color = Color(0xFF3B82F6),
+            color = SapphoInfo,
             startAngle = rotation,
             sweepAngle = 60f,
             useCenter = false,
@@ -263,7 +263,7 @@ fun AnimatedAudiobookIllustration(
         
         // Central dot
         drawCircle(
-            color = Color(0xFF3B82F6),
+            color = SapphoInfo,
             radius = 6.dp.toPx(),
             center = center
         )
@@ -324,7 +324,7 @@ fun AnimatedMusicWaves(
             val height = baseHeight + (size.dp.toPx() * 0.3f * amplitude)
             
             drawRect(
-                color = Color(0xFF3B82F6),
+                color = SapphoInfo,
                 topLeft = Offset(x - 4.dp.toPx(), center.y - height / 2),
                 size = Size(8.dp.toPx(), height),
                 alpha = 0.7f
