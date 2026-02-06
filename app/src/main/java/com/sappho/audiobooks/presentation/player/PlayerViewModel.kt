@@ -63,10 +63,12 @@ class PlayerViewModel @Inject constructor(
             if (book == null) {
                 val downloadedBook = downloadManager.getDownloadedBook(audiobookId)
                 book = downloadedBook?.audiobook
-                // If we're using downloaded data and no position was passed, use the stored progress
-                if (actualStartPosition == 0 && book?.progress != null) {
-                    actualStartPosition = book.progress!!.position
-                }
+            }
+
+            // If no explicit position was passed, use the book's saved progress
+            // This applies whether we got the book from server or from downloaded data
+            if (actualStartPosition == 0 && book?.progress != null) {
+                actualStartPosition = book.progress!!.position
             }
 
             _audiobook.value = book
