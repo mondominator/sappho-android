@@ -29,6 +29,9 @@ class PlayerState @Inject constructor() {
     private val _sleepTimerRemaining = MutableStateFlow<Long?>(null)
     val sleepTimerRemaining: StateFlow<Long?> = _sleepTimerRemaining
 
+    private val _bufferedPosition = MutableStateFlow(0L)
+    val bufferedPosition: StateFlow<Long> = _bufferedPosition
+
     fun updateAudiobook(audiobook: Audiobook?) {
         _currentAudiobook.value = audiobook
     }
@@ -57,6 +60,10 @@ class PlayerState @Inject constructor() {
         _sleepTimerRemaining.value = remaining
     }
 
+    fun updateBufferedPosition(position: Long) {
+        _bufferedPosition.value = position
+    }
+
     fun clear() {
         _currentAudiobook.value = null
         _isPlaying.value = false
@@ -65,5 +72,6 @@ class PlayerState @Inject constructor() {
         _isLoading.value = false
         _playbackSpeed.value = 1.0f
         _sleepTimerRemaining.value = null
+        _bufferedPosition.value = 0L
     }
 }
