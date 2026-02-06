@@ -321,10 +321,22 @@ class AudioPlaybackService : MediaLibraryService() {
     private fun initializePlayer() {
         val skipBackMs = userPreferences.skipBackwardSeconds.value * 1000L
         val skipForwardMs = userPreferences.skipForwardSeconds.value * 1000L
+        val bufferSizeMs = userPreferences.bufferSizeSeconds.value * 1000
+
+        // Configure buffer based on user preferences
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs */ 15000,  // Minimum buffer before playback starts
+                /* maxBufferMs */ bufferSizeMs,  // Maximum buffer size from settings
+                /* bufferForPlaybackMs */ 2500,  // Buffer required to start playback
+                /* bufferForPlaybackAfterRebufferMs */ 5000  // Buffer after rebuffer
+            )
+            .build()
 
         player = ExoPlayer.Builder(this)
             .setSeekBackIncrementMs(skipBackMs)
             .setSeekForwardIncrementMs(skipForwardMs)
+            .setLoadControl(loadControl)
             .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -1402,6 +1414,7 @@ class AudioPlaybackService : MediaLibraryService() {
             while (isActive) {
                 player?.let {
                     playerState.updatePosition(it.currentPosition / 1000)
+                    playerState.updateBufferedPosition(it.contentBufferedPosition / 1000)
                 }
                 delay(500)
             }

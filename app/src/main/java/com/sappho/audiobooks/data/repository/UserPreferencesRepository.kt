@@ -62,6 +62,14 @@ class UserPreferencesRepository @Inject constructor(
     private val _defaultSleepTimerMinutes = MutableStateFlow(getDefaultSleepTimerMinutesSync())
     val defaultSleepTimerMinutes: StateFlow<Int> = _defaultSleepTimerMinutes.asStateFlow()
 
+    // Buffer size setting
+    private val _bufferSizeSeconds = MutableStateFlow(getBufferSizeSecondsSync())
+    val bufferSizeSeconds: StateFlow<Int> = _bufferSizeSeconds.asStateFlow()
+
+    // Show chapter progress setting
+    private val _showChapterProgress = MutableStateFlow(getShowChapterProgressSync())
+    val showChapterProgress: StateFlow<Boolean> = _showChapterProgress.asStateFlow()
+
     // Skip forward options: 10s, 15s, 30s, 45s, 60s, 90s
     fun setSkipForwardSeconds(seconds: Int) {
         prefs.edit().putInt(KEY_SKIP_FORWARD, seconds).apply()
@@ -152,6 +160,26 @@ class UserPreferencesRepository @Inject constructor(
         return prefs.getInt(KEY_DEFAULT_SLEEP_TIMER, DEFAULT_SLEEP_TIMER)
     }
 
+    // Buffer size (seconds)
+    fun setBufferSizeSeconds(seconds: Int) {
+        prefs.edit().putInt(KEY_BUFFER_SIZE, seconds).apply()
+        _bufferSizeSeconds.value = seconds
+    }
+
+    fun getBufferSizeSecondsSync(): Int {
+        return prefs.getInt(KEY_BUFFER_SIZE, DEFAULT_BUFFER_SIZE)
+    }
+
+    // Show chapter progress
+    fun setShowChapterProgress(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_CHAPTER_PROGRESS, show).apply()
+        _showChapterProgress.value = show
+    }
+
+    fun getShowChapterProgressSync(): Boolean {
+        return prefs.getBoolean(KEY_SHOW_CHAPTER_PROGRESS, DEFAULT_SHOW_CHAPTER_PROGRESS)
+    }
+
     companion object {
         private const val PREFS_NAME = "user_preferences"
         private const val KEY_SKIP_FORWARD = "skip_forward_seconds"
@@ -162,6 +190,8 @@ class UserPreferencesRepository @Inject constructor(
         private const val KEY_DEFAULT_PLAYBACK_SPEED = "default_playback_speed"
         private const val KEY_REWIND_ON_RESUME = "rewind_on_resume_seconds"
         private const val KEY_DEFAULT_SLEEP_TIMER = "default_sleep_timer_minutes"
+        private const val KEY_BUFFER_SIZE = "buffer_size_seconds"
+        private const val KEY_SHOW_CHAPTER_PROGRESS = "show_chapter_progress"
 
         const val DEFAULT_SKIP_FORWARD = 15
         const val DEFAULT_SKIP_BACKWARD = 15
@@ -171,6 +201,8 @@ class UserPreferencesRepository @Inject constructor(
         const val DEFAULT_PLAYBACK_SPEED = 1.0f
         const val DEFAULT_REWIND_ON_RESUME = 0
         const val DEFAULT_SLEEP_TIMER = 0
+        const val DEFAULT_BUFFER_SIZE = 60  // 1 minute default
+        const val DEFAULT_SHOW_CHAPTER_PROGRESS = false
 
         // Available options for skip intervals
         val SKIP_FORWARD_OPTIONS = listOf(10, 15, 30, 45, 60, 90)
@@ -184,5 +216,17 @@ class UserPreferencesRepository @Inject constructor(
 
         // Sleep timer default options (minutes, 0 = disabled)
         val SLEEP_TIMER_OPTIONS = listOf(0, 5, 10, 15, 30, 45, 60)
+
+        // Buffer size options (seconds)
+        val BUFFER_SIZE_OPTIONS = listOf(30, 60, 120, 300, 600, 1800, 3600, 7200, 10800)
+
+        // Helper function to format buffer size for display
+        fun formatBufferSize(seconds: Int): String {
+            return when {
+                seconds < 60 -> "${seconds}s"
+                seconds < 3600 -> "${seconds / 60} min"
+                else -> "${seconds / 3600} hr"
+            }
+        }
     }
 }

@@ -45,6 +45,8 @@ fun SettingsScreen(
     val defaultPlaybackSpeed by viewModel.userPreferences.defaultPlaybackSpeed.collectAsState()
     val rewindOnResumeSeconds by viewModel.userPreferences.rewindOnResumeSeconds.collectAsState()
     val defaultSleepTimerMinutes by viewModel.userPreferences.defaultSleepTimerMinutes.collectAsState()
+    val bufferSizeSeconds by viewModel.userPreferences.bufferSizeSeconds.collectAsState()
+    val showChapterProgress by viewModel.userPreferences.showChapterProgress.collectAsState()
 
     // Edit mode state
     var isEditMode by remember { mutableStateOf(false) }
@@ -195,6 +197,28 @@ fun SettingsScreen(
                             (if (it == 0) "Off" else "$it min") to it
                         },
                         onOptionSelected = { viewModel.userPreferences.setDefaultSleepTimerMinutes(it) }
+                    )
+
+                    HorizontalDivider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 8.dp))
+
+                    // Buffer Size
+                    SettingsDropdown(
+                        label = "Buffer Size",
+                        value = UserPreferencesRepository.formatBufferSize(bufferSizeSeconds),
+                        options = UserPreferencesRepository.BUFFER_SIZE_OPTIONS.map {
+                            UserPreferencesRepository.formatBufferSize(it) to it
+                        },
+                        onOptionSelected = { viewModel.userPreferences.setBufferSizeSeconds(it) }
+                    )
+
+                    HorizontalDivider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 8.dp))
+
+                    // Show Chapter Progress Toggle
+                    SettingsToggle(
+                        label = "Show Chapter Progress",
+                        subtitle = "Display progress within chapter instead of whole book",
+                        checked = showChapterProgress,
+                        onCheckedChange = { viewModel.userPreferences.setShowChapterProgress(it) }
                     )
                 }
 
@@ -613,5 +637,47 @@ private fun <T> SettingsDropdown(
                 } else null
             )
         }
+    }
+}
+
+@Composable
+private fun SettingsToggle(
+    label: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                color = Color.White,
+                style = MaterialTheme.typography.titleSmall
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    color = SapphoTextMuted,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = SapphoInfo,
+                uncheckedThumbColor = SapphoIconDefault,
+                uncheckedTrackColor = SapphoProgressTrack
+            )
+        )
     }
 }
