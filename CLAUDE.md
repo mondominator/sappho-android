@@ -459,6 +459,24 @@ app/src/test/java/
 - Wait for user testing before shipping/merging
 - Never bypass merge rules or force push to main
 
+### Version Bumping for Play Store Deploys
+
+**CRITICAL: Every merge to main triggers a Play Store deploy. The deploy will FAIL if the version code hasn't been incremented.**
+
+Before merging a PR to main:
+1. Check if a version bump commit is needed
+2. If the PR doesn't include a version bump, add one BEFORE or AFTER merging
+3. Bump both `versionCode` (increment by 1) and `versionName` in `app/build.gradle.kts`
+
+After merging to main:
+1. **Verify BOTH workflows succeed:**
+   - `Build and Release APK` - builds and tests the code
+   - `Deploy to Play Store` - uploads to Play Store internal testing
+2. Check with: `gh run list --limit 4` to see both workflows
+3. If Play Store deploy fails with "Version code already used", bump the version and push
+
+**Common mistake**: Saying "merged and done" after only checking the build CI, without verifying the Play Store deploy workflow.
+
 ## Remote Server Access (Unraid)
 
 The production Sappho server runs on an Unraid server accessible via `ssh root@192.168.86.151`.
