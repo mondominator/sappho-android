@@ -8,7 +8,6 @@ import com.sappho.audiobooks.download.DownloadManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -59,8 +58,8 @@ class SyncStatusManager @Inject constructor(
                     updateSyncStatus()
                 }
 
-                // Only process completed states once per work run to avoid
-                // re-setting errors that the user has dismissed
+                // Only process terminal states once per work run to avoid
+                // re-handling states the user has already seen
                 val workRunId = workInfo?.id
                 if (workRunId != null && workRunId != lastProcessedWorkRunId) {
                     when (workInfo.state) {
@@ -77,11 +76,9 @@ class SyncStatusManager @Inject constructor(
                             )
                         }
                         WorkInfo.State.CANCELLED -> {
+                            // Cancellation is expected when using ExistingWorkPolicy.REPLACE.
+                            // Don't treat it as an error - just mark as processed.
                             lastProcessedWorkRunId = workRunId
-                            updateSyncStatus(
-                                lastSyncSuccess = false,
-                                errorMessage = "Sync was cancelled"
-                            )
                         }
                         else -> {
                             // Running, enqueued, or blocked - no action needed yet
@@ -114,6 +111,8 @@ class SyncStatusManager @Inject constructor(
     
     fun triggerSync() {
         Log.d(TAG, "Manually triggering sync")
+        // Clear any stale error from previous runs before starting new sync
+        _syncStatus.value = _syncStatus.value.copy(errorMessage = null, lastSyncSuccess = true)
         ProgressSyncWorker.enqueue(context)
         updateSyncStatus()
     }
