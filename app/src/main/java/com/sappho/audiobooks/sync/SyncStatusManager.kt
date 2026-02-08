@@ -58,30 +58,37 @@ class SyncStatusManager @Inject constructor(
                     updateSyncStatus()
                 }
 
-                // Only process terminal states once per work run to avoid
-                // re-handling states the user has already seen
                 val workRunId = workInfo?.id
                 if (workRunId != null && workRunId != lastProcessedWorkRunId) {
-                    when (workInfo.state) {
-                        WorkInfo.State.SUCCEEDED -> {
-                            lastProcessedWorkRunId = workRunId
+                    if (lastProcessedWorkRunId == null) {
+                        // First observation after app launch - record the ID but
+                        // don't show errors from stale WorkManager state. Only
+                        // acknowledge success to clear any leftover UI state.
+                        lastProcessedWorkRunId = workRunId
+                        if (workInfo.state == WorkInfo.State.SUCCEEDED) {
                             _lastSyncTime.value = System.currentTimeMillis()
                             updateSyncStatus(lastSyncSuccess = true)
                         }
-                        WorkInfo.State.FAILED -> {
-                            lastProcessedWorkRunId = workRunId
-                            updateSyncStatus(
-                                lastSyncSuccess = false,
-                                errorMessage = "Sync failed. Will retry when network is available."
-                            )
-                        }
-                        WorkInfo.State.CANCELLED -> {
-                            // Cancellation is expected when using ExistingWorkPolicy.REPLACE.
-                            // Don't treat it as an error - just mark as processed.
-                            lastProcessedWorkRunId = workRunId
-                        }
-                        else -> {
-                            // Running, enqueued, or blocked - no action needed yet
+                    } else {
+                        // New work run during this session - process normally
+                        when (workInfo.state) {
+                            WorkInfo.State.SUCCEEDED -> {
+                                lastProcessedWorkRunId = workRunId
+                                _lastSyncTime.value = System.currentTimeMillis()
+                                updateSyncStatus(lastSyncSuccess = true)
+                            }
+                            WorkInfo.State.FAILED -> {
+                                lastProcessedWorkRunId = workRunId
+                                updateSyncStatus(
+                                    lastSyncSuccess = false,
+                                    errorMessage = "Sync failed. Will retry when network is available."
+                                )
+                            }
+                            WorkInfo.State.CANCELLED -> {
+                                // Expected when using ExistingWorkPolicy.REPLACE
+                                lastProcessedWorkRunId = workRunId
+                            }
+                            else -> {}
                         }
                     }
                 }
