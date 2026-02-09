@@ -676,7 +676,7 @@ fun MainScreen(
                                         modifier = Modifier
                                             .size(56.dp)
                                             .clip(RoundedCornerShape(8.dp)),
-                                        contentScale = ContentScale.Crop
+                                        contentScale = ContentScale.Fit
                                     )
 
                                     Spacer(modifier = Modifier.width(12.dp))

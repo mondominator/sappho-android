@@ -641,7 +641,7 @@ fun PlayerScreen(
                                 model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl!!, book.id, com.sappho.audiobooks.util.COVER_WIDTH_DETAIL),
                                 contentDescription = book.title,
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                                contentScale = ContentScale.Fit
                             )
                         } else {
                             Box(
