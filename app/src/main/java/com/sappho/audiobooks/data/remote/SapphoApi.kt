@@ -43,6 +43,12 @@ interface SapphoApi {
     @GET("api/audiobooks/meta/up-next")
     suspend fun getUpNext(@Query("limit") limit: Int = 10): Response<List<Audiobook>>
 
+    @GET("api/audiobooks/meta/series")
+    suspend fun getSeries(): Response<List<SeriesInfo>>
+
+    @GET("api/audiobooks/meta/authors")
+    suspend fun getAuthors(): Response<List<AuthorInfo>>
+
     @GET("api/audiobooks/meta/genres")
     suspend fun getGenres(): Response<List<GenreInfo>>
 
