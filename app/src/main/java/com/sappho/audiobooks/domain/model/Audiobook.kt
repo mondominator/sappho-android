@@ -25,9 +25,9 @@ data class Audiobook(
     val abridged: Int? = null,  // 0 = unabridged, 1 = abridged
     val description: String?,
     @SerializedName("cover_image") val coverImage: String?,
-    @SerializedName("file_count") val fileCount: Int,
+    @SerializedName("file_count") val fileCount: Int = 0,
     @SerializedName("is_multi_file") val isMultiFile: Int? = null,
-    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("created_at") val createdAt: String? = null,
     val progress: Progress?,
     val chapters: List<Chapter>? = null,
     @SerializedName("is_favorite") val isFavorite: Boolean = false
