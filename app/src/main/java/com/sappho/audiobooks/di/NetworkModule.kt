@@ -10,6 +10,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import com.google.gson.TypeAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonToken
+import com.google.gson.stream.JsonWriter
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -25,8 +29,31 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideGson(): Gson {
+        // Lenient Float adapter: returns null instead of throwing on unparseable values.
+        // The server stores some numeric fields (like rating) as TEXT, which can
+        // cause "Expected a double but was STRING" errors during deserialization.
+        val lenientFloatAdapter = object : TypeAdapter<Float?>() {
+            override fun write(out: JsonWriter, value: Float?) {
+                if (value == null) out.nullValue() else out.value(value)
+            }
+
+            override fun read(`in`: JsonReader): Float? {
+                return when (`in`.peek()) {
+                    JsonToken.NULL -> { `in`.nextNull(); null }
+                    JsonToken.NUMBER -> `in`.nextDouble().toFloat()
+                    JsonToken.STRING -> {
+                        val s = `in`.nextString()
+                        s.toFloatOrNull()
+                    }
+                    else -> { `in`.skipValue(); null }
+                }
+            }
+        }
+
         return GsonBuilder()
             .setLenient()
+            .registerTypeAdapter(Float::class.java, lenientFloatAdapter)
+            .registerTypeAdapter(Float::class.javaObjectType, lenientFloatAdapter)
             .create()
     }
 

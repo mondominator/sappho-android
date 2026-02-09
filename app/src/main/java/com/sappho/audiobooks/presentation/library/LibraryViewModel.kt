@@ -526,11 +526,17 @@ class LibraryViewModel @Inject constructor(
                 }
 
                 // Load all audiobooks for All Books view
-                val audiobooksResponse = api.getAudiobooks(limit = 10000)
-                if (audiobooksResponse.isSuccessful) {
-                    val audiobooks = audiobooksResponse.body()?.audiobooks ?: emptyList()
-                    _allAudiobooks.value = audiobooks
-                    Log.d("LibraryViewModel", "Loaded ${audiobooks.size} audiobooks")
+                try {
+                    val audiobooksResponse = api.getAudiobooks(limit = 10000)
+                    if (audiobooksResponse.isSuccessful) {
+                        val audiobooks = audiobooksResponse.body()?.audiobooks ?: emptyList()
+                        _allAudiobooks.value = audiobooks
+                        Log.d("LibraryViewModel", "Loaded ${audiobooks.size} audiobooks")
+                    } else {
+                        Log.e("LibraryViewModel", "Audiobooks request failed: ${audiobooksResponse.code()} - ${audiobooksResponse.errorBody()?.string()}")
+                    }
+                } catch (e: Exception) {
+                    Log.e("LibraryViewModel", "Error loading audiobooks", e)
                 }
 
                 _uiState.value = LibraryUiState.Success
