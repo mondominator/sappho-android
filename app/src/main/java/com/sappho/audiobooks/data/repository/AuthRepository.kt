@@ -54,12 +54,12 @@ class AuthRepository @Inject constructor(
     }
 
     fun saveServerUrl(url: String) {
-        securePrefs.edit().putString(KEY_SERVER_URL, url).apply()
+        securePrefs.edit().putString(KEY_SERVER_URL, url.trim().trimEnd('/')).apply()
         _isAuthenticated.value = getTokenSync() != null && getServerUrlSync() != null
     }
 
     fun getServerUrlSync(): String? {
-        return securePrefs.getString(KEY_SERVER_URL, null)
+        return securePrefs.getString(KEY_SERVER_URL, null)?.trim()?.trimEnd('/')
     }
 
     fun hasServerUrl(): Boolean {

@@ -358,7 +358,7 @@ fun AudiobookDetailScreen(
                                         model = coverUrl,
                                         contentDescription = book.title,
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
+                                        contentScale = ContentScale.Fit
                                     )
                                 } else {
                                     // Show placeholder when no cover available
