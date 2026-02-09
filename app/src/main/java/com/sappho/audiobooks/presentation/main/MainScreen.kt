@@ -347,8 +347,7 @@ fun MainScreen(
             }
             composable(Screen.Settings.route) {
                 com.sappho.audiobooks.presentation.settings.SettingsScreen(
-                    onBackClick = { navController.navigateUp() },
-                    onLogout = onLogout
+                    onBackClick = { navController.navigateUp() }
                 )
             }
             composable(Screen.Admin.route) {
