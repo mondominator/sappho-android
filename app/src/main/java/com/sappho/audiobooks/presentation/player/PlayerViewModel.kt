@@ -83,7 +83,7 @@ class PlayerViewModel @Inject constructor(
                         castHelper.castAudiobook(
                             audiobook = it,
                             streamUrl = "$serverUrl/api/audiobooks/${it.id}/stream",
-                            coverUrl = if (it.coverImage != null) "$serverUrl/api/audiobooks/${it.id}/cover" else null,
+                            coverUrl = if (it.coverImage != null) com.sappho.audiobooks.util.buildCoverUrl(serverUrl, it.id) else null,
                             currentPosition = actualStartPosition.toLong()
                         )
                         // Also update the shared player state with the new audiobook info

@@ -511,7 +511,7 @@ fun PlayerScreen(
                                                         castHelper.castAudiobook(
                                                             audiobook = book,
                                                             streamUrl = "$url/api/audiobooks/${book.id}/stream",
-                                                            coverUrl = if (book.coverImage != null) "$url/api/audiobooks/${book.id}/cover" else null,
+                                                            coverUrl = if (book.coverImage != null) com.sappho.audiobooks.util.buildCoverUrl(url, book.id) else null,
                                                             currentPosition = currentPosition
                                                         )
                                                     }
@@ -638,7 +638,7 @@ fun PlayerScreen(
                     ) {
                         if (book.coverImage != null && serverUrl != null) {
                             AsyncImage(
-                                model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl!!, book.id, com.sappho.audiobooks.util.COVER_WIDTH_DETAIL),
                                 contentDescription = book.title,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop

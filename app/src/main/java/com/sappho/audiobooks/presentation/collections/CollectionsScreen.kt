@@ -530,7 +530,7 @@ private fun RotatingCover(
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
-                model = "$serverUrl/api/audiobooks/${bookIds[index]}/cover",
+                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, bookIds[index], com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
                 contentDescription = collectionName,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
