@@ -511,39 +511,26 @@ class LibraryViewModel @Inject constructor(
                     Log.d("LibraryViewModel", "Loaded ${_genres.value.size} genres from server")
                 }
 
-                // Load all audiobooks for series/authors
-                val audiobooksResponse = api.getAudiobooks(limit = 10000)
-                Log.d("LibraryViewModel", "Response: ${audiobooksResponse.isSuccessful}")
+                // Load series from server (pre-aggregated)
+                val seriesResponse = api.getSeries()
+                if (seriesResponse.isSuccessful) {
+                    _series.value = seriesResponse.body() ?: emptyList()
+                    Log.d("LibraryViewModel", "Loaded ${_series.value.size} series from server")
+                }
 
+                // Load authors from server (pre-aggregated)
+                val authorsResponse = api.getAuthors()
+                if (authorsResponse.isSuccessful) {
+                    _authors.value = authorsResponse.body() ?: emptyList()
+                    Log.d("LibraryViewModel", "Loaded ${_authors.value.size} authors from server")
+                }
+
+                // Load all audiobooks for All Books view
+                val audiobooksResponse = api.getAudiobooks(limit = 10000)
                 if (audiobooksResponse.isSuccessful) {
                     val audiobooks = audiobooksResponse.body()?.audiobooks ?: emptyList()
-                    Log.d("LibraryViewModel", "Got ${audiobooks.size} audiobooks")
-
-                    // Store all audiobooks
                     _allAudiobooks.value = audiobooks
-
-                    // Extract and count series (filter out series with only 1 book)
-                    val seriesMap = audiobooks
-                        .filter { !it.series.isNullOrBlank() }
-                        .groupBy { it.series!! }
-                        .filter { (_, books) -> books.size > 1 }
-                        .map { (series, books) ->
-                            SeriesInfo(series = series, bookCount = books.size)
-                        }
-                        .sortedBy { it.series }
-                    _series.value = seriesMap
-                    Log.d("LibraryViewModel", "Found ${seriesMap.size} series")
-
-                    // Extract and count authors
-                    val authorsMap = audiobooks
-                        .filter { !it.author.isNullOrBlank() }
-                        .groupBy { it.author!! }
-                        .map { (author, books) ->
-                            AuthorInfo(author = author, bookCount = books.size)
-                        }
-                        .sortedBy { it.author }
-                    _authors.value = authorsMap
-                    Log.d("LibraryViewModel", "Found ${authorsMap.size} authors")
+                    Log.d("LibraryViewModel", "Loaded ${audiobooks.size} audiobooks")
                 }
 
                 _uiState.value = LibraryUiState.Success
