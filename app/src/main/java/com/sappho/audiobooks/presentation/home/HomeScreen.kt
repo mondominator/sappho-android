@@ -496,7 +496,7 @@ fun AudiobookCard(
                             .build(),
                         contentDescription = book.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                 }
 
