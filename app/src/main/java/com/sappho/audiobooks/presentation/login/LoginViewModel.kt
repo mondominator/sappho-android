@@ -3,6 +3,7 @@ package com.sappho.audiobooks.presentation.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.LoginRequest
+import com.sappho.audiobooks.data.remote.MfaVerifyRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,17 +51,32 @@ class LoginViewModel @Inject constructor(
 
                 if (response.isSuccessful) {
                     response.body()?.let { authResponse ->
-                        authRepository.saveToken(authResponse.token)
-                        _uiState.value = LoginUiState.Success
+                        if (authResponse.mfaRequired && authResponse.mfaToken != null) {
+                            // MFA required - show code entry
+                            _uiState.value = LoginUiState.MfaRequired(authResponse.mfaToken)
+                        } else if (authResponse.token != null) {
+                            authRepository.saveToken(authResponse.token)
+                            _uiState.value = LoginUiState.Success
+                        } else {
+                            _uiState.value = LoginUiState.Error("Invalid response from server")
+                        }
                     } ?: run {
                         _uiState.value = LoginUiState.Error("Invalid response from server")
                     }
                 } else {
+                    val errorBody = response.errorBody()?.string() ?: ""
                     val errorMessage = when (response.code()) {
                         401 -> "Invalid username or password"
+                        403 -> {
+                            if (errorBody.contains("locked", ignoreCase = true)) {
+                                "Account is locked. Please try again later or request an unlock email."
+                            } else {
+                                "Access denied"
+                            }
+                        }
                         404 -> "Server endpoint not found. Please check your server URL"
                         500 -> "Server error. Please try again later"
-                        else -> response.errorBody()?.string() ?: "Login failed (${response.code()})"
+                        else -> "Login failed (${response.code()})"
                     }
                     _uiState.value = LoginUiState.Error(errorMessage)
                 }
@@ -77,6 +93,52 @@ class LoginViewModel @Inject constructor(
             }
         }
     }
+
+    fun verifyMfa(mfaToken: String, code: String) {
+        if (code.isBlank()) {
+            _uiState.value = LoginUiState.MfaError(mfaToken, "Please enter the verification code")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                _uiState.value = LoginUiState.Loading
+
+                val response = api.verifyMfa(MfaVerifyRequest(mfaToken, code))
+
+                if (response.isSuccessful) {
+                    response.body()?.let { authResponse ->
+                        if (authResponse.token != null) {
+                            authRepository.saveToken(authResponse.token)
+                            _uiState.value = LoginUiState.Success
+                        } else {
+                            _uiState.value = LoginUiState.MfaError(mfaToken, "Invalid response from server")
+                        }
+                    } ?: run {
+                        _uiState.value = LoginUiState.MfaError(mfaToken, "Invalid response from server")
+                    }
+                } else {
+                    val errorMessage = when (response.code()) {
+                        400 -> "Invalid verification code"
+                        403 -> "MFA session expired. Please login again."
+                        else -> "Verification failed (${response.code()})"
+                    }
+                    if (response.code() == 403) {
+                        // Session expired, go back to login
+                        _uiState.value = LoginUiState.Error(errorMessage)
+                    } else {
+                        _uiState.value = LoginUiState.MfaError(mfaToken, errorMessage)
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.value = LoginUiState.MfaError(mfaToken, "Network error: ${e.message}")
+            }
+        }
+    }
+
+    fun cancelMfa() {
+        _uiState.value = LoginUiState.Initial
+    }
 }
 
 sealed class LoginUiState {
@@ -84,4 +146,6 @@ sealed class LoginUiState {
     object Loading : LoginUiState()
     object Success : LoginUiState()
     data class Error(val message: String) : LoginUiState()
+    data class MfaRequired(val mfaToken: String) : LoginUiState()
+    data class MfaError(val mfaToken: String, val message: String) : LoginUiState()
 }

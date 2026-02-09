@@ -423,8 +423,8 @@ fun AudiobookCard(
     showCompletedCheckmark: Boolean = true
 ) {
     // Use remember to avoid recalculating on every recomposition
-    val coverUrl = remember(book.id, serverUrl) { 
-        serverUrl?.let { "$it/api/audiobooks/${book.id}/cover" }
+    val coverUrl = remember(book.id, serverUrl) {
+        serverUrl?.let { com.sappho.audiobooks.util.buildCoverUrl(it, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL) }
     }
     
     // Calculate responsive font sizes based on card size

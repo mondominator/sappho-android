@@ -350,11 +350,10 @@ fun AudiobookDetailScreen(
                             ) {
                                 if (book.coverImage != null && serverUrl != null) {
                                     // Let Coil try to load - use coverVersion for cache busting after metadata updates
-                                    val coverUrl = if (coverVersion > 0) {
-                                        "$serverUrl/api/audiobooks/${book.id}/cover?v=$coverVersion"
-                                    } else {
-                                        "$serverUrl/api/audiobooks/${book.id}/cover"
-                                    }
+                                    val coverUrl = com.sappho.audiobooks.util.buildCoverUrl(
+                                        serverUrl!!, book.id, com.sappho.audiobooks.util.COVER_WIDTH_DETAIL,
+                                        if (coverVersion > 0) coverVersion.toString() else null
+                                    )
                                     AsyncImage(
                                         model = coverUrl,
                                         contentDescription = book.title,

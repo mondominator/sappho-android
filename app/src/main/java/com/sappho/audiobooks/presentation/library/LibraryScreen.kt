@@ -729,7 +729,7 @@ fun SeriesListCard(
                 ) {
                     if (book.coverImage != null && serverUrl != null) {
                         AsyncImage(
-                            model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                            model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
                             contentDescription = null,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
@@ -1060,7 +1060,7 @@ fun AuthorListCard(
                     ) {
                         if (book.coverImage != null && serverUrl != null) {
                             AsyncImage(
-                                model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -1259,7 +1259,7 @@ fun GenreListCard(
                     ) {
                         if (book.coverImage != null && serverUrl != null) {
                             AsyncImage(
-                                model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -2270,7 +2270,7 @@ fun AuthorBookCard(
         ) {
             if (book.coverImage != null && serverUrl != null) {
                 AsyncImage(
-                    model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                    model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -2654,7 +2654,7 @@ fun GenreBookGridItem(
         ) {
             if (book.coverImage != null && serverUrl != null) {
                 AsyncImage(
-                    model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                    model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -2759,7 +2759,7 @@ fun BookGridItem(
         // Cover Image
         if (book.coverImage != null && serverUrl != null) {
             AsyncImage(
-                model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
                 contentDescription = book.title,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -3220,7 +3220,7 @@ fun SelectableBookGridItem(
         // Cover Image
         if (book.coverImage != null && serverUrl != null) {
             AsyncImage(
-                model = "$serverUrl/api/audiobooks/${book.id}/cover",
+                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
                 contentDescription = book.title,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
