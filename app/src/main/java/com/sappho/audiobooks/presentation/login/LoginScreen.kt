@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -42,6 +44,7 @@ fun LoginScreen(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var mfaCode by remember { mutableStateOf("") }
     val serverUrl by viewModel.serverUrl.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
@@ -51,6 +54,13 @@ fun LoginScreen(
         if (uiState is LoginUiState.Success) {
             onLoginSuccess()
         }
+    }
+
+    // Determine if we're in MFA mode
+    val mfaToken = when (uiState) {
+        is LoginUiState.MfaRequired -> (uiState as LoginUiState.MfaRequired).mfaToken
+        is LoginUiState.MfaError -> (uiState as LoginUiState.MfaError).mfaToken
+        else -> null
     }
 
     Column(
@@ -97,168 +107,269 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Server URL Input
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = { viewModel.updateServerUrl(it) },
-                label = { Text("Server URL", color = SapphoTextLight) },
-                placeholder = { Text("https://your-server.com", color = SapphoTextMuted) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = SapphoText,
-                    unfocusedTextColor = SapphoTextLight,
-                    focusedBorderColor = SapphoInfo,
-                    unfocusedBorderColor = SapphoProgressTrack,
-                    focusedLabelColor = SapphoInfo,
-                    unfocusedLabelColor = SapphoTextLight,
-                    cursorColor = SapphoInfo
-                ),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            if (mfaToken != null) {
+                // MFA Code Entry
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = SapphoInfo,
+                    modifier = Modifier.size(32.dp)
                 )
-            )
 
-            // Username Input
-            OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
-                label = { Text("Username", color = SapphoTextLight) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = SapphoText,
-                    unfocusedTextColor = SapphoTextLight,
-                    focusedBorderColor = SapphoInfo,
-                    unfocusedBorderColor = SapphoProgressTrack,
-                    focusedLabelColor = SapphoInfo,
-                    unfocusedLabelColor = SapphoTextLight,
-                    cursorColor = SapphoInfo
-                ),
-                keyboardOptions = KeyboardOptions(
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                Text(
+                    text = "Two-Factor Authentication",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = SapphoText,
+                    fontWeight = FontWeight.Bold
                 )
-            )
 
-            // Password Input
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password", color = SapphoTextLight) },
-                singleLine = true,
-                visualTransformation = if (passwordVisible) 
-                    VisualTransformation.None 
-                else 
-                    PasswordVisualTransformation(),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) 
-                                Icons.Filled.Visibility 
-                            else 
-                                Icons.Filled.VisibilityOff,
-                            contentDescription = if (passwordVisible) 
-                                "Hide password" 
-                            else 
-                                "Show password",
-                            tint = SapphoIconDefault
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = SapphoText,
-                    unfocusedTextColor = SapphoTextLight,
-                    focusedBorderColor = SapphoInfo,
-                    unfocusedBorderColor = SapphoProgressTrack,
-                    focusedLabelColor = SapphoInfo,
-                    unfocusedLabelColor = SapphoTextLight,
-                    cursorColor = SapphoInfo
-                ),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        viewModel.login(username, password)
-                    }
+                Text(
+                    text = "Enter the 6-digit code from your authenticator app, or a backup code.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SapphoTextMuted,
+                    textAlign = TextAlign.Center
                 )
-            )
 
-            // Error Message
-            if (uiState is LoginUiState.Error) {
-                val errorMessage = (uiState as LoginUiState.Error).message
-                    .takeIf { it.isNotBlank() } ?: "Login failed. Please check your connection and try again."
+                OutlinedTextField(
+                    value = mfaCode,
+                    onValueChange = { mfaCode = it },
+                    label = { Text("Verification Code", color = SapphoTextLight) },
+                    placeholder = { Text("000000", color = SapphoTextMuted) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = SapphoText,
+                        unfocusedTextColor = SapphoTextLight,
+                        focusedBorderColor = SapphoInfo,
+                        unfocusedBorderColor = SapphoProgressTrack,
+                        focusedLabelColor = SapphoInfo,
+                        unfocusedLabelColor = SapphoTextLight,
+                        cursorColor = SapphoInfo
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            viewModel.verifyMfa(mfaToken, mfaCode)
+                        }
+                    )
+                )
 
-                Row(
+                // MFA Error
+                if (uiState is LoginUiState.MfaError) {
+                    ErrorBanner((uiState as LoginUiState.MfaError).message)
+                }
+
+                // Verify Button
+                Button(
+                    onClick = { viewModel.verifyMfa(mfaToken, mfaCode) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            color = Color(0xFF7F1D1D), // Dark red background
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = Color(0xFFDC2626), // Red border
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    enabled = uiState !is LoginUiState.Loading,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SapphoInfo,
+                        contentColor = Color.White,
+                        disabledContainerColor = SapphoProgressTrack,
+                        disabledContentColor = SapphoTextMuted
+                    )
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Error",
-                        tint = Color(0xFFFCA5A5), // Light red icon
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = errorMessage,
-                        color = Color(0xFFFECACA), // Light red text
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    if (uiState is LoginUiState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White
+                        )
+                    } else {
+                        Text(
+                            text = "Verify",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
-            }
 
-            // Login Button
-            Button(
-                onClick = { viewModel.login(username, password) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(8.dp),
-                enabled = uiState !is LoginUiState.Loading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SapphoInfo,
-                    contentColor = Color.White,
-                    disabledContainerColor = SapphoProgressTrack,
-                    disabledContentColor = SapphoTextMuted
+                // Back to login
+                TextButton(onClick = {
+                    mfaCode = ""
+                    viewModel.cancelMfa()
+                }) {
+                    Text("Back to Login", color = SapphoTextMuted)
+                }
+            } else {
+                // Normal Login Form
+
+                // Server URL Input
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = { viewModel.updateServerUrl(it) },
+                    label = { Text("Server URL", color = SapphoTextLight) },
+                    placeholder = { Text("https://your-server.com", color = SapphoTextMuted) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = SapphoText,
+                        unfocusedTextColor = SapphoTextLight,
+                        focusedBorderColor = SapphoInfo,
+                        unfocusedBorderColor = SapphoProgressTrack,
+                        focusedLabelColor = SapphoInfo,
+                        unfocusedLabelColor = SapphoTextLight,
+                        cursorColor = SapphoInfo
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    )
                 )
-            ) {
-                if (uiState is LoginUiState.Loading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White
+
+                // Username Input
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username", color = SapphoTextLight) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = SapphoText,
+                        unfocusedTextColor = SapphoTextLight,
+                        focusedBorderColor = SapphoInfo,
+                        unfocusedBorderColor = SapphoProgressTrack,
+                        focusedLabelColor = SapphoInfo,
+                        unfocusedLabelColor = SapphoTextLight,
+                        cursorColor = SapphoInfo
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
                     )
-                } else {
-                    Text(
-                        text = "Login",
-                        style = MaterialTheme.typography.titleMedium
+                )
+
+                // Password Input
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password", color = SapphoTextLight) },
+                    singleLine = true,
+                    visualTransformation = if (passwordVisible)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible)
+                                    Icons.Filled.Visibility
+                                else
+                                    Icons.Filled.VisibilityOff,
+                                contentDescription = if (passwordVisible)
+                                    "Hide password"
+                                else
+                                    "Show password",
+                                tint = SapphoIconDefault
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = SapphoText,
+                        unfocusedTextColor = SapphoTextLight,
+                        focusedBorderColor = SapphoInfo,
+                        unfocusedBorderColor = SapphoProgressTrack,
+                        focusedLabelColor = SapphoInfo,
+                        unfocusedLabelColor = SapphoTextLight,
+                        cursorColor = SapphoInfo
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            viewModel.login(username, password)
+                        }
                     )
+                )
+
+                // Error Message
+                if (uiState is LoginUiState.Error) {
+                    ErrorBanner((uiState as LoginUiState.Error).message)
+                }
+
+                // Login Button
+                Button(
+                    onClick = { viewModel.login(username, password) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    enabled = uiState !is LoginUiState.Loading,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SapphoInfo,
+                        contentColor = Color.White,
+                        disabledContainerColor = SapphoProgressTrack,
+                        disabledContentColor = SapphoTextMuted
+                    )
+                ) {
+                    if (uiState is LoginUiState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White
+                        )
+                    } else {
+                        Text(
+                            text = "Login",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ErrorBanner(message: String) {
+    val errorMessage = message.takeIf { it.isNotBlank() }
+        ?: "Login failed. Please check your connection and try again."
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = Color(0xFF7F1D1D),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = Color(0xFFDC2626),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Warning,
+            contentDescription = "Error",
+            tint = Color(0xFFFCA5A5),
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = errorMessage,
+            color = Color(0xFFFECACA),
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }

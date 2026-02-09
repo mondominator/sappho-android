@@ -488,7 +488,7 @@ fun MainScreen(
                                             serverUrl?.let { url ->
                                                 val streamUrl = "$url/api/audiobooks/${book.id}/stream"
                                                 val coverUrl = if (book.coverImage != null) {
-                                                    "$url/api/audiobooks/${book.id}/cover"
+                                                    com.sappho.audiobooks.util.buildCoverUrl(url, book.id)
                                                 } else null
 
                                                 // Pause local playback
@@ -669,7 +669,7 @@ fun MainScreen(
                                 ) {
                                     // Cover image
                                     val coverUrl = serverUrl?.let { url ->
-                                        "$url/api/audiobooks/${downloadedBook.audiobook.id}/cover"
+                                        com.sappho.audiobooks.util.buildCoverUrl(url, downloadedBook.audiobook.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL)
                                     }
                                     AsyncImage(
                                         model = coverUrl,

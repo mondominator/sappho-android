@@ -30,7 +30,11 @@ data class Audiobook(
     @SerializedName("created_at") val createdAt: String? = null,
     val progress: Progress?,
     val chapters: List<Chapter>? = null,
-    @SerializedName("is_favorite") val isFavorite: Boolean = false
+    @SerializedName("is_favorite") val isFavorite: Boolean = false,
+    @SerializedName("normalized_genre") val normalizedGenre: String? = null,
+    @SerializedName("is_queued") val isQueued: Boolean = false,
+    @SerializedName("is_available") val isAvailable: Int? = null,
+    @SerializedName("last_seen_at") val lastSeenAt: String? = null
 )
 
 data class Progress(
@@ -72,8 +76,10 @@ data class DirectoryFile(
 )
 
 data class AuthResponse(
-    val token: String,
-    val user: User
+    val token: String? = null,
+    val user: User? = null,
+    @SerializedName("mfa_required") val mfaRequired: Boolean = false,
+    @SerializedName("mfa_token") val mfaToken: String? = null
 )
 
 data class User(

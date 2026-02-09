@@ -14,6 +14,21 @@ interface SapphoApi {
         @Body credentials: LoginRequest
     ): Response<AuthResponse>
 
+    @POST("api/auth/verify-mfa")
+    suspend fun verifyMfa(
+        @Body request: MfaVerifyRequest
+    ): Response<AuthResponse>
+
+    @POST("api/auth/check-lockout")
+    suspend fun checkLockout(
+        @Body request: CheckLockoutRequest
+    ): Response<LockoutStatusResponse>
+
+    @POST("api/auth/request-unlock")
+    suspend fun requestUnlock(
+        @Body request: RequestUnlockRequest
+    ): Response<MessageResponse>
+
     @POST("api/auth/register")
     suspend fun register(
         @Body credentials: RegisterRequest
@@ -456,6 +471,28 @@ data class RegisterRequest(
     val username: String,
     val password: String,
     val email: String? = null
+)
+
+data class MfaVerifyRequest(
+    @com.google.gson.annotations.SerializedName("mfa_token")
+    val mfaToken: String,
+    val token: String  // The TOTP code or backup code
+)
+
+data class CheckLockoutRequest(
+    val username: String
+)
+
+data class LockoutStatusResponse(
+    val locked: Boolean = false,
+    @com.google.gson.annotations.SerializedName("locked_until")
+    val lockedUntil: String? = null,
+    @com.google.gson.annotations.SerializedName("has_email")
+    val hasEmail: Boolean = false
+)
+
+data class RequestUnlockRequest(
+    val email: String
 )
 
 data class UpdateProgressRequest(
