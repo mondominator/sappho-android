@@ -124,12 +124,18 @@ data class RecentActivityItem(
 
 data class SeriesInfo(
     val series: String,
-    @SerializedName("book_count") val bookCount: Int
+    @SerializedName("book_count") val bookCount: Int,
+    @SerializedName("cover_ids") val coverIds: List<String> = emptyList(),
+    @SerializedName("completed_count") val completedCount: Int = 0,
+    @SerializedName("average_rating") val averageRating: Float? = null,
+    @SerializedName("rating_count") val ratingCount: Int = 0
 )
 
 data class AuthorInfo(
     val author: String,
-    @SerializedName("book_count") val bookCount: Int
+    @SerializedName("book_count") val bookCount: Int,
+    @SerializedName("cover_ids") val coverIds: List<String> = emptyList(),
+    @SerializedName("completed_count") val completedCount: Int = 0
 )
 
 data class GenreInfo(
