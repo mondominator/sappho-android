@@ -9,6 +9,7 @@ import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.service.PlayerState
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.cast.CastHelper
+import com.sappho.audiobooks.cast.CastManager
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -39,6 +40,7 @@ class PlayerViewModelTest {
     private lateinit var sharedPlayerState: PlayerState
     private lateinit var downloadManager: DownloadManager
     private lateinit var castHelper: CastHelper
+    private lateinit var castManager: CastManager
     private lateinit var viewModel: PlayerViewModel
 
     @Before
@@ -50,16 +52,18 @@ class PlayerViewModelTest {
         sharedPlayerState = mockk(relaxed = true)
         downloadManager = mockk(relaxed = true)
         castHelper = mockk(relaxed = true)
+        castManager = mockk(relaxed = true)
 
         every { authRepository.getServerUrlSync() } returns "https://test.com"
-        
+
         viewModel = PlayerViewModel(
             application = application,
             api = api,
             authRepository = authRepository,
             sharedPlayerState = sharedPlayerState,
             downloadManager = downloadManager,
-            castHelper = castHelper
+            castHelper = castHelper,
+            castManager = castManager
         )
     }
 
