@@ -5,6 +5,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
@@ -39,6 +40,13 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.sappho.audiobooks.presentation.theme.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.scale
+import com.sappho.audiobooks.util.HapticPatterns
 import kotlinx.coroutines.launch
 
 /**
@@ -633,21 +641,21 @@ fun SeriesListView(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = Spacing.M, vertical = Spacing.M),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
                 Icon(
                     imageVector = Icons.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = SapphoText
                 )
             }
             Column {
                 Text(
                     text = "Series",
                     style = MaterialTheme.typography.headlineLarge,
-                    color = Color.White
+                    color = SapphoText
                 )
                 Text(
                     text = "${series.size} series in your library",
@@ -658,8 +666,8 @@ fun SeriesListView(
         }
 
         LazyColumn(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(horizontal = Spacing.M),
+            verticalArrangement = Arrangement.spacedBy(Spacing.S)
         ) {
             items(series) { seriesItem ->
                 val seriesBooks = allBooks.filter { it.series == seriesItem.series }
@@ -701,14 +709,32 @@ fun SeriesListCard(
     // Darken the gradient colors for better text readability
     val darkenedColors = gradientColors.map { it.copy(alpha = 0.35f) }
 
+    // Bouncy scale animation
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "series_card_scale"
+    )
+    val cardTapHaptic = HapticPatterns.cardTap()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .scale(scale)
             .clip(RoundedCornerShape(16.dp))
             .background(SapphoSurfaceLight)
             .background(Brush.horizontalGradient(darkenedColors))
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                onClick = { cardTapHaptic(); onClick() }
+            )
+            .padding(Spacing.M),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Stacked covers
@@ -747,9 +773,13 @@ fun SeriesListCard(
                 text = seriesName,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                color = SapphoText,
+                maxLines = 1,
+                modifier = Modifier.basicMarquee(
+                    iterations = Int.MAX_VALUE,
+                    initialDelayMillis = 2000,
+                    velocity = 12.dp
+                )
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -779,20 +809,6 @@ fun SeriesListCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "$bookCount",
-                        fontSize = 12.sp,
-                        color = SapphoIconDefault
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = SapphoInfo,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${totalDuration / 3600}h",
                         fontSize = 12.sp,
                         color = SapphoIconDefault
                     )
@@ -972,7 +988,11 @@ fun AuthorListCard(
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                modifier = Modifier.basicMarquee(
+                    iterations = Int.MAX_VALUE,
+                    initialDelayMillis = 2000,
+                    velocity = 12.dp
+                )
             )
 
             Spacer(modifier = Modifier.height(2.dp))
@@ -983,95 +1003,17 @@ fun AuthorListCard(
                     fontSize = 12.sp,
                     color = SapphoIconDefault,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    modifier = Modifier.basicMarquee(
+                        iterations = Int.MAX_VALUE,
+                        initialDelayMillis = 2000,
+                        velocity = 12.dp
+                    )
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            @OptIn(ExperimentalLayoutApi::class)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.MenuBook,
-                        contentDescription = null,
-                        tint = gradientColors[0],
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "$bookCount",
-                        fontSize = 12.sp,
-                        color = SapphoIconDefault,
-                        maxLines = 1
-                    )
-                }
-                if (seriesCount > 0) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Layers,
-                            contentDescription = null,
-                            tint = gradientColors[0],
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "$seriesCount",
-                            fontSize = 12.sp,
-                            color = SapphoIconDefault,
-                            maxLines = 1
-                        )
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = gradientColors[0],
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${totalDuration / 3600}h",
-                        fontSize = 12.sp,
-                        color = SapphoIconDefault,
-                        maxLines = 1
-                    )
-                }
-            }
         }
-
-        // Mini book covers
-        if (recentBooks.isNotEmpty()) {
-            Row(
-                modifier = Modifier.padding(start = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy((-12).dp)
-            ) {
-                recentBooks.take(3).forEach { book ->
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(SapphoProgressTrack)
-                            .border(1.dp, SapphoSurfaceLight, RoundedCornerShape(4.dp))
-                    ) {
-                        if (book.coverImage != null && serverUrl != null) {
-                            AsyncImage(
-                                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
 
         Icon(
             imageVector = Icons.Default.ChevronRight,
@@ -1372,9 +1314,9 @@ fun SeriesBooksView(
             .fillMaxSize()
             .background(SapphoBackground)
     ) {
-        // Header with back button
+        // Header with back button + Catch Me Up icon
         item {
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
@@ -1385,23 +1327,59 @@ fun SeriesBooksView(
                             )
                         )
                     )
-                    .padding(8.dp)
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                val buttonPressHaptic = HapticPatterns.buttonPress()
                 IconButton(
-                    onClick = onBackClick,
+                    onClick = { buttonPressHaptic(); onBackClick() },
                     modifier = Modifier
                         .background(Color.Black.copy(alpha = 0.3f), CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White
+                        tint = SapphoText
                     )
+                }
+
+                // Catch Me Up icon button (top-right corner)
+                if (aiConfigured && hasProgress && viewModel != null &&
+                    !showRecap && !recapLoading && recapError == null && recapData == null
+                ) {
+                    IconButton(
+                        onClick = {
+                            buttonPressHaptic()
+                            showRecap = true
+                            recapLoading = true
+                            recapError = null
+                            coroutineScope.launch {
+                                val result = viewModel.getSeriesRecap(seriesName)
+                                result.onSuccess { data ->
+                                    recapData = data
+                                    recapLoading = false
+                                }.onFailure { error ->
+                                    recapError = error.message ?: "Failed to generate recap"
+                                    recapLoading = false
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .background(SapphoAccent.copy(alpha = 0.3f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoStories,
+                            contentDescription = "Catch Me Up",
+                            tint = SapphoAccentLight,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
 
-        // Series Info Section
+        // Series Info Section — title, author, rating, catch me up
         item {
             Column(
                 modifier = Modifier
@@ -1413,7 +1391,7 @@ fun SeriesBooksView(
                 Text(
                     text = seriesName,
                     style = MaterialTheme.typography.headlineLarge,
-                    color = Color.White,
+                    color = SapphoText,
                     textAlign = TextAlign.Center
                 )
 
@@ -1428,46 +1406,13 @@ fun SeriesBooksView(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Calculate average rating for the series
+                // Rating inline under title/author
                 val ratedBooks = books.mapNotNull { it.userRating ?: it.averageRating }
                 val seriesAvgRating = if (ratedBooks.isNotEmpty()) ratedBooks.average().toFloat() else null
 
-                // Stats cards
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    StatCard(
-                        value = "${books.size}",
-                        label = if (books.size == 1) "Book" else "Books",
-                        icon = Icons.Default.MenuBook,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatCard(
-                        value = "${totalDuration / 3600}h",
-                        label = "Total",
-                        icon = Icons.Default.Schedule,
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatCard(
-                        value = "$completedBooks/${books.size}",
-                        label = "Complete",
-                        icon = Icons.Default.CheckCircle,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // Rating row (separate to avoid cramped layout)
                 if (seriesAvgRating != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(SapphoSurfaceLight)
-                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
@@ -1475,120 +1420,36 @@ fun SeriesBooksView(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
                             tint = SapphoWarning,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = String.format(java.util.Locale.US, "%.1f", seriesAvgRating),
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                            color = SapphoText
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "(${ratedBooks.size} ${if (ratedBooks.size == 1) "book" else "books"} rated)",
-                            fontSize = 13.sp,
+                            text = "(${ratedBooks.size} rated)",
+                            fontSize = 12.sp,
                             color = SapphoTextMuted
                         )
                     }
                 }
 
-                // Overall progress bar
-                if (overallProgress > 0 || completedBooks > 0) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(SapphoSurfaceLight)
-                            .padding(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Series Progress",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "${(overallProgress * 100).toInt()}%",
-                                fontSize = 13.sp,
-                                color = SapphoInfo
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(SapphoProgressTrack)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(overallProgress)
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            listOf(SapphoInfo, LegacyBlueLight)
-                                        )
-                                    )
-                            )
-                        }
-                    }
-                }
             }
         }
 
-        // Catch Me Up Section
-        if (aiConfigured && hasProgress && viewModel != null) {
+        // Catch Me Up expanded content (loading, error, recap)
+        if (aiConfigured && hasProgress && viewModel != null && (recapLoading || recapError != null || recapData != null)) {
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .padding(top = 20.dp)
+                        .padding(top = 12.dp)
                 ) {
-                    if (!showRecap && !recapLoading && recapError == null && recapData == null) {
-                        // Show Catch Me Up Button
-                        Button(
-                            onClick = {
-                                showRecap = true
-                                recapLoading = true
-                                recapError = null
-                                coroutineScope.launch {
-                                    val result = viewModel.getSeriesRecap(seriesName)
-                                    result.onSuccess { data ->
-                                        recapData = data
-                                        recapLoading = false
-                                    }.onFailure { error ->
-                                        recapError = error.message ?: "Failed to generate recap"
-                                        recapLoading = false
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SapphoAccent
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AutoStories,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Catch Me Up",
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
                     // Loading State
                     if (recapLoading) {
                         Row(
@@ -1687,7 +1548,7 @@ fun SeriesBooksView(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = "Series Recap",
-                                    color = Color.White,
+                                    color = SapphoText,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -1783,31 +1644,141 @@ fun SeriesBooksView(
             }
         }
 
+        // Stats + Progress section
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Stats cards
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatCard(
+                        value = "${books.size}",
+                        label = if (books.size == 1) "Book" else "Books",
+                        icon = Icons.Default.MenuBook,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        value = "${totalDuration / 3600}h",
+                        label = "Total",
+                        icon = Icons.Default.Schedule,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        value = "$completedBooks/${books.size}",
+                        label = "Complete",
+                        icon = Icons.Default.CheckCircle,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Overall progress bar with animation
+                if (overallProgress > 0 || completedBooks > 0) {
+                    val animatedOverallProgress by animateFloatAsState(
+                        targetValue = overallProgress,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "series_progress"
+                    )
+
+                    Spacer(modifier = Modifier.height(Spacing.M))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(SapphoSurfaceLight)
+                            .padding(Spacing.M)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Series Progress",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = SapphoText
+                            )
+                            Text(
+                                text = "${(overallProgress * 100).toInt()}%",
+                                fontSize = 13.sp,
+                                color = SapphoInfo
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(Spacing.XS))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(SapphoProgressTrack)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(animatedOverallProgress)
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(SapphoInfo, LegacyBlueLight)
+                                        )
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Books Section Header
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 24.dp, bottom = 12.dp),
+                    .padding(horizontal = Spacing.M)
+                    .padding(top = Spacing.L, bottom = Spacing.S),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Books in Series",
                     style = MaterialTheme.typography.titleLarge,
-                    color = Color.White
+                    color = SapphoText
                 )
             }
         }
 
-        // Book list items
-        items(books) { book ->
-            SeriesBookListItem(
-                book = book,
-                serverUrl = serverUrl,
-                onClick = { onBookClick(book.id) }
-            )
+        // Book cover grid - display as rows of 3
+        val chunkedBooks = books.chunked(3)
+        items(chunkedBooks) { rowBooks ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.M)
+                    .padding(bottom = Spacing.S),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.XS)
+            ) {
+                rowBooks.forEach { book ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        SeriesBookGridItem(
+                            book = book,
+                            serverUrl = serverUrl,
+                            onClick = { onBookClick(book.id) }
+                        )
+                    }
+                }
+                // Fill remaining space if row is incomplete
+                repeat(3 - rowBooks.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
         }
 
         item { Spacer(modifier = Modifier.height(100.dp)) }
@@ -1825,20 +1796,20 @@ fun StatCard(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(SapphoSurfaceLight)
-            .padding(12.dp),
+            .padding(Spacing.S),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = SapphoInfo,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(IconSize.Medium)
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(Spacing.XXS))
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge,
-            color = Color.White
+            color = SapphoText
         )
         Text(
             text = label,
@@ -1861,14 +1832,32 @@ fun SeriesBookListItem(
             (progress.position.toFloat() / book.duration.toFloat()).coerceIn(0f, 1f)
         } else 0f
 
+    // Bouncy scale animation
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val itemScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "book_item_scale"
+    )
+    val cardTapHaptic = HapticPatterns.cardTap()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = Spacing.M, vertical = 6.dp)
+            .scale(itemScale)
             .clip(RoundedCornerShape(12.dp))
             .background(SapphoSurfaceLight)
-            .clickable(onClick = onClick)
-            .padding(12.dp),
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                onClick = { cardTapHaptic(); onClick() }
+            )
+            .padding(Spacing.S),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Book number badge - subtle style
@@ -1906,11 +1895,11 @@ fun SeriesBookListItem(
                 text = book.title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.White,
+                color = SapphoText,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Spacing.XXS))
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1939,8 +1928,17 @@ fun SeriesBookListItem(
                 }
             }
 
-            // Progress bar
+            // Animated progress bar
             if (progressPercent > 0) {
+                val animatedBookProgress by animateFloatAsState(
+                    targetValue = progressPercent,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    ),
+                    label = "book_progress"
+                )
+
                 Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier
@@ -1952,7 +1950,7 @@ fun SeriesBookListItem(
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .fillMaxWidth(progressPercent)
+                            .fillMaxWidth(animatedBookProgress)
                             .background(
                                 if (isCompleted) SapphoSuccess else SapphoInfo
                             )
@@ -1969,6 +1967,190 @@ fun SeriesBookListItem(
             tint = SapphoTextMuted,
             modifier = Modifier.size(20.dp)
         )
+    }
+}
+
+@Composable
+fun SeriesBookGridItem(
+    book: com.sappho.audiobooks.domain.model.Audiobook,
+    serverUrl: String?,
+    onClick: () -> Unit
+) {
+    val progress = book.progress
+    val isCompleted = progress?.completed == 1
+    val progressPercent = if (isCompleted) 1f
+        else if (progress != null && book.duration != null && book.duration > 0) {
+            (progress.position.toFloat() / book.duration.toFloat()).coerceIn(0f, 1f)
+        } else 0f
+
+    // Bouncy scale animation
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val itemScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "series_grid_item_scale"
+    )
+    val cardTapHaptic = HapticPatterns.cardTap()
+
+    Column(
+        modifier = Modifier
+            .scale(itemScale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                onClick = { cardTapHaptic(); onClick() }
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(SapphoProgressTrack)
+        ) {
+            if (book.coverImage != null && serverUrl != null) {
+                AsyncImage(
+                    model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
+                    contentDescription = book.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(SapphoProgressTrack, SapphoSurfaceDark)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = book.title.take(2).uppercase(),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SapphoText
+                    )
+                }
+            }
+
+            // Series position badge (top-left)
+            if (book.seriesPosition != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .background(SapphoInfo, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "#${formatSeriesPosition(book.seriesPosition)}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Completed badge (top-right)
+            if (isCompleted) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(20.dp)
+                        .background(SapphoSuccess, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Completed",
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+
+            // Reading list ribbon
+            if (book.isFavorite && !isCompleted) {
+                ReadingListRibbon(
+                    modifier = Modifier.align(Alignment.TopEnd),
+                    size = 28f
+                )
+            }
+
+            // Animated progress bar (bottom)
+            if (progressPercent > 0 && !isCompleted) {
+                val animatedProgress by animateFloatAsState(
+                    targetValue = progressPercent,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    ),
+                    label = "series_grid_progress"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .background(Color.Black.copy(alpha = 0.7f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(animatedProgress)
+                            .background(
+                                Brush.horizontalGradient(listOf(SapphoInfo, LegacyBlueLight))
+                            )
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Title (marquee for long names)
+        Text(
+            text = book.title,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = SapphoText,
+            maxLines = 1,
+            lineHeight = 14.sp,
+            modifier = Modifier.basicMarquee(
+                iterations = Int.MAX_VALUE,
+                initialDelayMillis = 2000,
+                velocity = 12.dp
+            )
+        )
+
+        // Rating - prefer user rating, fall back to average
+        val displayRating = book.userRating ?: book.averageRating
+        if (displayRating != null && displayRating > 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = SapphoStarFilled,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(
+                    text = String.format(java.util.Locale.US, "%.1f", displayRating),
+                    fontSize = 11.sp,
+                    color = SapphoStarFilled
+                )
+            }
+        }
     }
 }
 
@@ -2105,7 +2287,22 @@ fun AuthorBooksView(
             }
         }
 
-        // Series sections
+        // Series section header
+        if (booksBySeries.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Series",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SapphoText,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 24.dp)
+                )
+            }
+        }
+
+        // Series sections (cover grid)
         booksBySeries.forEach { (seriesName, seriesBooks) ->
             item {
                 Column(
@@ -2124,7 +2321,7 @@ fun AuthorBooksView(
                                 text = seriesName,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.White
+                                color = SapphoText
                             )
                             Text(
                                 text = "${seriesBooks.size} ${if (seriesBooks.size == 1) "book" else "books"} in series",
@@ -2132,42 +2329,36 @@ fun AuthorBooksView(
                                 color = SapphoIconDefault
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .background(SapphoInfo.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "Series",
-                                fontSize = 11.sp,
-                                color = SapphoInfo
-                            )
-                        }
                     }
                 }
             }
 
-            item {
-                LazyRow(
+            val chunkedSeriesBooks = seriesBooks.chunked(3)
+            items(chunkedSeriesBooks) { rowBooks ->
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
                         .padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(seriesBooks) { book ->
-                        AuthorBookCard(
-                            book = book,
-                            serverUrl = serverUrl,
-                            showSeriesPosition = true,
-                            onClick = { onBookClick(book.id) }
-                        )
+                    rowBooks.forEach { book ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            SeriesBookGridItem(
+                                book = book,
+                                serverUrl = serverUrl,
+                                onClick = { onBookClick(book.id) }
+                            )
+                        }
+                    }
+                    repeat(3 - rowBooks.size) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
         }
 
-        // Standalone books section
+        // Standalone books section (cover grid)
         if (standaloneBooks.isNotEmpty()) {
             item {
                 Column(
@@ -2180,7 +2371,7 @@ fun AuthorBooksView(
                         text = "Standalone Books",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White
+                        color = SapphoText
                     )
                     Text(
                         text = "${standaloneBooks.size} ${if (standaloneBooks.size == 1) "book" else "books"}",
@@ -2190,21 +2381,26 @@ fun AuthorBooksView(
                 }
             }
 
-            item {
-                LazyRow(
+            val chunkedStandaloneBooks = standaloneBooks.sortedBy { it.title }.chunked(3)
+            items(chunkedStandaloneBooks) { rowBooks ->
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
                         .padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(standaloneBooks.sortedBy { it.title }) { book ->
-                        AuthorBookCard(
-                            book = book,
-                            serverUrl = serverUrl,
-                            showSeriesPosition = false,
-                            onClick = { onBookClick(book.id) }
-                        )
+                    rowBooks.forEach { book ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            SeriesBookGridItem(
+                                book = book,
+                                serverUrl = serverUrl,
+                                onClick = { onBookClick(book.id) }
+                            )
+                        }
+                    }
+                    repeat(3 - rowBooks.size) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -2231,7 +2427,7 @@ fun AuthorStatCard(
             text = value,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = SapphoText
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
@@ -2725,10 +2921,14 @@ fun GenreBookGridItem(
             text = book.title,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.White,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            lineHeight = 14.sp
+            color = SapphoText,
+            maxLines = 1,
+            lineHeight = 14.sp,
+            modifier = Modifier.basicMarquee(
+                iterations = Int.MAX_VALUE,
+                initialDelayMillis = 2000,
+                velocity = 12.dp
+            )
         )
 
         book.author?.let {
@@ -2740,6 +2940,28 @@ fun GenreBookGridItem(
                 overflow = TextOverflow.Ellipsis
             )
         }
+
+        // Rating
+        val displayRating = book.userRating ?: book.averageRating
+        if (displayRating != null && displayRating > 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = SapphoStarFilled,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(
+                    text = String.format(java.util.Locale.US, "%.1f", displayRating),
+                    fontSize = 11.sp,
+                    color = SapphoStarFilled
+                )
+            }
+        }
     }
 }
 
@@ -2750,88 +2972,141 @@ fun BookGridItem(
     showSeriesPosition: Boolean = false,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
+    Column(
+        modifier = Modifier.clickable(onClick = onClick)
     ) {
-        // Cover Image
-        if (book.coverImage != null && serverUrl != null) {
-            AsyncImage(
-                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
-                contentDescription = book.title,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(SapphoProgressTrack, SapphoSurfaceDark)
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = book.title.take(2).uppercase(),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = Color.White
+        Box(
+            modifier = Modifier
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(8.dp))
+        ) {
+            // Cover Image
+            if (book.coverImage != null && serverUrl != null) {
+                AsyncImage(
+                    model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
+                    contentDescription = book.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
                 )
-            }
-        }
-
-        // Series position badge
-        if (showSeriesPosition && book.seriesPosition != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(6.dp)
-                    .background(SapphoInfo, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = "#${formatSeriesPosition(book.seriesPosition)}",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        }
-
-        // Reading list ribbon (top-right corner)
-        if (book.isFavorite) {
-            ReadingListRibbon(
-                modifier = Modifier.align(Alignment.TopEnd),
-                size = 32f
-            )
-        }
-
-        // Progress bar
-        val progress = book.progress
-        if (progress != null && (progress.position > 0 || progress.completed == 1) && book.duration != null) {
-            val progressPercent = if (progress.completed == 1) 1f
-                else (progress.position.toFloat() / book.duration.toFloat()).coerceIn(0f, 1f)
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .height(5.dp)
-                    .background(Color.Black.copy(alpha = 0.7f))
-            ) {
+            } else {
                 Box(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(progressPercent)
+                        .fillMaxSize()
                         .background(
-                            if (progress.completed == 1)
-                                Brush.horizontalGradient(listOf(SapphoSuccess, LegacyGreenLight))
-                            else
-                                Brush.horizontalGradient(listOf(SapphoInfo, LegacyBlueLight))
-                        )
+                            Brush.linearGradient(
+                                colors = listOf(SapphoProgressTrack, SapphoSurfaceDark)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = book.title.take(2).uppercase(),
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Series position badge
+            if (showSeriesPosition && book.seriesPosition != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .background(SapphoInfo, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "#${formatSeriesPosition(book.seriesPosition)}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Reading list ribbon (top-right corner)
+            if (book.isFavorite) {
+                ReadingListRibbon(
+                    modifier = Modifier.align(Alignment.TopEnd),
+                    size = 32f
+                )
+            }
+
+            // Progress bar
+            val progress = book.progress
+            if (progress != null && (progress.position > 0 || progress.completed == 1) && book.duration != null) {
+                val progressPercent = if (progress.completed == 1) 1f
+                    else (progress.position.toFloat() / book.duration.toFloat()).coerceIn(0f, 1f)
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .height(5.dp)
+                        .background(Color.Black.copy(alpha = 0.7f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(progressPercent)
+                            .background(
+                                if (progress.completed == 1)
+                                    Brush.horizontalGradient(listOf(SapphoSuccess, LegacyGreenLight))
+                                else
+                                    Brush.horizontalGradient(listOf(SapphoInfo, LegacyBlueLight))
+                            )
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Title
+        Text(
+            text = book.title,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = SapphoText,
+            maxLines = 1,
+            lineHeight = 14.sp,
+            modifier = Modifier.basicMarquee(
+                iterations = Int.MAX_VALUE,
+                initialDelayMillis = 2000,
+                velocity = 12.dp
+            )
+        )
+
+        // Author
+        book.author?.let {
+            Text(
+                text = it,
+                fontSize = 10.sp,
+                color = SapphoIconDefault,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        // Rating
+        val displayRating = book.userRating ?: book.averageRating
+        if (displayRating != null && displayRating > 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = SapphoStarFilled,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(
+                    text = String.format(java.util.Locale.US, "%.1f", displayRating),
+                    fontSize = 11.sp,
+                    color = SapphoStarFilled
                 )
             }
         }
@@ -3208,123 +3483,183 @@ fun SelectableBookGridItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {}
 ) {
-    Box(
+    Column(
         modifier = Modifier
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
     ) {
-        // Cover Image
-        if (book.coverImage != null && serverUrl != null) {
-            AsyncImage(
-                model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
-                contentDescription = book.title,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(SapphoProgressTrack, SapphoSurfaceDark)
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = book.title.take(2).uppercase(),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = Color.White
+        Box(
+            modifier = Modifier
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(8.dp))
+        ) {
+            // Cover Image
+            if (book.coverImage != null && serverUrl != null) {
+                AsyncImage(
+                    model = com.sappho.audiobooks.util.buildCoverUrl(serverUrl, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL),
+                    contentDescription = book.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
                 )
-            }
-        }
-
-        // Selection overlay
-        if (isSelectionMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(if (isSelected) Color.Black.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.2f))
-            )
-            // Checkbox
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(6.dp)
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(if (isSelected) SapphoInfo else SapphoProgressTrack)
-                    .border(2.dp, Color.White, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        } else {
-            // Series position badge (only show when not in selection mode)
-            if (showSeriesPosition && book.seriesPosition != null) {
+            } else {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(6.dp)
-                        .background(SapphoInfo, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(SapphoProgressTrack, SapphoSurfaceDark)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "#${formatSeriesPosition(book.seriesPosition)}",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = book.title.take(2).uppercase(),
+                        style = MaterialTheme.typography.headlineLarge,
                         color = Color.White
                     )
                 }
             }
 
-            // Reading list ribbon (top-right corner)
-            if (book.isFavorite) {
-                ReadingListRibbon(
-                    modifier = Modifier.align(Alignment.TopEnd),
-                    size = 32f
-                )
-            }
-        }
-
-        // Progress bar
-        val progress = book.progress
-        if (progress != null && (progress.position > 0 || progress.completed == 1) && book.duration != null) {
-            val progressPercent = if (progress.completed == 1) 1f
-                else (progress.position.toFloat() / book.duration.toFloat()).coerceIn(0f, 1f)
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .height(5.dp)
-                    .background(Color.Black.copy(alpha = 0.7f))
-            ) {
+            // Selection overlay
+            if (isSelectionMode) {
                 Box(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(progressPercent)
-                        .background(
-                            if (progress.completed == 1)
-                                Brush.horizontalGradient(listOf(SapphoSuccess, LegacyGreenLight))
-                            else
-                                Brush.horizontalGradient(listOf(SapphoInfo, LegacyBlueLight))
-                        )
+                        .fillMaxSize()
+                        .background(if (isSelected) Color.Black.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.2f))
                 )
+                // Checkbox
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) SapphoInfo else SapphoProgressTrack)
+                        .border(2.dp, Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            } else {
+                // Series position badge (only show when not in selection mode)
+                if (showSeriesPosition && book.seriesPosition != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .background(SapphoInfo, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "#${formatSeriesPosition(book.seriesPosition)}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // Reading list ribbon (top-right corner)
+                if (book.isFavorite) {
+                    ReadingListRibbon(
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        size = 32f
+                    )
+                }
+            }
+
+            // Rating badge (bottom-right, on cover)
+            val displayRating = book.userRating ?: book.averageRating
+            if (displayRating != null && displayRating > 0) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                        .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 5.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = SapphoStarFilled,
+                        modifier = Modifier.size(10.dp)
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(
+                        text = String.format(java.util.Locale.US, "%.1f", displayRating),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Progress bar
+            val progress = book.progress
+            if (progress != null && (progress.position > 0 || progress.completed == 1) && book.duration != null) {
+                val progressPercent = if (progress.completed == 1) 1f
+                    else (progress.position.toFloat() / book.duration.toFloat()).coerceIn(0f, 1f)
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .height(5.dp)
+                        .background(Color.Black.copy(alpha = 0.7f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(progressPercent)
+                            .background(
+                                if (progress.completed == 1)
+                                    Brush.horizontalGradient(listOf(SapphoSuccess, LegacyGreenLight))
+                                else
+                                    Brush.horizontalGradient(listOf(SapphoInfo, LegacyBlueLight))
+                            )
+                    )
+                }
             }
         }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Title
+        Text(
+            text = book.title,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = SapphoText,
+            maxLines = 1,
+            lineHeight = 14.sp,
+            modifier = Modifier.basicMarquee(
+                iterations = Int.MAX_VALUE,
+                initialDelayMillis = 2000,
+                velocity = 12.dp
+            )
+        )
+
+        // Author
+        book.author?.let {
+            Text(
+                text = it,
+                fontSize = 10.sp,
+                color = SapphoIconDefault,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
     }
 }
 

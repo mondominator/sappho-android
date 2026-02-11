@@ -2,18 +2,19 @@ package com.sappho.audiobooks.presentation.collections
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,26 +25,31 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
 import com.sappho.audiobooks.data.remote.Collection
+import com.sappho.audiobooks.presentation.theme.*
+import com.sappho.audiobooks.util.HapticPatterns
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun CollectionsScreen(
     onCollectionClick: (Int) -> Unit = {},
@@ -59,6 +65,19 @@ fun CollectionsScreen(
     var isEditMode by remember { mutableStateOf(false) }
     var selectedCollections by remember { mutableStateOf(setOf<Int>()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // Haptic patterns
+    val cardTapHaptic = HapticPatterns.cardTap()
+    val buttonPressHaptic = HapticPatterns.buttonPress()
+    val mediumTapHaptic = HapticPatterns.mediumTap()
+
+    // Progressive reveal tracking
+    var contentRevealed by remember { mutableStateOf(false) }
+    LaunchedEffect(collections) {
+        if (collections.isNotEmpty()) {
+            contentRevealed = true
+        }
+    }
 
     // Refresh collections when screen becomes visible (e.g., returning from detail)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -94,16 +113,17 @@ fun CollectionsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(Spacing.M),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.S),
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
                     IconButton(onClick = {
+                        buttonPressHaptic()
                         if (isEditMode) {
                             isEditMode = false
                             selectedCollections = emptySet()
@@ -120,17 +140,20 @@ fun CollectionsScreen(
                     Text(
                         text = if (isEditMode) "${selectedCollections.size} selected" else "Collections",
                         style = MaterialTheme.typography.headlineLarge,
-                        color = Color.White
+                        color = SapphoText
                     )
                 }
 
                 // Action buttons
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.XS)) {
                     if (isEditMode) {
-                        // Delete button (only show when items are selected)
-                        if (selectedCollections.isNotEmpty()) {
+                        // Delete button with animated visibility
+                        SapphoAnimatedVisibility(visible = selectedCollections.isNotEmpty()) {
                             IconButton(
-                                onClick = { showDeleteDialog = true },
+                                onClick = {
+                                    buttonPressHaptic()
+                                    showDeleteDialog = true
+                                },
                                 modifier = Modifier
                                     .size(40.dp)
                                     .background(SapphoError, CircleShape)
@@ -145,7 +168,10 @@ fun CollectionsScreen(
                     } else {
                         // Create button
                         IconButton(
-                            onClick = { showCreateDialog = true },
+                            onClick = {
+                                buttonPressHaptic()
+                                showCreateDialog = true
+                            },
                             modifier = Modifier
                                 .size(40.dp)
                                 .background(SapphoInfo, CircleShape)
@@ -161,20 +187,15 @@ fun CollectionsScreen(
             }
 
             when {
-                isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = SapphoInfo)
-                    }
+                isLoading && collections.isEmpty() -> {
+                    SkeletonCollectionGrid()
                 }
                 collections.isEmpty() -> {
                     // Empty state
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(32.dp),
+                            .padding(Spacing.XL),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -182,67 +203,79 @@ fun CollectionsScreen(
                             imageVector = Icons.Default.LibraryBooks,
                             contentDescription = null,
                             tint = SapphoInfo,
-                            modifier = Modifier.size(64.dp)
+                            modifier = Modifier.size(IconSize.XLarge)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(Spacing.M))
                         Text(
                             text = "No collections yet",
                             style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
+                            color = SapphoText
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(Spacing.XS))
                         Text(
                             text = "Create a collection to organize your audiobooks",
                             style = MaterialTheme.typography.bodyMedium,
                             color = SapphoIconDefault
                         )
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(Spacing.L))
                         Button(
-                            onClick = { showCreateDialog = true },
+                            onClick = {
+                                buttonPressHaptic()
+                                showCreateDialog = true
+                            },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SapphoInfo
                             ),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(Spacing.XS))
                             Text("Create Collection")
                         }
                     }
                 }
                 else -> {
-                    LazyVerticalGrid(
-                        columns = AdaptiveGrid.categoryGrid,
-                        contentPadding = PaddingValues(AdaptiveSpacing.screenPadding),
-                        horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
-                        verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                    PullToRefreshBox(
+                        isRefreshing = isLoading,
+                        onRefresh = { viewModel.refresh() },
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(collections) { collection ->
-                            CollectionCard(
-                                collection = collection,
-                                serverUrl = serverUrl,
-                                isEditMode = isEditMode,
-                                isSelected = selectedCollections.contains(collection.id),
-                                onClick = {
-                                    if (isEditMode) {
-                                        // Toggle selection
-                                        selectedCollections = if (selectedCollections.contains(collection.id)) {
-                                            selectedCollections - collection.id
+                        LazyVerticalGrid(
+                            columns = AdaptiveGrid.categoryGrid,
+                            contentPadding = PaddingValues(AdaptiveSpacing.screenPadding),
+                            horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                            verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            itemsIndexed(collections) { index, collection ->
+                                CollectionCard(
+                                    collection = collection,
+                                    serverUrl = serverUrl,
+                                    isEditMode = isEditMode,
+                                    isSelected = selectedCollections.contains(collection.id),
+                                    revealed = contentRevealed,
+                                    index = index,
+                                    onClick = {
+                                        cardTapHaptic()
+                                        if (isEditMode) {
+                                            selectedCollections = if (selectedCollections.contains(collection.id)) {
+                                                selectedCollections - collection.id
+                                            } else {
+                                                selectedCollections + collection.id
+                                            }
                                         } else {
-                                            selectedCollections + collection.id
+                                            onCollectionClick(collection.id)
                                         }
-                                    } else {
-                                        onCollectionClick(collection.id)
+                                    },
+                                    onLongClick = {
+                                        mediumTapHaptic()
+                                        if (!isEditMode) {
+                                            isEditMode = true
+                                            selectedCollections = setOf(collection.id)
+                                        }
                                     }
-                                },
-                                onLongClick = {
-                                    if (!isEditMode) {
-                                        isEditMode = true
-                                        selectedCollections = setOf(collection.id)
-                                    }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -279,7 +312,6 @@ fun CollectionsScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            // Delete all selected collections
                             selectedCollections.forEach { collectionId ->
                                 viewModel.deleteCollection(collectionId) { _, _ -> }
                             }
@@ -300,7 +332,7 @@ fun CollectionsScreen(
                     }
                 },
                 containerColor = SapphoSurface,
-                titleContentColor = Color.White,
+                titleContentColor = SapphoText,
                 textContentColor = SapphoTextLight
             )
         }
@@ -314,13 +346,29 @@ private fun CollectionCard(
     serverUrl: String?,
     isEditMode: Boolean,
     isSelected: Boolean,
+    revealed: Boolean,
+    index: Int,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
+    // Bouncy scale animation
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "card_scale"
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(0.85f)
+            .progressiveReveal(index = index, visible = revealed)
+            .scale(scale)
             .then(
                 if (isSelected) {
                     Modifier.border(2.dp, SapphoInfo, RoundedCornerShape(12.dp))
@@ -329,6 +377,8 @@ private fun CollectionCard(
                 }
             )
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
@@ -367,7 +417,7 @@ private fun CollectionCard(
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(8.dp)
+                            .padding(Spacing.XS)
                             .background(SapphoInfo, RoundedCornerShape(8.dp))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
@@ -379,11 +429,14 @@ private fun CollectionCard(
                     }
 
                     // Selection checkbox (top-left, only in edit mode)
-                    if (isEditMode) {
+                    SapphoAnimatedVisibility(
+                        visible = isEditMode,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(Spacing.XS)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(8.dp)
                                 .size(24.dp)
                                 .background(
                                     if (isSelected) SapphoInfo else Color.Black.copy(alpha = 0.5f),
@@ -403,7 +456,7 @@ private fun CollectionCard(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Selected",
                                     tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(IconSize.Small)
                                 )
                             }
                         }
@@ -414,7 +467,7 @@ private fun CollectionCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp)
+                        .padding(Spacing.S)
                 ) {
                     // Title row with visibility badge
                     Row(
@@ -424,7 +477,7 @@ private fun CollectionCard(
                         Text(
                             text = collection.name,
                             style = MaterialTheme.typography.labelLarge,
-                            color = Color.White,
+                            color = SapphoText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
@@ -500,7 +553,7 @@ private fun RotatingCover(
                 imageVector = Icons.Default.LibraryBooks,
                 contentDescription = null,
                 tint = SapphoInfo,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(IconSize.Hero)
             )
         }
         return
@@ -540,6 +593,58 @@ private fun RotatingCover(
 }
 
 @Composable
+private fun SkeletonCollectionGrid() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(AdaptiveSpacing.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing)
+    ) {
+        repeat(3) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing)
+            ) {
+                repeat(2) {
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(0.85f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SapphoSurfaceLight)
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // Cover area skeleton
+                            SkeletonBox(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                            )
+                            // Text area skeleton
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(Spacing.S),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                SkeletonBox(
+                                    modifier = Modifier.fillMaxWidth(0.7f),
+                                    height = 14.dp
+                                )
+                                SkeletonBox(
+                                    modifier = Modifier.fillMaxWidth(0.5f),
+                                    height = 10.dp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CreateCollectionDialog(
     isCreating: Boolean,
     onDismiss: () -> Unit,
@@ -552,7 +657,7 @@ private fun CreateCollectionDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.M),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = SapphoSurfaceLight
@@ -561,15 +666,15 @@ private fun CreateCollectionDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
+                    .padding(Spacing.L)
             ) {
                 Text(
                     text = "Create Collection",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White
+                    color = SapphoText
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.L))
 
                 OutlinedTextField(
                     value = name,
@@ -577,8 +682,8 @@ private fun CreateCollectionDialog(
                     label = { Text("Name") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = SapphoText,
+                        unfocusedTextColor = SapphoText,
                         focusedBorderColor = SapphoInfo,
                         unfocusedBorderColor = SapphoProgressTrack,
                         focusedLabelColor = SapphoInfo,
@@ -587,7 +692,7 @@ private fun CreateCollectionDialog(
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.M))
 
                 OutlinedTextField(
                     value = description,
@@ -595,8 +700,8 @@ private fun CreateCollectionDialog(
                     label = { Text("Description (optional)") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = SapphoText,
+                        unfocusedTextColor = SapphoText,
                         focusedBorderColor = SapphoInfo,
                         unfocusedBorderColor = SapphoProgressTrack,
                         focusedLabelColor = SapphoInfo,
@@ -605,7 +710,7 @@ private fun CreateCollectionDialog(
                     maxLines = 3
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.L))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -614,7 +719,7 @@ private fun CreateCollectionDialog(
                     TextButton(onClick = onDismiss) {
                         Text("Cancel", color = SapphoIconDefault)
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(Spacing.XS))
                     Button(
                         onClick = { onCreate(name, description.ifBlank { null }) },
                         enabled = name.isNotBlank() && !isCreating,
@@ -625,7 +730,7 @@ private fun CreateCollectionDialog(
                     ) {
                         if (isCreating) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(IconSize.Small),
                                 color = Color.White,
                                 strokeWidth = 2.dp
                             )
