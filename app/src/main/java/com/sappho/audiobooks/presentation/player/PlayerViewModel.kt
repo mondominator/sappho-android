@@ -12,6 +12,7 @@ import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.service.PlayerState
 import com.sappho.audiobooks.cast.CastHelper
+import com.sappho.audiobooks.cast.CastManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,8 @@ class PlayerViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val sharedPlayerState: PlayerState,
     private val downloadManager: DownloadManager,
-    private val castHelper: CastHelper
+    private val castHelper: CastHelper,
+    private val castManager: CastManager
 ) : AndroidViewModel(application) {
 
     private val _audiobook = MutableStateFlow<Audiobook?>(null)
@@ -76,15 +78,15 @@ class PlayerViewModel @Inject constructor(
             book?.let {
 
                 // Check if we're currently casting
-                if (castHelper.isCasting()) {
+                if (castManager.isCasting()) {
                     val serverUrl = authRepository.getServerUrlSync()
                     if (serverUrl != null) {
-                        // Load the new audiobook on the Cast device
-                        castHelper.castAudiobook(
+                        // Load the new audiobook on the cast device
+                        castManager.castAudiobook(
                             audiobook = it,
                             streamUrl = "$serverUrl/api/audiobooks/${it.id}/stream",
                             coverUrl = if (it.coverImage != null) com.sappho.audiobooks.util.buildCoverUrl(serverUrl, it.id) else null,
-                            currentPosition = actualStartPosition.toLong()
+                            positionSeconds = actualStartPosition.toLong()
                         )
                         // Also update the shared player state with the new audiobook info
                         sharedPlayerState.updateAudiobook(it)
