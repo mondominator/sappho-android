@@ -1,14 +1,18 @@
 package com.sappho.audiobooks.presentation.collections
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,24 +24,26 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.sappho.audiobooks.domain.model.Audiobook
+import com.sappho.audiobooks.presentation.theme.*
+import com.sappho.audiobooks.util.HapticPatterns
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun CollectionDetailScreen(
     collectionId: Int,
@@ -55,6 +61,19 @@ fun CollectionDetailScreen(
     var isEditMode by remember { mutableStateOf(false) }
     var selectedBooks by remember { mutableStateOf(setOf<Int>()) }
     var showRemoveDialog by remember { mutableStateOf(false) }
+
+    // Haptic patterns
+    val cardTapHaptic = HapticPatterns.cardTap()
+    val buttonPressHaptic = HapticPatterns.buttonPress()
+    val mediumTapHaptic = HapticPatterns.mediumTap()
+
+    // Progressive reveal tracking
+    var contentRevealed by remember { mutableStateOf(false) }
+    LaunchedEffect(collection?.books) {
+        if (!collection?.books.isNullOrEmpty()) {
+            contentRevealed = true
+        }
+    }
 
     // Handle back button - exit edit mode first, then go back
     BackHandler {
@@ -80,16 +99,17 @@ fun CollectionDetailScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(Spacing.M),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.S),
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
                     IconButton(onClick = {
+                        buttonPressHaptic()
                         if (isEditMode) {
                             isEditMode = false
                             selectedBooks = emptySet()
@@ -107,7 +127,7 @@ fun CollectionDetailScreen(
                         Text(
                             text = if (isEditMode) "${selectedBooks.size} selected" else (collection?.name ?: "Collection"),
                             style = MaterialTheme.typography.headlineLarge,
-                            color = Color.White,
+                            color = SapphoText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -128,12 +148,15 @@ fun CollectionDetailScreen(
                 }
 
                 // Action buttons
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.XS)) {
                     if (isEditMode) {
-                        // Remove button (only show when items are selected)
-                        if (selectedBooks.isNotEmpty()) {
+                        // Remove button with animated visibility
+                        SapphoAnimatedVisibility(visible = selectedBooks.isNotEmpty()) {
                             IconButton(
-                                onClick = { showRemoveDialog = true },
+                                onClick = {
+                                    buttonPressHaptic()
+                                    showRemoveDialog = true
+                                },
                                 modifier = Modifier
                                     .size(40.dp)
                                     .background(SapphoError, CircleShape)
@@ -148,7 +171,10 @@ fun CollectionDetailScreen(
                     } else {
                         // Edit button
                         IconButton(
-                            onClick = { showEditDialog = true },
+                            onClick = {
+                                buttonPressHaptic()
+                                showEditDialog = true
+                            },
                             modifier = Modifier
                                 .size(40.dp)
                                 .background(SapphoProgressTrack, CircleShape)
@@ -157,7 +183,7 @@ fun CollectionDetailScreen(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Edit Collection",
                                 tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(IconSize.Medium)
                             )
                         }
                     }
@@ -165,13 +191,8 @@ fun CollectionDetailScreen(
             }
 
             when {
-                isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = SapphoInfo)
-                    }
+                isLoading && collection?.books.isNullOrEmpty() -> {
+                    SkeletonLibraryGrid()
                 }
                 error != null -> {
                     Box(
@@ -180,7 +201,7 @@ fun CollectionDetailScreen(
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(Spacing.XS)
                         ) {
                             Text(
                                 text = error ?: "Error loading collection",
@@ -188,7 +209,10 @@ fun CollectionDetailScreen(
                                 color = SapphoError
                             )
                             Button(
-                                onClick = { viewModel.refresh(collectionId) },
+                                onClick = {
+                                    buttonPressHaptic()
+                                    viewModel.refresh(collectionId)
+                                },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = SapphoInfo
                                 )
@@ -203,7 +227,7 @@ fun CollectionDetailScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(32.dp),
+                            .padding(Spacing.XL),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -211,15 +235,15 @@ fun CollectionDetailScreen(
                             imageVector = Icons.Default.LibraryBooks,
                             contentDescription = null,
                             tint = SapphoInfo,
-                            modifier = Modifier.size(64.dp)
+                            modifier = Modifier.size(IconSize.XLarge)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(Spacing.M))
                         Text(
                             text = "No books in this collection",
                             style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
+                            color = SapphoText
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(Spacing.XS))
                         Text(
                             text = "Add books from the book detail page",
                             style = MaterialTheme.typography.bodyMedium,
@@ -228,38 +252,47 @@ fun CollectionDetailScreen(
                     }
                 }
                 else -> {
-                    LazyVerticalGrid(
-                        columns = AdaptiveGrid.audiobookGrid,
-                        contentPadding = PaddingValues(AdaptiveSpacing.screenPadding),
-                        horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
-                        verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                    PullToRefreshBox(
+                        isRefreshing = isLoading,
+                        onRefresh = { viewModel.refresh(collectionId) },
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(collection?.books ?: emptyList()) { book ->
-                            CollectionBookItem(
-                                book = book,
-                                serverUrl = serverUrl,
-                                isEditMode = isEditMode,
-                                isSelected = selectedBooks.contains(book.id),
-                                onClick = {
-                                    if (isEditMode) {
-                                        // Toggle selection
-                                        selectedBooks = if (selectedBooks.contains(book.id)) {
-                                            selectedBooks - book.id
+                        LazyVerticalGrid(
+                            columns = AdaptiveGrid.audiobookGrid,
+                            contentPadding = PaddingValues(AdaptiveSpacing.screenPadding),
+                            horizontalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                            verticalArrangement = Arrangement.spacedBy(AdaptiveSpacing.gridSpacing),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            itemsIndexed(collection?.books ?: emptyList()) { index, book ->
+                                CollectionBookItem(
+                                    book = book,
+                                    serverUrl = serverUrl,
+                                    isEditMode = isEditMode,
+                                    isSelected = selectedBooks.contains(book.id),
+                                    revealed = contentRevealed,
+                                    index = index,
+                                    onClick = {
+                                        cardTapHaptic()
+                                        if (isEditMode) {
+                                            selectedBooks = if (selectedBooks.contains(book.id)) {
+                                                selectedBooks - book.id
+                                            } else {
+                                                selectedBooks + book.id
+                                            }
                                         } else {
-                                            selectedBooks + book.id
+                                            onBookClick(book.id)
                                         }
-                                    } else {
-                                        onBookClick(book.id)
+                                    },
+                                    onLongClick = {
+                                        mediumTapHaptic()
+                                        if (!isEditMode) {
+                                            isEditMode = true
+                                            selectedBooks = setOf(book.id)
+                                        }
                                     }
-                                },
-                                onLongClick = {
-                                    if (!isEditMode) {
-                                        isEditMode = true
-                                        selectedBooks = setOf(book.id)
-                                    }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -300,7 +333,6 @@ fun CollectionDetailScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            // Remove all selected books
                             selectedBooks.forEach { bookId ->
                                 viewModel.removeBook(collectionId, bookId) { _, _ -> }
                             }
@@ -321,7 +353,7 @@ fun CollectionDetailScreen(
                     }
                 },
                 containerColor = SapphoSurface,
-                titleContentColor = Color.White,
+                titleContentColor = SapphoText,
                 textContentColor = SapphoTextLight
             )
         }
@@ -335,11 +367,27 @@ private fun CollectionBookItem(
     serverUrl: String?,
     isEditMode: Boolean,
     isSelected: Boolean,
+    revealed: Boolean,
+    index: Int,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
+    // Bouncy scale animation
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "book_scale"
+    )
+
     Column(
         modifier = Modifier
+            .progressiveReveal(index = index, visible = revealed)
+            .scale(scale)
             .then(
                 if (isSelected) {
                     Modifier.border(2.dp, SapphoInfo, RoundedCornerShape(8.dp))
@@ -348,6 +396,8 @@ private fun CollectionBookItem(
                 }
             )
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
                 onClick = onClick,
                 onLongClick = onLongClick
             )
@@ -380,17 +430,20 @@ private fun CollectionBookItem(
                     Text(
                         text = book.title.take(2).uppercase(),
                         style = MaterialTheme.typography.headlineLarge,
-                        color = Color.White
+                        color = SapphoText
                     )
                 }
             }
 
             // Selection checkbox (top-left, only in edit mode)
-            if (isEditMode) {
+            SapphoAnimatedVisibility(
+                visible = isEditMode,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(Spacing.XXS)
+            ) {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(4.dp)
                         .size(22.dp)
                         .background(
                             if (isSelected) SapphoInfo else Color.Black.copy(alpha = 0.5f),
@@ -416,7 +469,7 @@ private fun CollectionBookItem(
                 }
             }
 
-            // Progress bar (bottom)
+            // Animated progress bar (bottom)
             book.progress?.let { progress ->
                 if (progress.position > 0 || progress.completed == 1) {
                     val progressPercent = if (progress.completed == 1) {
@@ -428,6 +481,15 @@ private fun CollectionBookItem(
                     }
 
                     if (progressPercent > 0) {
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = progressPercent,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            ),
+                            label = "progress"
+                        )
+
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -438,7 +500,7 @@ private fun CollectionBookItem(
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
-                                    .fillMaxWidth(progressPercent)
+                                    .fillMaxWidth(animatedProgress)
                                     .background(
                                         if (progress.completed == 1) LegacyGreen
                                         else SapphoInfo
@@ -460,10 +522,10 @@ private fun CollectionBookItem(
             Text(
                 text = book.title,
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White,
+                color = SapphoText,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
 
             book.author?.let {
@@ -473,7 +535,7 @@ private fun CollectionBookItem(
                     color = SapphoIconDefault,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
             }
 
@@ -521,7 +583,7 @@ private fun EditCollectionDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.M),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = SapphoSurfaceLight
@@ -530,15 +592,15 @@ private fun EditCollectionDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
+                    .padding(Spacing.L)
             ) {
                 Text(
                     text = "Edit Collection",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White
+                    color = SapphoText
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.L))
 
                 OutlinedTextField(
                     value = editName,
@@ -546,8 +608,8 @@ private fun EditCollectionDialog(
                     label = { Text("Name") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = SapphoText,
+                        unfocusedTextColor = SapphoText,
                         focusedBorderColor = SapphoInfo,
                         unfocusedBorderColor = SapphoProgressTrack,
                         focusedLabelColor = SapphoInfo,
@@ -556,7 +618,7 @@ private fun EditCollectionDialog(
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Spacing.M))
 
                 OutlinedTextField(
                     value = editDescription,
@@ -564,8 +626,8 @@ private fun EditCollectionDialog(
                     label = { Text("Description (optional)") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = SapphoText,
+                        unfocusedTextColor = SapphoText,
                         focusedBorderColor = SapphoInfo,
                         unfocusedBorderColor = SapphoProgressTrack,
                         focusedLabelColor = SapphoInfo,
@@ -576,14 +638,14 @@ private fun EditCollectionDialog(
 
                 // Visibility toggle - only show for owner
                 if (isOwner) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(Spacing.M))
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(SapphoProgressTrack.copy(alpha = 0.5f))
-                            .padding(12.dp),
+                            .padding(Spacing.S),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -591,7 +653,7 @@ private fun EditCollectionDialog(
                             Text(
                                 text = "Public Collection",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White
+                                color = SapphoText
                             )
                             Text(
                                 text = if (editIsPublic) "Anyone can view and add books"
@@ -613,7 +675,7 @@ private fun EditCollectionDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.L))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -622,7 +684,7 @@ private fun EditCollectionDialog(
                     TextButton(onClick = onDismiss) {
                         Text("Cancel", color = SapphoIconDefault)
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(Spacing.XS))
                     Button(
                         onClick = { onSave(editName, editDescription.ifBlank { null }, editIsPublic) },
                         enabled = editName.isNotBlank() && !isSaving,
@@ -633,7 +695,7 @@ private fun EditCollectionDialog(
                     ) {
                         if (isSaving) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(IconSize.Small),
                                 color = Color.White,
                                 strokeWidth = 2.dp
                             )
