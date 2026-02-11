@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,9 +58,12 @@ import coil.compose.AsyncImage
 import dagger.hilt.android.AndroidEntryPoint
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.cast.CastHelper
+import com.sappho.audiobooks.cast.CastManager
+import com.sappho.audiobooks.cast.ui.CastDialog
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -70,6 +74,9 @@ class PlayerActivity : ComponentActivity() {
 
     @Inject
     lateinit var castHelper: CastHelper
+
+    @Inject
+    lateinit var castManager: CastManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,7 +96,8 @@ class PlayerActivity : ComponentActivity() {
                 startPosition = startPosition,
                 fromMinimized = fromMinimized,
                 onMinimize = { finishWithNoAnimation() },
-                castHelper = castHelper
+                castHelper = castHelper,
+                castManager = castManager
             )
         }
     }
@@ -110,7 +118,8 @@ fun PlayerScreen(
     startPosition: Int,
     fromMinimized: Boolean,
     onMinimize: () -> Unit,
-    castHelper: CastHelper,
+    @Suppress("UNUSED_PARAMETER") castHelper: CastHelper, // Kept for API compatibility; CastManager wraps it
+    castManager: CastManager,
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -122,6 +131,7 @@ fun PlayerScreen(
     var showChapters by remember { mutableStateOf(false) }
     var showPlaybackSpeed by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
+    val castCoroutineScope = rememberCoroutineScope()
 
     // Load audiobook details if not already loaded
     LaunchedEffect(audiobookId) {
@@ -135,8 +145,8 @@ fun PlayerScreen(
 
     // Determine playing state based on whether we're casting or using local playback
     val localIsPlaying = playerState?.isPlaying?.collectAsState()?.value ?: false
-    val castIsPlaying = castHelper.isPlayingFlow.collectAsState().value
-    val isCastConnected = castHelper.isConnected.collectAsState().value
+    val castIsPlaying = castManager.isPlaying.collectAsState().value
+    val isCastConnected = castManager.isConnected.collectAsState().value
     val isPlaying = if (isCastConnected) {
         castIsPlaying
     } else {
@@ -153,7 +163,7 @@ fun PlayerScreen(
     LaunchedEffect(isCastConnected) {
         if (isCastConnected) {
             while (true) {
-                castPosition = castHelper.getCurrentPosition()
+                castPosition = castManager.getCurrentPosition()
                 kotlinx.coroutines.delay(Timing.POLL_INTERVAL_MS)
             }
         }
@@ -227,7 +237,7 @@ fun PlayerScreen(
                     )
                 }
 
-                // Cast button - shows our custom dialog
+                // Cast button - shows unified cast dialog
                 var showCastDialog by remember { mutableStateOf(false) }
                 IconButton(onClick = { showCastDialog = true }) {
                     Icon(
@@ -238,377 +248,57 @@ fun PlayerScreen(
                     )
                 }
 
-                // Cast Dialog - Modern Design
                 if (showCastDialog) {
-                    var isScanning by remember { mutableStateOf(true) }
-                    val availableRoutes by castHelper.availableRoutes.collectAsState()
-                    val connectedDeviceName by castHelper.connectedDeviceName.collectAsState()
-
-                    // Start discovery and clean up when dialog closes
-                    DisposableEffect(Unit) {
-                        castHelper.startDiscovery(context)
-                        onDispose {
-                            castHelper.stopDiscovery()
-                        }
-                    }
-
-                    LaunchedEffect(Unit) {
-                        kotlinx.coroutines.delay(Timing.FEEDBACK_MEDIUM_MS)
-                        isScanning = false
-                    }
-
-                    // Pulsing animation for scanning
-                    val pulseTransition = rememberInfiniteTransition(label = "pulse")
-                    val pulseScale by pulseTransition.animateFloat(
-                        initialValue = 1f,
-                        targetValue = 1.15f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "pulseScale"
-                    )
-                    val pulseAlpha by pulseTransition.animateFloat(
-                        initialValue = 0.6f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "pulseAlpha"
-                    )
-
-                    AlertDialog(
-                        onDismissRequest = { showCastDialog = false },
-                        title = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            Brush.linearGradient(
-                                                colors = listOf(SapphoInfo, LegacyPurpleLight)
-                                            )
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Cast,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                                Column {
-                                    Text(
-                                        "Cast Audio",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp
-                                    )
-                                    Text(
-                                        if (isCastConnected && connectedDeviceName != null)
-                                            "Connected to $connectedDeviceName"
-                                        else "Select a device",
-                                        color = if (isCastConnected) SapphoSuccess else SapphoIconDefault,
-                                        fontSize = 12.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
+                    CastDialog(
+                        castManager = castManager,
+                        onDeviceSelected = { device ->
+                            // Stop local playback
+                            if (localIsPlaying) {
+                                AudioPlaybackService.instance?.togglePlayPause()
                             }
-                        },
-                        text = {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                if (isCastConnected) {
-                                    // Connected state - show current device
-                                    Surface(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = SapphoSuccess.copy(alpha = 0.12f),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            SapphoSuccess.copy(alpha = 0.3f)
-                                        )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(44.dp)
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .background(SapphoSuccess.copy(alpha = 0.2f)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Cast,
-                                                    contentDescription = null,
-                                                    tint = SapphoSuccess,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
-                                            }
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    connectedDeviceName ?: "Currently Casting",
-                                                    color = Color.White,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Text(
-                                                    "Casting audio to this device",
-                                                    color = SapphoSuccess,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
-                                    }
 
-                                    // Disconnect button
-                                    Surface(
-                                        onClick = {
-                                            castHelper.disconnectCast()
-                                            showCastDialog = false
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = SapphoError.copy(alpha = 0.12f)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(14.dp),
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Cast,
-                                                contentDescription = null,
-                                                tint = SapphoError,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                "Disconnect",
-                                                color = SapphoError,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                        }
-                                    }
-                                } else if (isScanning) {
-                                    // Scanning animation
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 24.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            // Outer pulse ring
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(80.dp)
-                                                    .scale(pulseScale)
-                                                    .clip(CircleShape)
-                                                    .background(SapphoInfo.copy(alpha = 0.1f * pulseAlpha))
-                                            )
-                                            // Inner circle
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(56.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        Brush.linearGradient(
-                                                            colors = listOf(
-                                                                SapphoInfo.copy(alpha = 0.3f),
-                                                                LegacyPurpleLight.copy(alpha = 0.3f)
-                                                            )
-                                                        )
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Cast,
-                                                    contentDescription = null,
-                                                    tint = SapphoInfo,
-                                                    modifier = Modifier.size(28.dp)
+                            castCoroutineScope.launch {
+                                // For Chromecast, use the existing route selection flow
+                                if (device.protocol == com.sappho.audiobooks.cast.CastProtocol.CHROMECAST) {
+                                    val route = device.extras as? androidx.mediarouter.media.MediaRouter.RouteInfo
+                                    if (route != null) {
+                                        // Queue audiobook on CastHelper (handles auth + pending media)
+                                        audiobook?.let { book ->
+                                            serverUrl?.let { url ->
+                                                castManager.getChromecastTarget().castAudiobook(
+                                                    audiobook = book,
+                                                    streamUrl = "$url/api/audiobooks/${book.id}/stream",
+                                                    coverUrl = if (book.coverImage != null) com.sappho.audiobooks.util.buildCoverUrl(url, book.id) else null,
+                                                    currentPosition = currentPosition
                                                 )
                                             }
                                         }
-                                        Text(
-                                            "Scanning for devices...",
-                                            color = SapphoIconDefault,
-                                            fontSize = 14.sp
-                                        )
-                                    }
-                                } else if (availableRoutes.isEmpty()) {
-                                    // No devices found
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 24.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(56.dp)
-                                                .clip(CircleShape)
-                                                .background(SapphoSurface),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Cast,
-                                                contentDescription = null,
-                                                tint = SapphoIconDefault.copy(alpha = 0.5f),
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-                                        Text(
-                                            "No devices found",
-                                            color = SapphoIconDefault,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Text(
-                                            "Make sure your Cast device is on\nand connected to the same network",
-                                            color = SapphoIconDefault.copy(alpha = 0.7f),
-                                            fontSize = 12.sp,
-                                            textAlign = TextAlign.Center,
-                                            lineHeight = 18.sp
-                                        )
+                                        castManager.getChromecastTarget().selectRoute(context, route)
                                     }
                                 } else {
-                                    // Device list
-                                    availableRoutes.forEachIndexed { index, route ->
-                                        val isTV = route.name.contains("TV", ignoreCase = true)
-                                        val isSpeaker = route.name.contains("Speaker", ignoreCase = true) ||
-                                                route.name.contains("Home", ignoreCase = true) ||
-                                                route.name.contains("Nest", ignoreCase = true)
-
-                                        Surface(
-                                            onClick = {
-                                                // Stop local playback
-                                                if (localIsPlaying) {
-                                                    AudioPlaybackService.instance?.togglePlayPause()
-                                                }
-
-                                                // Queue audiobook
-                                                audiobook?.let { book ->
-                                                    serverUrl?.let { url ->
-                                                        castHelper.castAudiobook(
-                                                            audiobook = book,
-                                                            streamUrl = "$url/api/audiobooks/${book.id}/stream",
-                                                            coverUrl = if (book.coverImage != null) com.sappho.audiobooks.util.buildCoverUrl(url, book.id) else null,
-                                                            currentPosition = currentPosition
-                                                        )
-                                                    }
-                                                }
-
-                                                // Select route
-                                                castHelper.selectRoute(context, route)
-                                                showCastDialog = false
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(14.dp),
-                                            color = SapphoSurface
-                                        ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(14.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(14.dp)
-                                            ) {
-                                                // Device icon with gradient background
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(46.dp)
-                                                        .clip(RoundedCornerShape(12.dp))
-                                                        .background(
-                                                            Brush.linearGradient(
-                                                                colors = when {
-                                                                    isTV -> listOf(LegacyPurpleLight.copy(alpha = 0.3f), SapphoInfo.copy(alpha = 0.2f))
-                                                                    isSpeaker -> listOf(SapphoSuccess.copy(alpha = 0.3f), LegacyBlueLight.copy(alpha = 0.2f))
-                                                                    else -> listOf(SapphoInfo.copy(alpha = 0.3f), LegacyPurpleLight.copy(alpha = 0.2f))
-                                                                }
-                                                            )
-                                                        ),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        imageVector = when {
-                                                            isTV -> Icons.Default.Cast
-                                                            isSpeaker -> Icons.Default.Cast
-                                                            else -> Icons.Default.Cast
-                                                        },
-                                                        contentDescription = null,
-                                                        tint = when {
-                                                            isTV -> LegacyPurpleLight
-                                                            isSpeaker -> SapphoSuccess
-                                                            else -> SapphoInfo
-                                                        },
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        route.name,
-                                                        color = Color.White,
-                                                        fontWeight = FontWeight.Medium,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                    Text(
-                                                        when {
-                                                            isTV -> "Smart TV"
-                                                            isSpeaker -> "Smart Speaker"
-                                                            else -> "Cast Device"
-                                                        },
-                                                        color = SapphoIconDefault,
-                                                        fontSize = 12.sp
-                                                    )
-                                                }
-
-                                                // Arrow indicator
-                                                Icon(
-                                                    imageVector = Icons.Default.PlayArrow,
-                                                    contentDescription = null,
-                                                    tint = SapphoIconDefault,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
+                                    // For other protocols, connect then cast
+                                    castManager.connectToDevice(device)
+                                    audiobook?.let { book ->
+                                        serverUrl?.let { url ->
+                                            castManager.castAudiobook(
+                                                audiobook = book,
+                                                streamUrl = "$url/api/audiobooks/${book.id}/stream",
+                                                coverUrl = if (book.coverImage != null) com.sappho.audiobooks.util.buildCoverUrl(url, book.id) else null,
+                                                positionSeconds = currentPosition
+                                            )
                                         }
                                     }
                                 }
                             }
+                            showCastDialog = false
                         },
-                        confirmButton = {
-                            TextButton(
-                                onClick = { showCastDialog = false },
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.White.copy(alpha = 0.05f))
-                                    .padding(horizontal = 8.dp)
-                            ) {
-                                Text("Close", color = SapphoIconDefault)
+                        onDisconnect = {
+                            castCoroutineScope.launch {
+                                castManager.disconnect()
                             }
+                            showCastDialog = false
                         },
-                        containerColor = SapphoSurfaceLight,
-                        shape = RoundedCornerShape(24.dp)
+                        onDismiss = { showCastDialog = false }
                     )
                 }
             }
@@ -802,11 +492,13 @@ fun PlayerScreen(
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     // Check if we're currently casting
                                     if (isCastConnected) {
-                                        // Control the Cast receiver
-                                        if (isPlaying) {
-                                            castHelper.pause()
-                                        } else {
-                                            castHelper.play()
+                                        // Control the cast device via CastManager
+                                        castCoroutineScope.launch {
+                                            if (isPlaying) {
+                                                castManager.pause()
+                                            } else {
+                                                castManager.play()
+                                            }
                                         }
                                     } else {
                                         // Control local playback
