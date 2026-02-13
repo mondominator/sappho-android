@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -45,6 +46,9 @@ class AirPlayCastTarget(
 
     private val _connectedDeviceName = MutableStateFlow<String?>(null)
     override val connectedDeviceName: StateFlow<String?> = _connectedDeviceName
+
+    private val _lastError = MutableStateFlow<String?>(null)
+    override val lastError: StateFlow<String?> = _lastError
 
     private var connectedDevice: CastDevice? = null
     private var pollingJob: Job? = null
@@ -89,32 +93,87 @@ class AirPlayCastTarget(
         coverUrl: String?,
         positionSeconds: Long
     ) {
-        val device = connectedDevice ?: return
-        val baseUrl = "http://${device.host}:${device.port}"
-
-        try {
-            // AirPlay 1 /play endpoint expects a text/parameters body
-            val startPosition = if (mediaDuration > 0) {
-                positionSeconds.toFloat() / mediaDuration.toFloat()
-            } else {
-                0f
+        _lastError.value = null
+        withContext(Dispatchers.IO) {
+            val device = connectedDevice ?: run {
+                Log.e(TAG, "loadMedia: No connected device")
+                return@withContext
             }
+            val baseUrl = "http://${device.host}:${device.port}"
 
-            val body = "Content-Location: $streamUrl\nStart-Position: $startPosition\n"
+            Log.d(TAG, "loadMedia: streamUrl=$streamUrl, title=$title, position=$positionSeconds")
 
+            try {
+                // AirPlay 1 /play endpoint expects a text/parameters body
+                // Start-Position is a ratio (0.0 to 1.0), but on first play we don't know duration
+                val startPosition = if (mediaDuration > 0) {
+                    positionSeconds.toFloat() / mediaDuration.toFloat()
+                } else {
+                    0f
+                }
+
+                val body = "Content-Location: $streamUrl\nStart-Position: $startPosition\n"
+
+                Log.d(TAG, "Sending /play to $baseUrl with Start-Position=$startPosition")
+
+                val request = Request.Builder()
+                    .url("$baseUrl/play")
+                    .post(body.toRequestBody("text/parameters".toMediaType()))
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                val responseBody = response.body?.string() ?: ""
+                val responseCode = response.code
+                Log.d(TAG, "AirPlay /play response: code=$responseCode, body=$responseBody")
+                response.close()
+
+                if (responseCode in 200..299) {
+                    // Wait briefly and verify playback started
+                    delay(2000)
+
+                    val playbackInfo = queryPlaybackInfo(baseUrl)
+                    if (playbackInfo != null) {
+                        Log.d(TAG, "AirPlay playback info: $playbackInfo")
+                        _isPlaying.value = true
+                        _currentPosition.value = positionSeconds
+                    } else {
+                        Log.w(TAG, "AirPlay /play accepted but no playback info returned. " +
+                                "Device may use AirPlay 2 (encrypted) which is not supported.")
+                        // Still mark as attempting — polling may pick it up
+                        _isPlaying.value = true
+                        _currentPosition.value = positionSeconds
+                    }
+                } else {
+                    Log.e(TAG, "AirPlay /play failed with HTTP $responseCode")
+                    _lastError.value = "This device may require AirPlay 2 (encrypted) " +
+                            "which is not yet supported."
+                    _isPlaying.value = false
+                }
+            } catch (e: java.net.ConnectException) {
+                Log.e(TAG, "Cannot reach AirPlay device at $baseUrl", e)
+                _lastError.value = "Cannot reach AirPlay device. " +
+                        "It may require AirPlay 2 (encrypted) which is not yet supported."
+                _isPlaying.value = false
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading media on AirPlay", e)
+                _lastError.value = "Failed to cast via AirPlay: ${e.message}"
+                _isPlaying.value = false
+            }
+        }
+    }
+
+    private fun queryPlaybackInfo(baseUrl: String): String? {
+        return try {
             val request = Request.Builder()
-                .url("$baseUrl/play")
-                .post(body.toRequestBody("text/parameters".toMediaType()))
+                .url("$baseUrl/scrub")
+                .get()
                 .build()
-
             val response = httpClient.newCall(request).execute()
-            Log.d(TAG, "AirPlay /play: ${response.code}")
+            val body = response.body?.string()
             response.close()
-
-            _isPlaying.value = true
-            _currentPosition.value = positionSeconds
+            if (response.code == 200 && body?.contains("duration") == true) body else null
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading media on AirPlay", e)
+            null
         }
     }
 

@@ -7,6 +7,7 @@ import com.sappho.audiobooks.cast.CastHelper
 import com.sappho.audiobooks.cast.CastProtocol
 import com.sappho.audiobooks.cast.CastTarget
 import com.sappho.audiobooks.domain.model.Audiobook
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -22,6 +23,7 @@ class ChromecastTarget(
     override val isPlaying: StateFlow<Boolean> = castHelper.isPlayingFlow
     override val currentPosition: StateFlow<Long> = castHelper.currentPositionFlow
     override val connectedDeviceName: StateFlow<String?> = castHelper.connectedDeviceName
+    override val lastError: StateFlow<String?> = MutableStateFlow(null)
 
     override suspend fun connect(device: CastDevice) {
         // Chromecast connection is handled by selecting a MediaRouter route
