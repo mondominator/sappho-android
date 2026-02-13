@@ -12,6 +12,7 @@ interface CastTarget {
     val isPlaying: StateFlow<Boolean>
     val currentPosition: StateFlow<Long>  // seconds
     val connectedDeviceName: StateFlow<String?>
+    val lastError: StateFlow<String?>
 
     suspend fun connect(device: CastDevice)
     suspend fun disconnect()
@@ -35,11 +36,18 @@ enum class CastProtocol {
     AIRPLAY
 }
 
+enum class CastDeviceType {
+    UNKNOWN,
+    TV,
+    SPEAKER
+}
+
 data class CastDevice(
     val id: String,
     val name: String,
     val protocol: CastProtocol,
     val host: String,
     val port: Int,
+    val deviceType: CastDeviceType = CastDeviceType.UNKNOWN,
     val extras: Any? = null  // Protocol-specific data (e.g., MediaRouter.RouteInfo for Chromecast)
 )

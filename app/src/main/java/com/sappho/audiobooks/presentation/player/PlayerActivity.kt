@@ -147,6 +147,7 @@ fun PlayerScreen(
     val localIsPlaying = playerState?.isPlaying?.collectAsState()?.value ?: false
     val castIsPlaying = castManager.isPlaying.collectAsState().value
     val isCastConnected = castManager.isConnected.collectAsState().value
+    val castError by castManager.castError.collectAsState()
     val isPlaying = if (isCastConnected) {
         castIsPlaying
     } else {
@@ -299,6 +300,33 @@ fun PlayerScreen(
                             showCastDialog = false
                         },
                         onDismiss = { showCastDialog = false }
+                    )
+                }
+
+                // Cast error dialog
+                castError?.let { error ->
+                    AlertDialog(
+                        onDismissRequest = { castManager.clearError() },
+                        title = {
+                            Text(
+                                "Cast Failed",
+                                color = Color.White,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        },
+                        text = {
+                            Text(
+                                error,
+                                color = SapphoIconDefault
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { castManager.clearError() }) {
+                                Text("OK", color = SapphoInfo)
+                            }
+                        },
+                        containerColor = SapphoSurfaceLight,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
                     )
                 }
             }

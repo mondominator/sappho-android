@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -47,27 +48,32 @@ class KodiCastTarget(
     private val _connectedDeviceName = MutableStateFlow<String?>(null)
     override val connectedDeviceName: StateFlow<String?> = _connectedDeviceName
 
+    private val _lastError = MutableStateFlow<String?>(null)
+    override val lastError: StateFlow<String?> = _lastError
+
     private var connectedDevice: CastDevice? = null
     private var pollingJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO)
     private var activePlayerId: Int? = null
 
     override suspend fun connect(device: CastDevice) {
-        // Verify connectivity by pinging Kodi's JSON-RPC
-        val baseUrl = "http://${device.host}:${device.port}"
-        try {
-            val result = sendJsonRpc(baseUrl, "JSONRPC.Ping", JSONObject())
-            if (result != null) {
-                connectedDevice = device
-                _connectedDeviceName.value = device.name
-                _isConnected.value = true
-                startPolling()
-                Log.d(TAG, "Connected to Kodi: ${device.name} (${device.host}:${device.port})")
-            } else {
-                Log.e(TAG, "Failed to ping Kodi at $baseUrl")
+        withContext(Dispatchers.IO) {
+            // Verify connectivity by pinging Kodi's JSON-RPC
+            val baseUrl = "http://${device.host}:${device.port}"
+            try {
+                val result = sendJsonRpc(baseUrl, "JSONRPC.Ping", JSONObject())
+                if (result != null) {
+                    connectedDevice = device
+                    _connectedDeviceName.value = device.name
+                    _isConnected.value = true
+                    startPolling()
+                    Log.d(TAG, "Connected to Kodi: ${device.name} (${device.host}:${device.port})")
+                } else {
+                    Log.e(TAG, "Failed to ping Kodi at $baseUrl")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error connecting to Kodi", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error connecting to Kodi", e)
         }
     }
 
@@ -89,35 +95,63 @@ class KodiCastTarget(
         coverUrl: String?,
         positionSeconds: Long
     ) {
-        val device = connectedDevice ?: return
-        val baseUrl = "http://${device.host}:${device.port}"
-
-        try {
-            // Use Player.Open to start playback
-            val params = JSONObject().apply {
-                put("item", JSONObject().apply {
-                    put("file", streamUrl)
-                })
+        withContext(Dispatchers.IO) {
+            _lastError.value = null
+            val device = connectedDevice ?: run {
+                Log.e(TAG, "loadMedia: No connected device")
+                return@withContext
             }
+            val baseUrl = "http://${device.host}:${device.port}"
 
-            val result = sendJsonRpc(baseUrl, "Player.Open", params)
-            Log.d(TAG, "Player.Open result: $result")
+            Log.d(TAG, "loadMedia: streamUrl=$streamUrl, title=$title, position=$positionSeconds")
 
-            // Wait briefly for player to initialize
-            delay(1000)
+            try {
+                // Use Player.Open to start playback
+                val params = JSONObject().apply {
+                    put("item", JSONObject().apply {
+                        put("file", streamUrl)
+                    })
+                }
 
-            // Find the active player ID
-            activePlayerId = getActivePlayerId(baseUrl)
+                val result = sendJsonRpc(baseUrl, "Player.Open", params)
+                Log.d(TAG, "Player.Open result: $result")
 
-            // Seek to position if needed
-            if (positionSeconds > 0 && activePlayerId != null) {
-                seek(positionSeconds)
+                // Check for JSON-RPC errors
+                val error = result?.optJSONObject("error")
+                if (error != null) {
+                    Log.e(TAG, "Kodi Player.Open error: code=${error.optInt("code")}, " +
+                            "message=${error.optString("message")}. " +
+                            "Kodi may not be able to reach the stream URL.")
+                    _lastError.value = "Kodi could not play the audio: ${error.optString("message")}"
+                    _isPlaying.value = false
+                    return@withContext
+                }
+
+                // Wait for player to initialize
+                delay(2000)
+
+                // Find the active player ID
+                activePlayerId = getActivePlayerId(baseUrl)
+
+                if (activePlayerId != null) {
+                    Log.d(TAG, "Kodi player active with ID $activePlayerId")
+                    // Seek to position if needed
+                    if (positionSeconds > 0) {
+                        seek(positionSeconds)
+                    }
+                    _isPlaying.value = true
+                    _currentPosition.value = positionSeconds
+                } else {
+                    Log.e(TAG, "Kodi Player.Open succeeded but no active player found")
+                    _lastError.value = "Kodi could not play the audio. " +
+                            "The media URL may be unreachable from the Kodi device."
+                    _isPlaying.value = false
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading media on Kodi", e)
+                _lastError.value = "Failed to cast to Kodi: ${e.message}"
+                _isPlaying.value = false
             }
-
-            _isPlaying.value = true
-            _currentPosition.value = positionSeconds
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading media on Kodi", e)
         }
     }
 
