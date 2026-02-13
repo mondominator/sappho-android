@@ -14,11 +14,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.DesktopWindows
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sappho.audiobooks.cast.CastDevice
+import com.sappho.audiobooks.cast.CastDeviceType
 import com.sappho.audiobooks.cast.CastManager
 import com.sappho.audiobooks.cast.CastProtocol
 import com.sappho.audiobooks.presentation.theme.LegacyBlueLight
@@ -383,13 +387,20 @@ private fun DeviceList(
         CastProtocol.AIRPLAY
     )
 
-    protocolOrder.forEach { protocol ->
-        val protocolDevices = grouped[protocol] ?: return@forEach
-        protocolDevices.forEach { device ->
-            DeviceRow(
-                device = device,
-                onClick = { onDeviceSelected(device) }
-            )
+    Column(
+        modifier = Modifier
+            .heightIn(max = 400.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        protocolOrder.forEach { protocol ->
+            val protocolDevices = grouped[protocol] ?: return@forEach
+            protocolDevices.forEach { device ->
+                DeviceRow(
+                    device = device,
+                    onClick = { onDeviceSelected(device) }
+                )
+            }
         }
     }
 }
@@ -501,26 +512,26 @@ private data class DeviceVisuals(
 private fun deviceVisuals(device: CastDevice): DeviceVisuals {
     return when (device.protocol) {
         CastProtocol.CHROMECAST -> {
-            val isTV = device.name.contains("TV", ignoreCase = true)
-            val isSpeaker = device.name.contains("Speaker", ignoreCase = true) ||
-                    device.name.contains("Home", ignoreCase = true) ||
-                    device.name.contains("Nest", ignoreCase = true)
             DeviceVisuals(
-                icon = Icons.Default.Cast,
-                gradientColors = when {
-                    isTV -> listOf(LegacyPurpleLight.copy(alpha = 0.3f), SapphoInfo.copy(alpha = 0.2f))
-                    isSpeaker -> listOf(SapphoSuccess.copy(alpha = 0.3f), LegacyBlueLight.copy(alpha = 0.2f))
-                    else -> listOf(SapphoInfo.copy(alpha = 0.3f), LegacyPurpleLight.copy(alpha = 0.2f))
+                icon = when (device.deviceType) {
+                    CastDeviceType.TV -> Icons.Default.Tv
+                    CastDeviceType.SPEAKER -> Icons.Default.Speaker
+                    CastDeviceType.UNKNOWN -> Icons.Default.Cast
                 },
-                tint = when {
-                    isTV -> LegacyPurpleLight
-                    isSpeaker -> SapphoSuccess
-                    else -> SapphoInfo
+                gradientColors = when (device.deviceType) {
+                    CastDeviceType.TV -> listOf(LegacyPurpleLight.copy(alpha = 0.3f), SapphoInfo.copy(alpha = 0.2f))
+                    CastDeviceType.SPEAKER -> listOf(SapphoSuccess.copy(alpha = 0.3f), LegacyBlueLight.copy(alpha = 0.2f))
+                    CastDeviceType.UNKNOWN -> listOf(SapphoInfo.copy(alpha = 0.3f), LegacyPurpleLight.copy(alpha = 0.2f))
                 },
-                typeLabel = when {
-                    isTV -> "Smart TV"
-                    isSpeaker -> "Smart Speaker"
-                    else -> "Cast Device"
+                tint = when (device.deviceType) {
+                    CastDeviceType.TV -> LegacyPurpleLight
+                    CastDeviceType.SPEAKER -> SapphoSuccess
+                    CastDeviceType.UNKNOWN -> SapphoInfo
+                },
+                typeLabel = when (device.deviceType) {
+                    CastDeviceType.TV -> "Smart TV"
+                    CastDeviceType.SPEAKER -> "Smart Speaker"
+                    CastDeviceType.UNKNOWN -> "Cast Device"
                 }
             )
         }

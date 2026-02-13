@@ -80,6 +80,9 @@ class CastManager @Inject constructor(
     private val _activeProtocol = MutableStateFlow<CastProtocol?>(null)
     val activeProtocol: StateFlow<CastProtocol?> = _activeProtocol
 
+    private val _castError = MutableStateFlow<String?>(null)
+    val castError: StateFlow<String?> = _castError
+
     private val scope = CoroutineScope(Dispatchers.Main)
     private var discoveryJob: Job? = null
     private var stateObserverJob: Job? = null
@@ -128,12 +131,18 @@ class CastManager @Inject constructor(
             launch {
                 chromecastTarget.getAvailableRoutes().collect { routes ->
                     val chromecastDevices = routes.map { route ->
+                        val type = when (route.deviceType) {
+                            MediaRouter.RouteInfo.DEVICE_TYPE_TV -> CastDeviceType.TV
+                            MediaRouter.RouteInfo.DEVICE_TYPE_SPEAKER -> CastDeviceType.SPEAKER
+                            else -> CastDeviceType.UNKNOWN
+                        }
                         CastDevice(
                             id = "chromecast_${route.id}",
                             name = route.name,
                             protocol = CastProtocol.CHROMECAST,
                             host = "",
                             port = 0,
+                            deviceType = type,
                             extras = route
                         )
                     }
@@ -141,25 +150,8 @@ class CastManager @Inject constructor(
                 }
             }
 
-            // Discover Roku devices via SSDP
-            launch(Dispatchers.IO) {
-                try {
-                    ssdpDiscovery.discover(ROKU_SEARCH_TARGET, timeoutMs = 5000).collect { ssdpDevice ->
-                        val rokuDevice = CastDevice(
-                            id = "roku_${ssdpDevice.host}",
-                            name = ssdpDevice.friendlyName ?: "Roku (${ssdpDevice.host})",
-                            protocol = CastProtocol.ROKU,
-                            host = ssdpDevice.host,
-                            port = 8060 // ECP always on 8060
-                        )
-                        addDiscoveredDevice(rokuDevice)
-                        // Try to get friendly name
-                        fetchRokuDeviceName(rokuDevice)
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Roku discovery error", e)
-                }
-            }
+            // Roku discovery disabled — Roku locked down PlayOnRoku in OS 11.5+ and there's
+            // no built-in way to stream arbitrary URLs without a third-party channel installed.
 
             // Discover Kodi devices via SSDP
             // Note: The UPnP MediaRenderer search target is generic — many non-Kodi devices
@@ -258,6 +250,7 @@ class CastManager @Inject constructor(
         _isPlaying.value = false
         _currentPosition.value = 0L
         _connectedDeviceName.value = null
+        _castError.value = null
         stateObserverJob?.cancel()
     }
 
@@ -270,8 +263,17 @@ class CastManager @Inject constructor(
         coverUrl: String?,
         positionSeconds: Long
     ) {
-        val target = activeTarget ?: return
-        val protocol = _activeProtocol.value ?: return
+        val target = activeTarget ?: run {
+            Log.e(TAG, "castAudiobook: No active target")
+            return
+        }
+        val protocol = _activeProtocol.value ?: run {
+            Log.e(TAG, "castAudiobook: No active protocol")
+            return
+        }
+
+        Log.d(TAG, "castAudiobook: protocol=$protocol, title=${audiobook.title}, " +
+                "streamUrl=$streamUrl, position=$positionSeconds")
 
         // For Chromecast, use the existing CastHelper flow which handles auth tokens
         if (protocol == CastProtocol.CHROMECAST) {
@@ -287,6 +289,9 @@ class CastManager @Inject constructor(
         } else {
             coverUrl
         }
+
+        Log.d(TAG, "castAudiobook: Sending to $protocol target, " +
+                "hasToken=${token != null}, urlLength=${authenticatedUrl.length}")
 
         target.loadMedia(
             streamUrl = authenticatedUrl,
@@ -319,6 +324,10 @@ class CastManager @Inject constructor(
 
     fun getCurrentPosition(): Long {
         return _currentPosition.value
+    }
+
+    fun clearError() {
+        _castError.value = null
     }
 
     /**
@@ -360,6 +369,7 @@ class CastManager @Inject constructor(
             launch { target.isPlaying.collect { _isPlaying.value = it } }
             launch { target.currentPosition.collect { _currentPosition.value = it } }
             launch { target.connectedDeviceName.collect { _connectedDeviceName.value = it } }
+            launch { target.lastError.collect { _castError.value = it } }
         }
     }
 
