@@ -120,6 +120,13 @@ interface SapphoApi {
     @GET("api/audiobooks/{id}/directory-files")
     suspend fun getFiles(@Path("id") audiobookId: Int): Response<List<DirectoryFile>>
 
+    // Delete file from audiobook directory (admin only)
+    @HTTP(method = "DELETE", path = "api/audiobooks/{id}/files", hasBody = true)
+    suspend fun deleteFile(
+        @Path("id") audiobookId: Int,
+        @Body body: DeleteFileRequest
+    ): Response<Map<String, String>>
+
     // Delete
     @DELETE("api/audiobooks/{id}")
     suspend fun deleteAudiobook(@Path("id") audiobookId: Int): Response<Unit>

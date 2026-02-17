@@ -75,6 +75,11 @@ data class DirectoryFile(
     val extension: String
 )
 
+// Request body for DELETE /api/audiobooks/{id}/files
+data class DeleteFileRequest(
+    @SerializedName("file_path") val filePath: String
+)
+
 data class AuthResponse(
     val token: String? = null,
     val user: User? = null,
