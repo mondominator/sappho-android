@@ -16,6 +16,7 @@ import com.sappho.audiobooks.data.remote.FetchChaptersRequest
 import com.sappho.audiobooks.data.remote.MetadataSearchResult
 import com.sappho.audiobooks.data.remote.RatingRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
+import com.sappho.audiobooks.domain.model.DeleteFileRequest
 import com.sappho.audiobooks.data.remote.UserRating
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
@@ -690,6 +691,51 @@ class AudiobookDetailViewModel @Inject constructor(
             } catch (e: Exception) {
             }
         }
+    }
+
+    private val _isDeletingFile = MutableStateFlow(false)
+    val isDeletingFile: StateFlow<Boolean> = _isDeletingFile
+
+    private val _deleteFileError = MutableStateFlow<String?>(null)
+    val deleteFileError: StateFlow<String?> = _deleteFileError
+
+    fun deleteFile(audiobookId: Int, filePath: String) {
+        viewModelScope.launch {
+            if (_isDeletingFile.value) return@launch
+            _isDeletingFile.value = true
+            _deleteFileError.value = null
+            try {
+                val response = api.deleteFile(audiobookId, DeleteFileRequest(filePath))
+                if (response.isSuccessful) {
+                    // Refresh file list
+                    try {
+                        val filesResponse = api.getFiles(audiobookId)
+                        if (filesResponse.isSuccessful) {
+                            _files.value = filesResponse.body() ?: emptyList()
+                        }
+                    } catch (e: Exception) {
+                        // File was deleted, but refresh failed - still ok
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    val errorMessage = try {
+                        val jsonError = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
+                        jsonError.get("error")?.asString
+                    } catch (e: Exception) {
+                        null
+                    }
+                    _deleteFileError.value = errorMessage ?: "Failed to delete file"
+                }
+            } catch (e: Exception) {
+                _deleteFileError.value = e.message ?: "Error deleting file"
+            } finally {
+                _isDeletingFile.value = false
+            }
+        }
+    }
+
+    fun clearDeleteFileError() {
+        _deleteFileError.value = null
     }
 
     fun checkAiStatus() {

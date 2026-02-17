@@ -109,8 +109,11 @@ fun AudiobookDetailScreen(
     val chapterSaveResult by viewModel.chapterSaveResult.collectAsState()
     val isFetchingChapters by viewModel.isFetchingChapters.collectAsState()
     val fetchChaptersResult by viewModel.fetchChaptersResult.collectAsState()
+    val isDeletingFile by viewModel.isDeletingFile.collectAsState()
+    val deleteFileError by viewModel.deleteFileError.collectAsState()
     var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
+    var fileToDelete by remember { mutableStateOf<com.sappho.audiobooks.domain.model.DirectoryFile?>(null) }
     var showEditMetadataDialog by remember { mutableStateOf(false) }
     var showCollectionsDialog by remember { mutableStateOf(false) }
     var showDeleteBookDialog by remember { mutableStateOf(false) }
@@ -1271,22 +1274,38 @@ fun AudiobookDetailScreen(
                                             shape = RoundedCornerShape(8.dp),
                                             color = SapphoSurfaceLight.copy(alpha = 0.3f)
                                         ) {
-                                            Column(
+                                            Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(12.dp)
+                                                    .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = if (isAdmin) 4.dp else 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Text(
-                                                    text = file.name,
-                                                    color = SapphoText,
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                Text(
-                                                    text = formatFileSize(file.size),
-                                                    color = SapphoIconDefault,
-                                                    fontSize = 12.sp
-                                                )
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = file.name,
+                                                        color = SapphoText,
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                    Text(
+                                                        text = formatFileSize(file.size),
+                                                        color = SapphoIconDefault,
+                                                        fontSize = 12.sp
+                                                    )
+                                                }
+                                                if (isAdmin) {
+                                                    IconButton(
+                                                        onClick = { fileToDelete = file },
+                                                        modifier = Modifier.size(36.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Close,
+                                                            contentDescription = "Delete file",
+                                                            tint = SapphoIconDefault,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1296,6 +1315,56 @@ fun AudiobookDetailScreen(
                     }
 
                 }
+            }
+        }
+
+        // Delete File Confirmation Dialog
+        fileToDelete?.let { file ->
+            AlertDialog(
+                onDismissRequest = { fileToDelete = null },
+                title = { Text("Delete File", color = SapphoText) },
+                text = {
+                    Text(
+                        "Are you sure you want to delete \"${file.name}\"? This cannot be undone.",
+                        color = SapphoTextSecondary
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            audiobook?.let { book ->
+                                viewModel.deleteFile(book.id, file.path)
+                            }
+                            fileToDelete = null
+                        },
+                        enabled = !isDeletingFile
+                    ) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { fileToDelete = null }) {
+                        Text("Cancel", color = SapphoTextSecondary)
+                    }
+                },
+                containerColor = SapphoSurface
+            )
+        }
+
+        // Delete File Error Snackbar
+        deleteFileError?.let { error ->
+            LaunchedEffect(error) {
+                kotlinx.coroutines.delay(3000)
+                viewModel.clearDeleteFileError()
+            }
+            Snackbar(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter),
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            ) {
+                Text(error)
             }
         }
 
