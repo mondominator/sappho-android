@@ -27,8 +27,11 @@ import com.sappho.audiobooks.service.DownloadService
 import com.sappho.audiobooks.service.PlayerState
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.util.NetworkMonitor
+import com.sappho.audiobooks.domain.model.ConversionJob
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -372,32 +375,147 @@ class AudiobookDetailViewModel @Inject constructor(
     private val _convertResult = MutableStateFlow<String?>(null)
     val convertResult: StateFlow<String?> = _convertResult
 
+    private val _conversionProgress = MutableStateFlow<ConversionJob?>(null)
+    val conversionProgress: StateFlow<ConversionJob?> = _conversionProgress
+
+    private var conversionPollingJob: Job? = null
+
     fun convertToM4B() {
         viewModelScope.launch {
             _audiobook.value?.let { book ->
                 if (_isConverting.value) return@launch
                 _isConverting.value = true
                 _convertResult.value = null
+                _conversionProgress.value = null
                 try {
                     val response = api.convertToM4B(book.id)
                     if (response.isSuccessful) {
-                        _convertResult.value = response.body()?.message ?: "Converted to M4B"
-                        // Reload audiobook to get updated file path
-                        loadAudiobook(book.id)
+                        val body = response.body()
+                        val jobId = body?.jobId
+                        if (jobId != null) {
+                            // Show initial progress immediately
+                            _conversionProgress.value = ConversionJob(
+                                jobId = jobId,
+                                status = body.status ?: "starting",
+                                progress = 0,
+                                message = body.message ?: "Conversion started",
+                                audiobookTitle = book.title,
+                                audiobookId = book.id,
+                                error = null
+                            )
+                            // Start polling for progress
+                            startConversionPolling(book.id)
+                        } else {
+                            // Fallback: no jobId returned, treat as immediate
+                            _convertResult.value = body?.message ?: "Conversion started"
+                            _isConverting.value = false
+                        }
                     } else {
-                        _convertResult.value = "Failed to convert: ${response.errorBody()?.string() ?: "Unknown error"}"
+                        val errorBody = response.errorBody()?.string()
+                        val errorMessage = try {
+                            val jsonError = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
+                            jsonError.get("error")?.asString
+                        } catch (e: Exception) { null }
+                        _convertResult.value = "Failed to convert: ${errorMessage ?: "Unknown error"}"
+                        _isConverting.value = false
                     }
                 } catch (e: Exception) {
                     _convertResult.value = e.message ?: "Error converting to M4B"
-                } finally {
                     _isConverting.value = false
                 }
             }
         }
     }
 
+    private fun startConversionPolling(audiobookId: Int) {
+        conversionPollingJob?.cancel()
+        conversionPollingJob = viewModelScope.launch {
+            while (true) {
+                delay(3000)
+                try {
+                    val response = api.getConversionStatus(audiobookId)
+                    if (response.isSuccessful) {
+                        val body = response.body()
+                        if (body?.active == true && body.job != null) {
+                            _conversionProgress.value = body.job
+                            val status = body.job.status
+                            if (status == "completed" || status == "failed" || status == "cancelled") {
+                                handleConversionFinished(body.job, audiobookId)
+                                break
+                            }
+                        } else {
+                            // No active job — conversion finished between polls
+                            _conversionProgress.value = null
+                            _convertResult.value = "Conversion completed"
+                            _isConverting.value = false
+                            loadAudiobook(audiobookId)
+                            break
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Network error during poll — keep trying
+                    android.util.Log.w("AudiobookDetailVM", "Conversion poll failed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun handleConversionFinished(job: ConversionJob, audiobookId: Int) {
+        _isConverting.value = false
+        when (job.status) {
+            "completed" -> {
+                _convertResult.value = "Conversion completed successfully"
+                loadAudiobook(audiobookId)
+            }
+            "failed" -> {
+                _convertResult.value = "Conversion failed: ${job.error ?: job.message ?: "Unknown error"}"
+            }
+            "cancelled" -> {
+                _convertResult.value = "Conversion cancelled"
+            }
+        }
+        // Clear progress after a delay so the UI can show final state
+        viewModelScope.launch {
+            delay(3000)
+            _conversionProgress.value = null
+        }
+    }
+
+    fun cancelConversion() {
+        viewModelScope.launch {
+            val jobId = _conversionProgress.value?.jobId ?: return@launch
+            try {
+                api.cancelConversionJob(jobId)
+                // Polling will pick up the cancelled status
+            } catch (e: Exception) {
+                _convertResult.value = "Failed to cancel: ${e.message}"
+            }
+        }
+    }
+
     fun clearConvertResult() {
         _convertResult.value = null
+    }
+
+    /**
+     * Check if there's already an active conversion for this audiobook on load.
+     */
+    fun checkExistingConversion(audiobookId: Int) {
+        viewModelScope.launch {
+            try {
+                val response = api.getConversionStatus(audiobookId)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    if (body?.active == true && body.job != null) {
+                        _conversionProgress.value = body.job
+                        _isConverting.value = true
+                        startConversionPolling(audiobookId)
+                    }
+                }
+            } catch (e: Exception) {
+                // Not critical — just means we won't show existing progress
+            }
+        }
     }
 
     fun downloadAudiobook() {
