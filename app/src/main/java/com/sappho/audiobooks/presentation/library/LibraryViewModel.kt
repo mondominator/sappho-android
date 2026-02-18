@@ -449,21 +449,30 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val ids = _selectedBookIds.value.toList()
-                val response = api.batchDelete(BatchDeleteRequest(ids))
-                if (response.isSuccessful) {
-                    val count = response.body()?.count ?: ids.size
-                    loadCategories()
-                    exitSelectionMode()
-                    onResult(true, "Deleted $count books")
-                } else {
-                    val errorBody = response.errorBody()?.string()
-                    Log.e("LibraryViewModel", "Batch delete failed: ${response.code()} - $errorBody")
-                    val errorMessage = when (response.code()) {
-                        403 -> "Admin access required"
-                        400 -> "Invalid request"
-                        else -> "Failed to delete (${response.code()})"
+                var totalDeleted = 0
+                val errors = mutableListOf<String>()
+
+                // Server limits to 100 per batch, so chunk large selections
+                for (chunk in ids.chunked(100)) {
+                    val response = api.batchDelete(BatchDeleteRequest(chunk))
+                    if (response.isSuccessful) {
+                        totalDeleted += response.body()?.count ?: chunk.size
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        Log.e("LibraryViewModel", "Batch delete failed: ${response.code()} - $errorBody")
+                        when (response.code()) {
+                            403 -> { onResult(false, "Admin access required"); return@launch }
+                            else -> errors.add("Failed to delete ${chunk.size} books (${response.code()})")
+                        }
                     }
-                    onResult(false, errorMessage)
+                }
+
+                loadCategories()
+                exitSelectionMode()
+                if (errors.isEmpty()) {
+                    onResult(true, "Deleted $totalDeleted books")
+                } else {
+                    onResult(true, "Deleted $totalDeleted books (${errors.size} batch(es) failed)")
                 }
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch delete", e)
