@@ -1068,7 +1068,7 @@ class AdminViewModel @Inject constructor(
 
                         // Create multipart request
                         val requestFile = tempFile.asRequestBody("audio/*".toMediaTypeOrNull())
-                        val filePart = MultipartBody.Part.createFormData("file", fileName, requestFile)
+                        val filePart = MultipartBody.Part.createFormData("audiobook", fileName, requestFile)
 
                         // Upload with optional metadata
                         val response = api.uploadAudiobook(
