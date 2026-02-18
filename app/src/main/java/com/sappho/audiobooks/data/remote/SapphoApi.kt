@@ -290,7 +290,7 @@ interface SapphoApi {
     ): Response<BatchUploadResponse>
 
     @Multipart
-    @POST("api/upload/multi-file")
+    @POST("api/upload/multifile")
     suspend fun uploadMultiFile(
         @Part files: List<MultipartBody.Part>,
         @Part("title") title: RequestBody? = null,
@@ -424,6 +424,9 @@ interface SapphoApi {
 
     @POST("api/audiobooks/batch/add-to-collection")
     suspend fun batchAddToCollection(@Body request: BatchAddToCollectionRequest): Response<BatchActionResponse>
+
+    @POST("api/audiobooks/batch/delete")
+    suspend fun batchDelete(@Body request: BatchDeleteRequest): Response<BatchActionResponse>
 
     // API Keys
     @GET("api/api-keys")
@@ -1095,6 +1098,13 @@ data class BatchAddToCollectionRequest(
     val audiobookIds: List<Int>,
     @com.google.gson.annotations.SerializedName("collection_id")
     val collectionId: Int
+)
+
+data class BatchDeleteRequest(
+    @com.google.gson.annotations.SerializedName("audiobook_ids")
+    val audiobookIds: List<Int>,
+    @com.google.gson.annotations.SerializedName("delete_files")
+    val deleteFiles: Boolean = true
 )
 
 data class BatchActionResponse(
