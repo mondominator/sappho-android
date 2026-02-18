@@ -445,6 +445,26 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    fun batchDelete(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val ids = _selectedBookIds.value.toList()
+                val response = api.batchDelete(BatchDeleteRequest(ids))
+                if (response.isSuccessful) {
+                    val count = response.body()?.count ?: ids.size
+                    loadCategories()
+                    exitSelectionMode()
+                    onResult(true, "Deleted $count books")
+                } else {
+                    onResult(false, "Failed to delete books")
+                }
+            } catch (e: Exception) {
+                Log.e("LibraryViewModel", "Error in batch delete", e)
+                onResult(false, e.message ?: "Error deleting books")
+            }
+        }
+    }
+
     fun batchAddToCollection(collectionId: Int, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {

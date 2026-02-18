@@ -305,7 +305,8 @@ fun LibraryScreen(
                 AllBooksView(
                     viewModel = viewModel,
                     onBackClick = { currentViewName = LibraryView.CATEGORIES.name },
-                    onAudiobookClick = onAudiobookClick
+                    onAudiobookClick = onAudiobookClick,
+                    isAdmin = isAdmin
                 )
             }
         }
@@ -3117,7 +3118,8 @@ fun BookGridItem(
 fun AllBooksView(
     viewModel: LibraryViewModel,
     onBackClick: () -> Unit,
-    onAudiobookClick: (Int) -> Unit = {}
+    onAudiobookClick: (Int) -> Unit = {},
+    isAdmin: Boolean = false
 ) {
     val allBooks by viewModel.allAudiobooks.collectAsState()
     val serverUrl by viewModel.serverUrl.collectAsState()
@@ -3129,6 +3131,7 @@ fun AllBooksView(
     val collections by viewModel.collections.collectAsState()
 
     var showBatchCollectionDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -3199,6 +3202,7 @@ fun AllBooksView(
                         }
                     },
                     onAddToCollection = { showBatchCollectionDialog = true },
+                    onDelete = if (isAdmin) {{ showDeleteConfirmDialog = true }} else null,
                     onCancel = { viewModel.exitSelectionMode() }
                 )
             }
@@ -3322,6 +3326,30 @@ fun AllBooksView(
                 }
                 showBatchCollectionDialog = false
             }
+        )
+    }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Delete ${selectedBookIds.size} book${if (selectedBookIds.size != 1) "s" else ""}?", color = Color.White) },
+            text = { Text("This will permanently delete the selected books and their files. This cannot be undone.", color = SapphoIconDefault) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmDialog = false
+                    viewModel.batchDelete { _, message ->
+                        scope.launch { snackbarHostState.showSnackbar(message) }
+                    }
+                }) {
+                    Text("Delete", color = SapphoError)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel", color = SapphoIconDefault)
+                }
+            },
+            containerColor = SapphoSurfaceDark
         )
     }
 }
@@ -3670,6 +3698,7 @@ fun BatchActionBar(
     onClearProgress: () -> Unit,
     onAddToReadingList: () -> Unit,
     onAddToCollection: () -> Unit,
+    onDelete: (() -> Unit)? = null,
     onCancel: () -> Unit
 ) {
     Surface(
@@ -3722,6 +3751,18 @@ fun BatchActionBar(
             ) {
                 Icon(Icons.Default.FolderSpecial, contentDescription = "Add to Collection", tint = SapphoInfo)
                 Text("Collection", fontSize = 10.sp, color = SapphoIconDefault)
+            }
+            // Delete (admin only)
+            if (onDelete != null) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable(onClick = onDelete)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = SapphoError)
+                    Text("Delete", fontSize = 10.sp, color = SapphoIconDefault)
+                }
             }
         }
     }
