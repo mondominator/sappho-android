@@ -456,7 +456,14 @@ class LibraryViewModel @Inject constructor(
                     exitSelectionMode()
                     onResult(true, "Deleted $count books")
                 } else {
-                    onResult(false, "Failed to delete books")
+                    val errorBody = response.errorBody()?.string()
+                    Log.e("LibraryViewModel", "Batch delete failed: ${response.code()} - $errorBody")
+                    val errorMessage = when (response.code()) {
+                        403 -> "Admin access required"
+                        400 -> "Invalid request"
+                        else -> "Failed to delete (${response.code()})"
+                    }
+                    onResult(false, errorMessage)
                 }
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch delete", e)
