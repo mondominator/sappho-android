@@ -96,11 +96,14 @@ fun MinimizedPlayerBar(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp),
+                .navigationBarsPadding(),
             color = SapphoSurfaceLight,
             shadowElevation = 8.dp
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp)
+            ) {
                 // Custom progress slider at top
                 var sliderWidth by remember { mutableFloatStateOf(0f) }
                 val density = androidx.compose.ui.platform.LocalDensity.current

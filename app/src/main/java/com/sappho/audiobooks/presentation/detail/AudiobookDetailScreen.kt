@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
@@ -120,6 +121,8 @@ fun AudiobookDetailScreen(
     var showOverflowMenu by remember { mutableStateOf(false) }
     val isRefreshingMetadata by viewModel.isRefreshingMetadata.collectAsState()
     val refreshMetadataResult by viewModel.refreshMetadataResult.collectAsState()
+    val isConverting by viewModel.isConverting.collectAsState()
+    val convertResult by viewModel.convertResult.collectAsState()
 
     val collections by viewModel.collections.collectAsState()
     val bookCollections by viewModel.bookCollections.collectAsState()
@@ -848,6 +851,36 @@ fun AudiobookDetailScreen(
                                         )
                                     }
 
+                                    // Convert to M4B (only for non-M4B files)
+                                    val currentFilePath = audiobook?.filePath
+                                    if (currentFilePath != null && !currentFilePath.endsWith(".m4b", ignoreCase = true)) {
+                                        DropdownMenuItem(
+                                            text = { Text(if (isConverting) "Converting..." else "Convert to M4B", color = SapphoText) },
+                                            onClick = {
+                                                if (!isConverting) {
+                                                    showOverflowMenu = false
+                                                    viewModel.convertToM4B()
+                                                }
+                                            },
+                                            enabled = !isConverting,
+                                            leadingIcon = {
+                                                if (isConverting) {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(20.dp),
+                                                        color = SapphoIconDefault,
+                                                        strokeWidth = 2.dp
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.SwapHoriz,
+                                                        contentDescription = null,
+                                                        tint = SapphoIconDefault
+                                                    )
+                                                }
+                                            }
+                                        )
+                                    }
+
                                     // Refresh Metadata
                                     DropdownMenuItem(
                                         text = { Text(if (isRefreshingMetadata) "Refreshing..." else "Refresh Metadata", color = SapphoText) },
@@ -1365,6 +1398,25 @@ fun AudiobookDetailScreen(
                 contentColor = MaterialTheme.colorScheme.onErrorContainer
             ) {
                 Text(error)
+            }
+        }
+
+        // Convert Result Snackbar
+        convertResult?.let { result ->
+            LaunchedEffect(result) {
+                kotlinx.coroutines.delay(3000)
+                viewModel.clearConvertResult()
+            }
+            Snackbar(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter),
+                containerColor = if (result.contains("Failed", ignoreCase = true) || result.contains("Error", ignoreCase = true))
+                    MaterialTheme.colorScheme.errorContainer else SapphoSurface,
+                contentColor = if (result.contains("Failed", ignoreCase = true) || result.contains("Error", ignoreCase = true))
+                    MaterialTheme.colorScheme.onErrorContainer else SapphoText
+            ) {
+                Text(result)
             }
         }
 

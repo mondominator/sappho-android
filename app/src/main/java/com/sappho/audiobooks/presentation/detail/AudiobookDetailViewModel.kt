@@ -366,6 +366,40 @@ class AudiobookDetailViewModel @Inject constructor(
         _refreshMetadataResult.value = null
     }
 
+    private val _isConverting = MutableStateFlow(false)
+    val isConverting: StateFlow<Boolean> = _isConverting
+
+    private val _convertResult = MutableStateFlow<String?>(null)
+    val convertResult: StateFlow<String?> = _convertResult
+
+    fun convertToM4B() {
+        viewModelScope.launch {
+            _audiobook.value?.let { book ->
+                if (_isConverting.value) return@launch
+                _isConverting.value = true
+                _convertResult.value = null
+                try {
+                    val response = api.convertToM4B(book.id)
+                    if (response.isSuccessful) {
+                        _convertResult.value = response.body()?.message ?: "Converted to M4B"
+                        // Reload audiobook to get updated file path
+                        loadAudiobook(book.id)
+                    } else {
+                        _convertResult.value = "Failed to convert: ${response.errorBody()?.string() ?: "Unknown error"}"
+                    }
+                } catch (e: Exception) {
+                    _convertResult.value = e.message ?: "Error converting to M4B"
+                } finally {
+                    _isConverting.value = false
+                }
+            }
+        }
+    }
+
+    fun clearConvertResult() {
+        _convertResult.value = null
+    }
+
     fun downloadAudiobook() {
         _audiobook.value?.let { book ->
             // Use foreground service for downloads to prevent cancellation on background
