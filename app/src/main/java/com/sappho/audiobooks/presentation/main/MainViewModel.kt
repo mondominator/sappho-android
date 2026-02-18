@@ -236,7 +236,7 @@ class MainViewModel @Inject constructor(
 
                         // Create multipart request
                         val requestFile = tempFile.asRequestBody("audio/*".toMediaTypeOrNull())
-                        val filePart = MultipartBody.Part.createFormData("file", fileName, requestFile)
+                        val filePart = MultipartBody.Part.createFormData("audiobook", fileName, requestFile)
 
                         // Upload with optional metadata
                         val response = api.uploadAudiobook(
@@ -331,7 +331,7 @@ class MainViewModel @Inject constructor(
                     }
 
                     val requestFile = tempFile.asRequestBody("audio/*".toMediaTypeOrNull())
-                    val filePart = MultipartBody.Part.createFormData("files", fileName, requestFile)
+                    val filePart = MultipartBody.Part.createFormData("audiobooks", fileName, requestFile)
                     fileParts.add(filePart)
 
                     _uploadProgress.value = (index + 1).toFloat() / (uris.size * 2) // First half is prep
