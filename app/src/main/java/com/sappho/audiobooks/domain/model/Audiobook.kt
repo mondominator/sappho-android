@@ -26,6 +26,7 @@ data class Audiobook(
     val description: String?,
     @SerializedName("cover_image") val coverImage: String?,
     @SerializedName("file_count") val fileCount: Int = 0,
+    @SerializedName("file_path") val filePath: String? = null,
     @SerializedName("is_multi_file") val isMultiFile: Int? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     val progress: Progress?,

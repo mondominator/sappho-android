@@ -135,6 +135,10 @@ interface SapphoApi {
     @POST("api/audiobooks/{id}/refresh-metadata")
     suspend fun refreshMetadata(@Path("id") audiobookId: Int): Response<RefreshMetadataResponse>
 
+    // Convert to M4B
+    @POST("api/audiobooks/{id}/convert-to-m4b")
+    suspend fun convertToM4B(@Path("id") audiobookId: Int): Response<MessageResponse>
+
     // User Profile
     @GET("api/profile")
     suspend fun getProfile(): Response<User>
