@@ -123,6 +123,7 @@ fun AudiobookDetailScreen(
     val refreshMetadataResult by viewModel.refreshMetadataResult.collectAsState()
     val isConverting by viewModel.isConverting.collectAsState()
     val convertResult by viewModel.convertResult.collectAsState()
+    val conversionProgress by viewModel.conversionProgress.collectAsState()
 
     val collections by viewModel.collections.collectAsState()
     val bookCollections by viewModel.bookCollections.collectAsState()
@@ -159,6 +160,7 @@ fun AudiobookDetailScreen(
         viewModel.loadAudiobook(audiobookId)
         viewModel.checkAiStatus()
         viewModel.checkPreviousBookStatus(audiobookId)
+        if (isAdmin) viewModel.checkExistingConversion(audiobookId)
     }
 
     // Handle system back button
@@ -925,6 +927,95 @@ fun AudiobookDetailScreen(
                                                 )
                                             }
                                         )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Conversion Progress Card
+                    conversionProgress?.let { job ->
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = SapphoSurfaceLight.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, when (job.status) {
+                                "completed" -> SapphoSuccess.copy(alpha = 0.3f)
+                                "failed" -> SapphoError.copy(alpha = 0.3f)
+                                else -> SapphoInfo.copy(alpha = 0.3f)
+                            })
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "M4B Conversion",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = SapphoText
+                                    )
+                                    Text(
+                                        text = when (job.status) {
+                                            "completed" -> "Completed"
+                                            "failed" -> "Failed"
+                                            "cancelled" -> "Cancelled"
+                                            else -> "${job.progress}%"
+                                        },
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = when (job.status) {
+                                            "completed" -> SapphoSuccess
+                                            "failed" -> SapphoError
+                                            "cancelled" -> SapphoTextMuted
+                                            else -> SapphoInfo
+                                        }
+                                    )
+                                }
+
+                                if (job.status != "completed" && job.status != "failed" && job.status != "cancelled") {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { (job.progress / 100f).coerceIn(0f, 1f) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = SapphoInfo,
+                                        trackColor = SapphoProgressTrack,
+                                    )
+                                }
+
+                                job.message?.let { msg ->
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = msg,
+                                        fontSize = 12.sp,
+                                        color = SapphoTextMuted
+                                    )
+                                }
+
+                                if (job.status != "completed" && job.status != "failed" && job.status != "cancelled") {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    OutlinedButton(
+                                        onClick = { viewModel.cancelConversion() },
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = SapphoError
+                                        ),
+                                        border = BorderStroke(1.dp, SapphoError.copy(alpha = 0.3f)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Text("Cancel", fontSize = 12.sp)
                                     }
                                 }
                             }

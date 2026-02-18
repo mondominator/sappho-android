@@ -137,7 +137,15 @@ interface SapphoApi {
 
     // Convert to M4B
     @POST("api/audiobooks/{id}/convert-to-m4b")
-    suspend fun convertToM4B(@Path("id") audiobookId: Int): Response<MessageResponse>
+    suspend fun convertToM4B(@Path("id") audiobookId: Int): Response<ConvertToM4BResponse>
+
+    // Conversion status polling
+    @GET("api/audiobooks/{id}/conversion-status")
+    suspend fun getConversionStatus(@Path("id") audiobookId: Int): Response<com.sappho.audiobooks.domain.model.ConversionStatusResponse>
+
+    // Cancel conversion job
+    @DELETE("api/audiobooks/jobs/conversion/{jobId}")
+    suspend fun cancelConversionJob(@Path("jobId") jobId: String): Response<MessageResponse>
 
     // User Profile
     @GET("api/profile")
@@ -1163,5 +1171,12 @@ data class UpdateApiKeyRequest(
 
 data class MessageResponse(
     val message: String?,
+    val error: String?
+)
+
+data class ConvertToM4BResponse(
+    val message: String?,
+    val jobId: String?,
+    val status: String?,
     val error: String?
 )
