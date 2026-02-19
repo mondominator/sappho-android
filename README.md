@@ -55,6 +55,22 @@ app/src/main/java/com/sappho/audiobooks/
 
 GitHub Actions builds on every push to `main` and deploys to Google Play internal testing. Tagged releases (`v*`) publish APKs to GitHub Releases.
 
+## Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="25%"><sub><b>Roberto Diaz</b></sub><br /><sub>🧪 Testing</sub></td>
+      <td align="center" valign="top" width="25%"><sub><b>Kev Beaudin</b></sub><br /><sub>🧪 Testing</sub></td>
+      <td align="center" valign="top" width="25%"><sub><b>Chad Beaudin</b></sub><br /><sub>🧪 Testing</sub></td>
+      <td align="center" valign="top" width="25%"><sub><b>Sara Johnson</b></sub><br /><sub>🧪 Testing</sub></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
 ## License
 
 MIT
