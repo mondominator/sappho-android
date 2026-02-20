@@ -62,9 +62,11 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(authRepository: AuthRepository): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            // Only log in debug builds for performance
+            // HEADERS level: logs request/response headers without buffering bodies.
+            // BODY level would buffer entire audio files into memory for logging
+            // and cause ProgressRequestBody.writeTo to be called twice.
             level = if (com.sappho.audiobooks.BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.HEADERS
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }

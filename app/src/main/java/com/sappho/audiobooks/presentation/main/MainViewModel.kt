@@ -16,8 +16,8 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.sappho.audiobooks.util.ProgressRequestBody
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
@@ -217,34 +217,52 @@ class MainViewModel @Inject constructor(
                 var successCount = 0
                 var failCount = 0
 
-                uris.forEachIndexed { index, uri ->
+                // Copy all files to temp first, then calculate total from actual file sizes
+                val tempFiles = mutableListOf<Pair<File, String>>() // (tempFile, fileName)
+                var totalBytes = 0L
+
+                uris.forEach { uri ->
                     val fileName = getFileNameFromUri(context, uri) ?: "audiobook_${System.currentTimeMillis()}.mp3"
-                    var tempFile: File? = null
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                        ?: throw IOException("Cannot read file: $fileName")
+
+                    val tempFile = File(context.cacheDir, fileName)
+                    inputStream.use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    totalBytes += tempFile.length()
+                    tempFiles.add(Pair(tempFile, fileName))
+                }
+
+                var cumulativeBytesUploaded = 0L
+
+                tempFiles.forEachIndexed { index, (tempFile, fileName) ->
+                    val bytesBeforeThisFile = cumulativeBytesUploaded
 
                     try {
-                        // Copy file from URI to temp file for uploading
-                        val inputStream = context.contentResolver.openInputStream(uri)
-                            ?: throw IOException("Cannot read file: $fileName")
-
-                        tempFile = File(context.cacheDir, fileName)
-
-                        inputStream.use { input ->
-                            tempFile.outputStream().use { output ->
-                                input.copyTo(output)
+                        // Create multipart request with progress tracking
+                        val progressBody = ProgressRequestBody(
+                            file = tempFile,
+                            contentType = "audio/*".toMediaTypeOrNull()
+                        ) { bytesWritten, _ ->
+                            if (totalBytes > 0) {
+                                val overallProgress = (bytesBeforeThisFile + bytesWritten).toFloat() / totalBytes
+                                _uploadProgress.value = overallProgress.coerceIn(0f, 1f)
                             }
                         }
-
-                        // Create multipart request
-                        val requestFile = tempFile.asRequestBody("audio/*".toMediaTypeOrNull())
-                        val filePart = MultipartBody.Part.createFormData("audiobook", fileName, requestFile)
+                        val filePart = MultipartBody.Part.createFormData("audiobook", fileName, progressBody)
 
                         // Upload with optional metadata
-                        val response = api.uploadAudiobook(
-                            file = filePart,
-                            title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
-                            author = author?.toRequestBody("text/plain".toMediaTypeOrNull()),
-                            narrator = narrator?.toRequestBody("text/plain".toMediaTypeOrNull())
-                        )
+                        val response = withContext(Dispatchers.IO) {
+                            api.uploadAudiobook(
+                                file = filePart,
+                                title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
+                                author = author?.toRequestBody("text/plain".toMediaTypeOrNull()),
+                                narrator = narrator?.toRequestBody("text/plain".toMediaTypeOrNull())
+                            )
+                        }
 
                         if (response.isSuccessful) {
                             successCount++
@@ -252,22 +270,20 @@ class MainViewModel @Inject constructor(
                             failCount++
                             android.util.Log.e("MainViewModel", "Upload failed: ${response.code()}")
                         }
+
+                        cumulativeBytesUploaded += tempFile.length()
                     } catch (e: CancellationException) {
                         throw e // Respect coroutine cancellation
                     } catch (e: Exception) {
                         failCount++
                         android.util.Log.e("MainViewModel", "Upload error for file: $fileName", e)
+                        cumulativeBytesUploaded += tempFile.length()
                     } finally {
-                        // Always clean up temp file
-                        tempFile?.let { file ->
-                            try {
-                                if (file.exists()) file.delete()
-                            } catch (e: Exception) {
-                            }
+                        try {
+                            if (tempFile.exists()) tempFile.delete()
+                        } catch (e: Exception) {
                         }
                     }
-
-                    _uploadProgress.value = (index + 1).toFloat() / totalFiles
                 }
 
                 // Set result
@@ -315,7 +331,7 @@ class MainViewModel @Inject constructor(
             try {
                 val fileParts = mutableListOf<MultipartBody.Part>()
 
-                // Prepare all files
+                // Prepare all files (show 0-10% for prep phase)
                 uris.forEachIndexed { index, uri ->
                     val fileName = getFileNameFromUri(context, uri) ?: "chapter_${index + 1}.mp3"
                     val inputStream = context.contentResolver.openInputStream(uri)
@@ -330,19 +346,42 @@ class MainViewModel @Inject constructor(
                         }
                     }
 
-                    val requestFile = tempFile.asRequestBody("audio/*".toMediaTypeOrNull())
-                    val filePart = MultipartBody.Part.createFormData("audiobooks", fileName, requestFile)
-                    fileParts.add(filePart)
+                    _uploadProgress.value = (index + 1).toFloat() / uris.size * 0.1f // 0-10% for prep
+                }
 
-                    _uploadProgress.value = (index + 1).toFloat() / (uris.size * 2) // First half is prep
+                // Calculate total bytes for progress tracking
+                val totalBytes = tempFiles.sumOf { it.length() }
+                var totalBytesWritten = 0L
+
+                // Create progress-tracking parts for each file
+                tempFiles.forEachIndexed { index, tempFile ->
+                    val fileName = getFileNameFromUri(context, uris[index]) ?: "chapter_${index + 1}.mp3"
+                    val bytesBeforeThisFile = totalBytesWritten
+
+                    val progressBody = ProgressRequestBody(
+                        file = tempFile,
+                        contentType = "audio/*".toMediaTypeOrNull()
+                    ) { bytesWritten, _ ->
+                        if (totalBytes > 0) {
+                            // 10-100% for actual upload
+                            val uploadFraction = (bytesBeforeThisFile + bytesWritten).toFloat() / totalBytes
+                            _uploadProgress.value = (0.1f + uploadFraction * 0.9f).coerceIn(0f, 1f)
+                        }
+                    }
+
+                    totalBytesWritten += tempFile.length()
+                    val filePart = MultipartBody.Part.createFormData("audiobooks", fileName, progressBody)
+                    fileParts.add(filePart)
                 }
 
                 // Upload all files as single book
-                val response = api.uploadMultiFile(
-                    files = fileParts,
-                    title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
-                    author = author?.toRequestBody("text/plain".toMediaTypeOrNull())
-                )
+                val response = withContext(Dispatchers.IO) {
+                    api.uploadMultiFile(
+                        files = fileParts,
+                        title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
+                        author = author?.toRequestBody("text/plain".toMediaTypeOrNull())
+                    )
+                }
 
                 _uploadProgress.value = 1f
 
