@@ -853,9 +853,10 @@ fun AudiobookDetailScreen(
                                         )
                                     }
 
-                                    // Convert to M4B (only for non-M4B files)
+                                    // Convert to M4B (for non-M4B files, or multifile M4B that can be consolidated)
                                     val currentFilePath = audiobook?.filePath
-                                    if (currentFilePath != null && !currentFilePath.endsWith(".m4b", ignoreCase = true)) {
+                                    val currentIsMultiFile = audiobook?.isMultiFile
+                                    if (currentFilePath != null && (currentIsMultiFile == 1 || !currentFilePath.endsWith(".m4b", ignoreCase = true))) {
                                         DropdownMenuItem(
                                             text = { Text(if (isConverting) "Converting..." else "Convert to M4B", color = SapphoText) },
                                             onClick = {
@@ -1323,10 +1324,10 @@ fun AudiobookDetailScreen(
                             MetadataItem("Duration", durationText)
                         }
 
-                        // Format - derived from first file's extension
-                        files.firstOrNull()?.let { firstFile ->
-                            val format = firstFile.extension.removePrefix(".").uppercase()
-                            if (format.isNotEmpty()) {
+                        // Format - derived from audiobook's file_path extension
+                        book.filePath?.substringAfterLast('.')?.uppercase()?.let { format ->
+                            val audioFormats = setOf("MP3", "M4A", "M4B", "MP4", "OGG", "FLAC", "OPUS", "AAC", "WAV", "WMA")
+                            if (format in audioFormats) {
                                 MetadataItem("Format", format)
                             }
                         }
