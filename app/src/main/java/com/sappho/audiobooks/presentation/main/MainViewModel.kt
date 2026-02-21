@@ -6,22 +6,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.domain.model.User
+import com.sappho.audiobooks.service.UploadService
+import com.sappho.audiobooks.service.UploadServiceState
+import com.sappho.audiobooks.service.UploadStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import com.sappho.audiobooks.util.ProgressRequestBody
 import java.io.File
-import java.io.IOException
 import javax.inject.Inject
-import kotlin.coroutines.cancellation.CancellationException
 
 enum class UploadState {
     IDLE,
@@ -58,7 +57,10 @@ class MainViewModel @Inject constructor(
     private val _cachedAvatarFile = MutableStateFlow<File?>(null)
     val cachedAvatarFile: StateFlow<File?> = _cachedAvatarFile
 
-    // Upload state
+    // Upload state - derived from UploadService's shared state
+    val serviceUploadState: StateFlow<UploadServiceState> = UploadService.uploadState
+
+    // Legacy upload state accessors for UI compatibility
     private val _uploadState = MutableStateFlow(UploadState.IDLE)
     val uploadState: StateFlow<UploadState> = _uploadState
 
@@ -74,6 +76,27 @@ class MainViewModel @Inject constructor(
         loadCachedAvatarFile() // Check for locally cached avatar image
         loadUser()
         loadServerVersion()
+        observeUploadService()
+    }
+
+    private fun observeUploadService() {
+        viewModelScope.launch {
+            UploadService.uploadState.collect { state ->
+                _uploadState.value = when (state.status) {
+                    UploadStatus.IDLE -> UploadState.IDLE
+                    UploadStatus.UPLOADING -> UploadState.UPLOADING
+                    UploadStatus.SUCCESS -> UploadState.SUCCESS
+                    UploadStatus.ERROR -> UploadState.ERROR
+                }
+                _uploadProgress.value = state.progress
+                if (state.status == UploadStatus.SUCCESS || state.status == UploadStatus.ERROR) {
+                    _uploadResult.value = UploadResultData(
+                        success = state.status == UploadStatus.SUCCESS,
+                        message = state.message
+                    )
+                }
+            }
+        }
     }
 
     private fun loadCachedAvatarFile() {
@@ -174,14 +197,14 @@ class MainViewModel @Inject constructor(
      * Called when avatar is changed in ProfileScreen.
      */
     fun refreshProfile() {
-        
+
         // Clear existing cached avatar file
         val existingFile = _cachedAvatarFile.value
         if (existingFile != null && existingFile.exists()) {
             existingFile.delete()
         }
         _cachedAvatarFile.value = null
-        
+
         // Force reload user data after a delay to ensure server has processed the upload
         viewModelScope.launch {
             // Small delay to ensure server has processed the new avatar
@@ -193,10 +216,12 @@ class MainViewModel @Inject constructor(
     fun clearUploadResult() {
         _uploadResult.value = null
         _uploadState.value = UploadState.IDLE
+        UploadService.resetState()
     }
 
     /**
-     * Upload files as separate audiobooks (one book per file)
+     * Upload files as separate audiobooks (one book per file).
+     * Delegates to UploadService foreground service to survive screen off.
      */
     fun uploadAsSeparateBooks(
         context: Context,
@@ -206,112 +231,12 @@ class MainViewModel @Inject constructor(
         narrator: String?
     ) {
         if (uris.isEmpty()) return
-
-        viewModelScope.launch {
-            _uploadState.value = UploadState.UPLOADING
-            _uploadProgress.value = 0f
-            _uploadResult.value = null
-
-            try {
-                val totalFiles = uris.size
-                var successCount = 0
-                var failCount = 0
-
-                // Copy all files to temp first, then calculate total from actual file sizes
-                val tempFiles = mutableListOf<Pair<File, String>>() // (tempFile, fileName)
-                var totalBytes = 0L
-
-                uris.forEach { uri ->
-                    val fileName = getFileNameFromUri(context, uri) ?: "audiobook_${System.currentTimeMillis()}.mp3"
-                    val inputStream = context.contentResolver.openInputStream(uri)
-                        ?: throw IOException("Cannot read file: $fileName")
-
-                    val tempFile = File(context.cacheDir, fileName)
-                    inputStream.use { input ->
-                        tempFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    totalBytes += tempFile.length()
-                    tempFiles.add(Pair(tempFile, fileName))
-                }
-
-                var cumulativeBytesUploaded = 0L
-
-                tempFiles.forEachIndexed { index, (tempFile, fileName) ->
-                    val bytesBeforeThisFile = cumulativeBytesUploaded
-
-                    try {
-                        // Create multipart request with progress tracking
-                        val progressBody = ProgressRequestBody(
-                            file = tempFile,
-                            contentType = "audio/*".toMediaTypeOrNull()
-                        ) { bytesWritten, _ ->
-                            if (totalBytes > 0) {
-                                val overallProgress = (bytesBeforeThisFile + bytesWritten).toFloat() / totalBytes
-                                _uploadProgress.value = overallProgress.coerceIn(0f, 1f)
-                            }
-                        }
-                        val filePart = MultipartBody.Part.createFormData("audiobook", fileName, progressBody)
-
-                        // Upload with optional metadata
-                        val response = withContext(Dispatchers.IO) {
-                            api.uploadAudiobook(
-                                file = filePart,
-                                title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
-                                author = author?.toRequestBody("text/plain".toMediaTypeOrNull()),
-                                narrator = narrator?.toRequestBody("text/plain".toMediaTypeOrNull())
-                            )
-                        }
-
-                        if (response.isSuccessful) {
-                            successCount++
-                        } else {
-                            failCount++
-                            android.util.Log.e("MainViewModel", "Upload failed: ${response.code()}")
-                        }
-
-                        cumulativeBytesUploaded += tempFile.length()
-                    } catch (e: CancellationException) {
-                        throw e // Respect coroutine cancellation
-                    } catch (e: Exception) {
-                        failCount++
-                        android.util.Log.e("MainViewModel", "Upload error for file: $fileName", e)
-                        cumulativeBytesUploaded += tempFile.length()
-                    } finally {
-                        try {
-                            if (tempFile.exists()) tempFile.delete()
-                        } catch (e: Exception) {
-                        }
-                    }
-                }
-
-                // Set result
-                _uploadState.value = if (failCount == 0) UploadState.SUCCESS else UploadState.ERROR
-                _uploadResult.value = UploadResultData(
-                    success = failCount == 0,
-                    message = if (failCount == 0) {
-                        "Successfully uploaded $successCount audiobook(s)"
-                    } else {
-                        "Uploaded $successCount audiobook(s), $failCount failed"
-                    }
-                )
-
-            } catch (e: CancellationException) {
-                throw e // Respect coroutine cancellation
-            } catch (e: Exception) {
-                android.util.Log.e("MainViewModel", "Upload error", e)
-                _uploadState.value = UploadState.ERROR
-                _uploadResult.value = UploadResultData(
-                    success = false,
-                    message = "Upload failed: ${e.message}"
-                )
-            }
-        }
+        UploadService.startUploadSeparate(context, uris, title, author, narrator)
     }
 
     /**
-     * Upload multiple files as a single audiobook (chapters of one book)
+     * Upload multiple files as a single audiobook (chapters of one book).
+     * Delegates to UploadService foreground service to survive screen off.
      */
     fun uploadAsSingleBook(
         context: Context,
@@ -320,123 +245,6 @@ class MainViewModel @Inject constructor(
         author: String?
     ) {
         if (uris.isEmpty()) return
-
-        viewModelScope.launch {
-            _uploadState.value = UploadState.UPLOADING
-            _uploadProgress.value = 0f
-            _uploadResult.value = null
-
-            val tempFiles = mutableListOf<File>()
-
-            try {
-                val fileParts = mutableListOf<MultipartBody.Part>()
-
-                // Prepare all files (show 0-10% for prep phase)
-                uris.forEachIndexed { index, uri ->
-                    val fileName = getFileNameFromUri(context, uri) ?: "chapter_${index + 1}.mp3"
-                    val inputStream = context.contentResolver.openInputStream(uri)
-                        ?: throw IOException("Cannot read file: $fileName")
-
-                    val tempFile = File(context.cacheDir, fileName)
-                    tempFiles.add(tempFile)
-
-                    inputStream.use { input ->
-                        tempFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-
-                    _uploadProgress.value = (index + 1).toFloat() / uris.size * 0.1f // 0-10% for prep
-                }
-
-                // Calculate total bytes for progress tracking
-                val totalBytes = tempFiles.sumOf { it.length() }
-                var totalBytesWritten = 0L
-
-                // Create progress-tracking parts for each file
-                tempFiles.forEachIndexed { index, tempFile ->
-                    val fileName = getFileNameFromUri(context, uris[index]) ?: "chapter_${index + 1}.mp3"
-                    val bytesBeforeThisFile = totalBytesWritten
-
-                    val progressBody = ProgressRequestBody(
-                        file = tempFile,
-                        contentType = "audio/*".toMediaTypeOrNull()
-                    ) { bytesWritten, _ ->
-                        if (totalBytes > 0) {
-                            // 10-100% for actual upload
-                            val uploadFraction = (bytesBeforeThisFile + bytesWritten).toFloat() / totalBytes
-                            _uploadProgress.value = (0.1f + uploadFraction * 0.9f).coerceIn(0f, 1f)
-                        }
-                    }
-
-                    totalBytesWritten += tempFile.length()
-                    val filePart = MultipartBody.Part.createFormData("audiobooks", fileName, progressBody)
-                    fileParts.add(filePart)
-                }
-
-                // Upload all files as single book
-                val response = withContext(Dispatchers.IO) {
-                    api.uploadMultiFile(
-                        files = fileParts,
-                        title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
-                        author = author?.toRequestBody("text/plain".toMediaTypeOrNull())
-                    )
-                }
-
-                _uploadProgress.value = 1f
-
-                if (response.isSuccessful) {
-                    _uploadState.value = UploadState.SUCCESS
-                    _uploadResult.value = UploadResultData(
-                        success = true,
-                        message = "Successfully uploaded audiobook with ${uris.size} file(s)"
-                    )
-                } else {
-                    _uploadState.value = UploadState.ERROR
-                    _uploadResult.value = UploadResultData(
-                        success = false,
-                        message = "Upload failed: ${response.code()}"
-                    )
-                }
-
-            } catch (e: CancellationException) {
-                throw e // Respect coroutine cancellation
-            } catch (e: IOException) {
-                android.util.Log.e("MainViewModel", "File read error", e)
-                _uploadState.value = UploadState.ERROR
-                _uploadResult.value = UploadResultData(
-                    success = false,
-                    message = "Failed to read file: ${e.message}"
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("MainViewModel", "Upload error", e)
-                _uploadState.value = UploadState.ERROR
-                _uploadResult.value = UploadResultData(
-                    success = false,
-                    message = "Upload failed: ${e.message}"
-                )
-            } finally {
-                // Always clean up temp files
-                tempFiles.forEach { file ->
-                    try {
-                        if (file.exists()) file.delete()
-                    } catch (e: Exception) {
-                    }
-                }
-            }
-        }
-    }
-
-    private fun getFileNameFromUri(context: Context, uri: Uri): String? {
-        var fileName: String? = null
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (nameIndex >= 0) {
-                    fileName = cursor.getString(nameIndex)
-                }
-            }
-        }
-        return fileName
+        UploadService.startUploadSingle(context, uris, title, author)
     }
 }
