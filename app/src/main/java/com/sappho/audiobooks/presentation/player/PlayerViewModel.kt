@@ -153,6 +153,25 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun checkForUpdatedProgress(audiobookId: Int) {
+        viewModelScope.launch {
+            if (sharedPlayerState.isPlaying.value) return@launch
+
+            try {
+                val response = api.getProgress(audiobookId)
+                if (response.isSuccessful) {
+                    val progress = response.body() ?: return@launch
+                    val serverPosition = progress.position.toLong()
+                    val localPosition = sharedPlayerState.currentPosition.value
+                    if (kotlin.math.abs(serverPosition - localPosition) > 5) {
+                        AudioPlaybackService.instance?.seekTo(serverPosition)
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     fun loadChapters(audiobookId: Int) {
         viewModelScope.launch {
             try {
