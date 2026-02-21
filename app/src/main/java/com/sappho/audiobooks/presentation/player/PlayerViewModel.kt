@@ -68,9 +68,22 @@ class PlayerViewModel @Inject constructor(
             }
 
             // If no explicit position was passed, use the book's saved progress
-            // This applies whether we got the book from server or from downloaded data
             if (actualStartPosition == 0 && book?.progress != null) {
                 actualStartPosition = book.progress!!.position
+            }
+
+            // Defense-in-depth: if we still have no position, fetch progress separately
+            if (actualStartPosition == 0 && book?.progress == null) {
+                try {
+                    val progressResponse = api.getProgress(audiobookId)
+                    if (progressResponse.isSuccessful) {
+                        val progress = progressResponse.body()
+                        if (progress != null && progress.position > 0) {
+                            actualStartPosition = progress.position
+                        }
+                    }
+                } catch (_: Exception) {
+                }
             }
 
             _audiobook.value = book
