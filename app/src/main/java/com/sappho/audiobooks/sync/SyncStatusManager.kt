@@ -20,7 +20,8 @@ data class SyncStatus(
     val issyncing: Boolean = false,
     val lastSyncTime: Long? = null,
     val lastSyncSuccess: Boolean = true,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val errorTimestamp: Long? = null
 )
 
 @Singleton
@@ -29,6 +30,9 @@ class SyncStatusManager @Inject constructor(
     private val downloadManager: DownloadManager
 ) {
     private val TAG = "SyncStatusManager"
+    private companion object {
+        const val ERROR_EXPIRY_MS = 60_000L // Auto-clear errors after 60 seconds
+    }
 
     private val _syncStatus = MutableStateFlow(SyncStatus())
     val syncStatus: StateFlow<SyncStatus> = _syncStatus
@@ -106,20 +110,35 @@ class SyncStatusManager @Inject constructor(
     ) {
         val pendingCount = downloadManager.getPendingProgressList().size
         val current = _syncStatus.value
-        
+
+        // Auto-clear stale errors:
+        // 1. If no pending items remain, the error is no longer relevant
+        // 2. If the error is older than 60 seconds, expire it
+        val resolvedError = when {
+            errorMessage != null -> errorMessage
+            lastSyncSuccess == true -> null
+            pendingCount == 0 -> null
+            current.errorTimestamp != null &&
+                System.currentTimeMillis() - current.errorTimestamp > ERROR_EXPIRY_MS -> null
+            else -> current.errorMessage
+        }
+
         _syncStatus.value = current.copy(
             pendingCount = pendingCount,
             issyncing = _isSyncing.value,
             lastSyncTime = _lastSyncTime.value ?: current.lastSyncTime,
             lastSyncSuccess = lastSyncSuccess ?: current.lastSyncSuccess,
-            errorMessage = errorMessage ?: if (lastSyncSuccess == true) null else current.errorMessage
+            errorMessage = resolvedError,
+            errorTimestamp = if (errorMessage != null) System.currentTimeMillis()
+                           else if (resolvedError == null) null
+                           else current.errorTimestamp
         )
     }
     
     fun triggerSync() {
         Log.d(TAG, "Manually triggering sync")
         // Clear any stale error from previous runs before starting new sync
-        _syncStatus.value = _syncStatus.value.copy(errorMessage = null, lastSyncSuccess = true)
+        _syncStatus.value = _syncStatus.value.copy(errorMessage = null, errorTimestamp = null, lastSyncSuccess = true)
         ProgressSyncWorker.enqueue(context)
         updateSyncStatus()
     }
@@ -131,6 +150,6 @@ class SyncStatusManager @Inject constructor(
     }
     
     fun clearErrorMessage() {
-        _syncStatus.value = _syncStatus.value.copy(errorMessage = null)
+        _syncStatus.value = _syncStatus.value.copy(errorMessage = null, errorTimestamp = null)
     }
 }
