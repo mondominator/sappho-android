@@ -55,6 +55,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import dagger.hilt.android.AndroidEntryPoint
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.cast.CastHelper
@@ -132,6 +135,20 @@ fun PlayerScreen(
     var showPlaybackSpeed by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
     val castCoroutineScope = rememberCoroutineScope()
+
+    // Sync progress from server when returning from background
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.checkForUpdatedProgress(audiobookId)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Load audiobook details if not already loaded
     LaunchedEffect(audiobookId) {
