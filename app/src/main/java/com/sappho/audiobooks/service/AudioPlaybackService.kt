@@ -52,6 +52,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -83,6 +84,7 @@ class AudioPlaybackService : MediaLibraryService() {
     private var progressSyncJob: Job? = null
     private var positionUpdateJob: Job? = null
     private var sleepTimerJob: Job? = null
+    private var pauseTimeoutJob: Job? = null
 
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -106,6 +108,9 @@ class AudioPlaybackService : MediaLibraryService() {
         // Minimum time (in seconds) before first progress sync
         // This prevents recording progress for accidental plays or quick skips
         private const val INITIAL_PROGRESS_DELAY_SECONDS = 20
+
+        // How long to keep the service alive after pausing before self-stopping
+        private const val PAUSE_TIMEOUT_MS = 10 * 60 * 1000L  // 10 minutes
 
         // Custom command actions
         const val ACTION_SKIP_FORWARD = "com.sappho.audiobooks.SKIP_FORWARD"
@@ -373,8 +378,18 @@ class AudioPlaybackService : MediaLibraryService() {
                     playerState.updatePlayingState(isPlaying)
                     if (isPlaying) {
                         startPositionUpdates()
+                        pauseTimeoutJob?.cancel()
                     } else {
                         stopPositionUpdates()
+                        syncProgress()
+                        // Re-assert foreground status so system doesn't kill us
+                        startForeground(NOTIFICATION_ID, createNotification())
+                        // Stop service after 10 minutes of inactivity
+                        pauseTimeoutJob?.cancel()
+                        pauseTimeoutJob = serviceScope.launch {
+                            delay(PAUSE_TIMEOUT_MS)
+                            stopPlayback()
+                        }
                     }
                     updateNotification()
                 }
@@ -1624,6 +1639,7 @@ class AudioPlaybackService : MediaLibraryService() {
         progressSyncJob?.cancel()
         positionUpdateJob?.cancel()
         sleepTimerJob?.cancel()
+        pauseTimeoutJob?.cancel()
         playerState.clear()
         audiobookCache.clear() // Clear cache to avoid stale data after re-login
         abandonAudioFocus()
@@ -1639,13 +1655,50 @@ class AudioPlaybackService : MediaLibraryService() {
         return mediaLibrarySession
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // Sync progress synchronously before the service dies
+        val book = playerState.currentAudiobook.value
+        val position = playerState.currentPosition.value.toInt()
+        val duration = playerState.duration.value.toInt()
+        if (book != null && position > 0 && (duration == 0 || (duration - position) >= 30)) {
+            runBlocking {
+                try {
+                    api.updateProgress(
+                        book.id,
+                        ProgressUpdateRequest(position = position, completed = 0, state = "stopped")
+                    )
+                } catch (_: Exception) {
+                    downloadManager.saveOfflineProgress(book.id, position)
+                }
+            }
+        }
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         instance = null
-        syncProgress()
+        // Sync progress synchronously — the coroutine-based syncProgress() won't complete
+        // because serviceScope is about to be cancelled
+        val book = playerState.currentAudiobook.value
+        val position = playerState.currentPosition.value.toInt()
+        val duration = playerState.duration.value.toInt()
+        if (book != null && position > 0 && (duration == 0 || (duration - position) >= 30)) {
+            runBlocking {
+                try {
+                    api.updateProgress(
+                        book.id,
+                        ProgressUpdateRequest(position = position, completed = 0, state = "stopped")
+                    )
+                } catch (_: Exception) {
+                    downloadManager.saveOfflineProgress(book.id, position)
+                }
+            }
+        }
         player?.release()
         mediaLibrarySession?.release()
         progressSyncJob?.cancel()
         positionUpdateJob?.cancel()
+        pauseTimeoutJob?.cancel()
         abandonAudioFocus()
         unregisterNoisyReceiver()
         unregisterNotificationActionReceiver()
