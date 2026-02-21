@@ -201,6 +201,8 @@ class HomeViewModel @Inject constructor(
                 if (finishedResponse?.isSuccessful == true) {
                     _finished.value = (finishedResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
+                // Data loaded successfully from server — clear any stale sync error
+                syncStatusManager.updateSyncStatus(lastSyncSuccess = true)
             } catch (e: Exception) {
                 } finally {
                     _isLoading.value = false

@@ -411,9 +411,12 @@ class DownloadManager @Inject constructor(
     }
     
     private fun triggerSyncIfOnline() {
-        // This will be connected to NetworkMonitor and SyncStatusManager
-        // For now, just log that we would trigger sync
-        Log.d(TAG, "Would trigger background sync - ${getPendingProgressCount()} items pending")
+        Log.d(TAG, "Triggering background sync - ${getPendingProgressCount()} items pending")
+        try {
+            com.sappho.audiobooks.sync.ProgressSyncWorker.enqueue(context)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not enqueue sync worker", e)
+        }
     }
 
     private fun updateDownloadedBookProgress(audiobookId: Int, position: Int) {
