@@ -176,7 +176,10 @@ class HomeViewModel @Inject constructor(
                 if (finishedResponse?.isSuccessful == true) {
                     _finished.value = (finishedResponse.body() ?: emptyList()).withFavoriteStatus()
                 }
-                // Data loaded successfully from server — clear any stale sync error
+                // Data loaded successfully from server — clear any stale sync state.
+                // Pending progress items are now stale since the server has the real
+                // position from successful streaming syncs.
+                downloadManager.clearAllPendingProgress()
                 syncStatusManager.updateSyncStatus(lastSyncSuccess = true)
             } catch (e: Exception) {
                 } finally {

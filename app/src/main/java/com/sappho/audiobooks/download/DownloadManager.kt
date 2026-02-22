@@ -402,6 +402,13 @@ class DownloadManager @Inject constructor(
         savePendingProgress()
     }
 
+    fun clearAllPendingProgress() {
+        if (_pendingProgress.value.isEmpty()) return
+        Log.d(TAG, "Clearing all pending progress (${_pendingProgress.value.size} items)")
+        _pendingProgress.value = emptyMap()
+        savePendingProgress()
+    }
+
     fun hasPendingProgress(): Boolean {
         return _pendingProgress.value.isNotEmpty()
     }
