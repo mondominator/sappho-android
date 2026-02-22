@@ -2524,25 +2524,6 @@ fun AuthorBookCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = book.title,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.White,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            lineHeight = 16.sp
-        )
-
-        if (book.duration != null) {
-            Text(
-                text = "${book.duration / 3600}h ${(book.duration % 3600) / 60}m",
-                fontSize = 11.sp,
-                color = SapphoIconDefault
-            )
-        }
     }
 }
 

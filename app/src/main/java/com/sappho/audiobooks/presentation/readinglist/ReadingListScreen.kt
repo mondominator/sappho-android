@@ -212,23 +212,6 @@ fun ReadingListBookItem(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = book.title,
-            style = MaterialTheme.typography.labelMedium,
-            color = Color.White,
-            maxLines = 2
-        )
-
-        book.author?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelSmall,
-                color = SapphoIconDefault,
-                maxLines = 1
-            )
-        }
     }
 }
 
