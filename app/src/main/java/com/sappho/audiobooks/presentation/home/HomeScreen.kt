@@ -427,10 +427,8 @@ fun AudiobookCard(
         serverUrl?.let { com.sappho.audiobooks.util.buildCoverUrl(it, book.id, com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL) }
     }
     
-    // Calculate responsive font sizes based on card size
+    // Calculate responsive font size for placeholder
     val placeholderFontSize = (cardSize.value * 0.15f).sp
-    val titleFontSize = (cardSize.value * 0.10f).sp
-    val authorFontSize = (cardSize.value * 0.08f).sp
     
     val cardTapHaptic = HapticPatterns.cardTap()
 
@@ -560,31 +558,6 @@ fun AudiobookCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Title
-            Text(
-                text = book.title,
-                fontSize = titleFontSize,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                color = SapphoText,
-                modifier = Modifier.basicMarquee(
-                    iterations = Int.MAX_VALUE,
-                    initialDelayMillis = 2000,
-                    velocity = 30.dp
-                )
-            )
-
-            // Author
-            if (book.author != null) {
-                Text(
-                    text = book.author,
-                    fontSize = authorFontSize,
-                    maxLines = 1,
-                    color = SapphoIconDefault
-                )
-            }
         }
 }
 
