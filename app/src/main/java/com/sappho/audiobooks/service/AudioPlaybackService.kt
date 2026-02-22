@@ -93,6 +93,10 @@ class AudioPlaybackService : MediaLibraryService() {
     // Track playback session start time for progress sync delay
     private var playbackSessionStartTime: Long = 0L
 
+    // Track whether current playback is from a local/downloaded file (true offline support)
+    // vs streaming from server (transient API errors should not create pending sync items)
+    private var isPlayingLocalFile: Boolean = false
+
     companion object {
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "audiobook_playback"
@@ -1262,6 +1266,7 @@ class AudioPlaybackService : MediaLibraryService() {
             if (localFilePath != null && File(localFilePath).exists()) {
                 // Use local downloaded file
                 mediaUri = Uri.fromFile(File(localFilePath))
+                isPlayingLocalFile = true
                 android.util.Log.d("AudioPlaybackService", "Using local file: $localFilePath")
             } else {
                 // Stream from server
@@ -1271,6 +1276,7 @@ class AudioPlaybackService : MediaLibraryService() {
                     return
                 }
                 mediaUri = Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream?token=$token")
+                isPlayingLocalFile = false
                 android.util.Log.d("AudioPlaybackService", "Streaming from: $mediaUri")
             }
 
@@ -1480,8 +1486,12 @@ class AudioPlaybackService : MediaLibraryService() {
                     // Successfully synced - clear any pending progress for this book
                     downloadManager.clearPendingProgress(book.id)
                 } catch (e: Exception) {
-                    // Failed to sync (offline) - save progress locally
-                    downloadManager.saveOfflineProgress(book.id, position)
+                    if (isPlayingLocalFile) {
+                        // Playing downloaded file offline - save progress locally for later sync
+                        downloadManager.saveOfflineProgress(book.id, position)
+                    }
+                    // When streaming, transient API errors are expected and don't need
+                    // offline progress tracking — the next sync cycle will succeed
                 }
             }
         }
@@ -1491,7 +1501,6 @@ class AudioPlaybackService : MediaLibraryService() {
         serviceScope.launch {
             val pendingList = downloadManager.getPendingProgressList()
             if (pendingList.isEmpty()) return@launch
-
 
             for (pending in pendingList) {
                 try {
@@ -1503,11 +1512,9 @@ class AudioPlaybackService : MediaLibraryService() {
                             state = "paused"
                         )
                     )
-                    // Successfully synced - clear this pending progress
                     downloadManager.clearPendingProgress(pending.audiobookId)
-                } catch (e: Exception) {
-                    // Still offline or error - keep the pending progress
-                    break // Stop trying if we're still offline
+                } catch (_: Exception) {
+                    // Continue trying remaining items
                 }
             }
         }
@@ -1668,7 +1675,9 @@ class AudioPlaybackService : MediaLibraryService() {
                         ProgressUpdateRequest(position = position, completed = 0, state = "stopped")
                     )
                 } catch (_: Exception) {
-                    downloadManager.saveOfflineProgress(book.id, position)
+                    if (isPlayingLocalFile) {
+                        downloadManager.saveOfflineProgress(book.id, position)
+                    }
                 }
             }
         }
@@ -1690,7 +1699,9 @@ class AudioPlaybackService : MediaLibraryService() {
                         ProgressUpdateRequest(position = position, completed = 0, state = "stopped")
                     )
                 } catch (_: Exception) {
-                    downloadManager.saveOfflineProgress(book.id, position)
+                    if (isPlayingLocalFile) {
+                        downloadManager.saveOfflineProgress(book.id, position)
+                    }
                 }
             }
         }
