@@ -6,7 +6,6 @@ import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.remote.Collection
 import com.sappho.audiobooks.data.remote.AddToCollectionRequest
 import com.sappho.audiobooks.data.remote.CreateCollectionRequest
-import com.sappho.audiobooks.data.remote.ProgressUpdateRequest
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.download.DownloadManager
@@ -86,30 +85,6 @@ class HomeViewModel @Inject constructor(
                         loadData()
                     }
                 }
-            }
-        }
-    }
-
-    private suspend fun syncPendingProgress() {
-        val pendingList = downloadManager.getPendingProgressList()
-        if (pendingList.isEmpty()) return
-
-
-        for (pending in pendingList) {
-            try {
-                api.updateProgress(
-                    pending.audiobookId,
-                    ProgressUpdateRequest(
-                        position = pending.position,
-                        completed = 0,
-                        state = "paused"
-                    )
-                )
-                // Successfully synced - clear this pending progress
-                downloadManager.clearPendingProgress(pending.audiobookId)
-            } catch (e: Exception) {
-                android.util.Log.e("HomeViewModel", "Failed to sync pending progress for book ${pending.audiobookId}", e)
-                // Continue trying other entries
             }
         }
     }
