@@ -519,27 +519,7 @@ private fun CollectionBookItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = book.title,
-                style = MaterialTheme.typography.labelMedium,
-                color = SapphoText,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
-
-            book.author?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SapphoIconDefault,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            // Rating below author - prefer user rating, fall back to average rating
+            // Rating - prefer user rating, fall back to average rating
             val displayRating = book.userRating ?: book.averageRating
             if (displayRating != null && displayRating > 0) {
                 Row(
