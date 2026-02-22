@@ -94,11 +94,14 @@ class ProgressSyncWorker @AssistedInject constructor(
 
             Log.d(TAG, "Progress sync complete: $successCount successes, $failureCount failures")
 
-            // Return success if at least some items synced, or if all failed (to avoid infinite retries)
-            if (successCount > 0 || failureCount == pendingList.size) {
+            if (failureCount == 0) {
                 Result.success()
-            } else {
+            } else if (successCount > 0) {
+                // Partial success — retry for remaining failures
                 Result.retry()
+            } else {
+                // All failed
+                Result.failure()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Progress sync worker failed", e)
