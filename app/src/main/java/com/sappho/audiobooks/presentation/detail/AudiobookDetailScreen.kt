@@ -1,5 +1,6 @@
 package com.sappho.audiobooks.presentation.detail
 
+import com.sappho.audiobooks.domain.model.Progress
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -412,8 +413,12 @@ fun AudiobookDetailScreen(
                                 }
                             }
 
-                            // Progress bar overlay at bottom
-                            val progressData = progress
+                            // Progress bar overlay at bottom - use live position when this book is playing
+                            val progressData = if (isThisBookLoaded && currentPosition > 0) {
+                                progress?.copy(position = currentPosition.toInt()) ?: Progress(position = currentPosition.toInt(), completed = 0)
+                            } else {
+                                progress
+                            }
                             val hasProgress = progressData != null &&
                                               book.duration != null &&
                                               book.duration > 0 &&
@@ -1024,7 +1029,13 @@ fun AudiobookDetailScreen(
                     }
 
                     // Progress Section (above About)
-                    progress?.let { prog ->
+                    // Use live player position when this book is loaded, otherwise server progress
+                    val displayProgress = if (isThisBookLoaded && currentPosition > 0) {
+                        progress?.copy(position = currentPosition.toInt()) ?: Progress(position = currentPosition.toInt(), completed = 0)
+                    } else {
+                        progress
+                    }
+                    displayProgress?.let { prog ->
                         if (prog.position > 0 || prog.completed == 1) {
                             Spacer(modifier = Modifier.height(24.dp))
 
