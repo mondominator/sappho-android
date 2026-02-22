@@ -6,8 +6,12 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.sappho.audiobooks.download.DownloadManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -30,6 +34,7 @@ class SyncStatusManager @Inject constructor(
     private val downloadManager: DownloadManager
 ) {
     private val TAG = "SyncStatusManager"
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private companion object {
         const val ERROR_EXPIRY_MS = 60_000L // Auto-clear errors after 60 seconds
     }
@@ -100,8 +105,11 @@ class SyncStatusManager @Inject constructor(
     }
     
     private fun observePendingProgress() {
-        // This would ideally be a Flow, but for now we'll update manually
-        // when sync operations occur
+        scope.launch {
+            downloadManager.pendingProgress.collect {
+                updateSyncStatus()
+            }
+        }
     }
     
     fun updateSyncStatus(
