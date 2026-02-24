@@ -71,6 +71,19 @@ class PlayerState @Inject constructor() {
         _bufferedPosition.value = position
     }
 
+    /**
+     * Mark playback as inactive while preserving position, duration, and audiobook
+     * for UI display. Called when the service times out or is destroyed — the player
+     * screen may still be visible and needs to show the last known state.
+     */
+    fun deactivate() {
+        _isPlaying.value = false
+        _isLoading.value = false
+        _sleepTimerRemaining.value = null
+        _bufferedPosition.value = 0L
+        _lastActiveTimestamp.value = 0L
+    }
+
     fun clear() {
         _currentAudiobook.value = null
         _isPlaying.value = false
