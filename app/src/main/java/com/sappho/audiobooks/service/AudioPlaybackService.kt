@@ -1654,7 +1654,7 @@ class AudioPlaybackService : MediaLibraryService() {
         positionUpdateJob?.cancel()
         sleepTimerJob?.cancel()
         pauseTimeoutJob?.cancel()
-        playerState.clear()
+        playerState.deactivate()
         audiobookCache.clear() // Clear cache to avoid stale data after re-login
         abandonAudioFocus()
         unregisterNoisyReceiver()
@@ -1720,7 +1720,7 @@ class AudioPlaybackService : MediaLibraryService() {
         abandonAudioFocus()
         unregisterNoisyReceiver()
         unregisterNotificationActionReceiver()
-        playerState.clear()
+        playerState.deactivate()
         super.onDestroy()
     }
 }

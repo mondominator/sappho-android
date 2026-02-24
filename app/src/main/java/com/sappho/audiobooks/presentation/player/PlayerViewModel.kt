@@ -180,6 +180,16 @@ class PlayerViewModel @Inject constructor(
                     if (serverPosition > 0 && serverPosition != localPosition) {
                         sharedPlayerState.updatePosition(serverPosition)
                     }
+                    // Restore duration if missing (e.g. PlayerState was fully cleared)
+                    if (sharedPlayerState.duration.value == 0L) {
+                        val book = _audiobook.value
+                        if (book?.duration != null && book.duration > 0) {
+                            sharedPlayerState.updateDuration(book.duration.toLong())
+                        }
+                    }
+                    // Mark state as freshly reconciled so togglePlayPauseWithGuard
+                    // doesn't redundantly fetch progress again
+                    sharedPlayerState.updateLastActiveTimestamp()
                     return@launch
                 }
 
