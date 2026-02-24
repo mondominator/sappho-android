@@ -546,14 +546,8 @@ fun PlayerScreen(
                                             }
                                         }
                                     } else {
-                                        // Control local playback
-                                        val service = AudioPlaybackService.instance
-                                        val playerHandled = service?.togglePlayPause() ?: false
-                                        if (!playerHandled) {
-                                            // Service was killed or player is null (e.g., after vehicle disconnect)
-                                            // Restart playback from current position
-                                            viewModel.loadAndStartPlayback(audiobookId, currentPosition.toInt())
-                                        }
+                                        // Control local playback with staleness guard
+                                        viewModel.togglePlayPauseWithGuard(audiobookId)
                                     }
                                 },
                             contentAlignment = Alignment.Center
