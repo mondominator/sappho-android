@@ -32,6 +32,13 @@ class PlayerState @Inject constructor() {
     private val _bufferedPosition = MutableStateFlow(0L)
     val bufferedPosition: StateFlow<Long> = _bufferedPosition
 
+    private val _lastActiveTimestamp = MutableStateFlow(0L)
+    val lastActiveTimestamp: StateFlow<Long> = _lastActiveTimestamp
+
+    fun updateLastActiveTimestamp() {
+        _lastActiveTimestamp.value = System.currentTimeMillis()
+    }
+
     fun updateAudiobook(audiobook: Audiobook?) {
         _currentAudiobook.value = audiobook
     }
@@ -73,5 +80,6 @@ class PlayerState @Inject constructor() {
         _playbackSpeed.value = 1.0f
         _sleepTimerRemaining.value = null
         _bufferedPosition.value = 0L
+        _lastActiveTimestamp.value = 0L
     }
 }

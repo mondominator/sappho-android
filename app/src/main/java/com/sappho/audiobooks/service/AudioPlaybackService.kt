@@ -114,7 +114,7 @@ class AudioPlaybackService : MediaLibraryService() {
         private const val INITIAL_PROGRESS_DELAY_SECONDS = 20
 
         // How long to keep the service alive after pausing before self-stopping
-        private const val PAUSE_TIMEOUT_MS = 10 * 60 * 1000L  // 10 minutes
+        private const val PAUSE_TIMEOUT_MS = 30 * 60 * 1000L  // 30 minutes
 
         // Custom command actions
         const val ACTION_SKIP_FORWARD = "com.sappho.audiobooks.SKIP_FORWARD"
@@ -380,6 +380,7 @@ class AudioPlaybackService : MediaLibraryService() {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     android.util.Log.d("AudioPlaybackService", "onIsPlayingChanged: $isPlaying")
                     playerState.updatePlayingState(isPlaying)
+                    playerState.updateLastActiveTimestamp()
                     if (isPlaying) {
                         startPositionUpdates()
                         pauseTimeoutJob?.cancel()
@@ -388,7 +389,7 @@ class AudioPlaybackService : MediaLibraryService() {
                         syncProgress()
                         // Re-assert foreground status so system doesn't kill us
                         startForeground(NOTIFICATION_ID, createNotification())
-                        // Stop service after 10 minutes of inactivity
+                        // Stop service after 30 minutes of inactivity
                         pauseTimeoutJob?.cancel()
                         pauseTimeoutJob = serviceScope.launch {
                             delay(PAUSE_TIMEOUT_MS)
@@ -1359,10 +1360,15 @@ class AudioPlaybackService : MediaLibraryService() {
         return true
     }
 
+    fun isCurrentlyPlaying(): Boolean {
+        return player?.isPlaying == true
+    }
+
     fun seekTo(seconds: Long) {
         player?.seekTo(seconds * 1000)
         // Immediately update UI position so slider doesn't snap back
         playerState.updatePosition(seconds)
+        playerState.updateLastActiveTimestamp()
     }
 
     fun seekToAndPlay(seconds: Long) {
@@ -1370,6 +1376,7 @@ class AudioPlaybackService : MediaLibraryService() {
             it.seekTo(seconds * 1000)
             // Immediately update UI position so slider doesn't snap back
             playerState.updatePosition(seconds)
+            playerState.updateLastActiveTimestamp()
             if (!it.isPlaying) {
                 it.play()
             }

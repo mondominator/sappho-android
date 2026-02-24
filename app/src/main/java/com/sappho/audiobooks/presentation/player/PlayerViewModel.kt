@@ -30,6 +30,10 @@ class PlayerViewModel @Inject constructor(
     private val castManager: CastManager
 ) : AndroidViewModel(application) {
 
+    companion object {
+        private const val STALENESS_THRESHOLD_MS = 30_000L
+    }
+
     private val _audiobook = MutableStateFlow<Audiobook?>(null)
     val audiobook: StateFlow<Audiobook?> = _audiobook
 
@@ -155,19 +159,87 @@ class PlayerViewModel @Inject constructor(
 
     fun checkForUpdatedProgress(audiobookId: Int) {
         viewModelScope.launch {
-            if (sharedPlayerState.isPlaying.value) return@launch
+            try {
+                val response = api.getProgress(audiobookId)
+                if (!response.isSuccessful) return@launch
+                val progress = response.body() ?: return@launch
+
+                // Don't override display for completed books
+                if (progress.completed == 1) return@launch
+
+                val serverPosition = progress.position.toLong()
+                val localPosition = sharedPlayerState.currentPosition.value
+                val service = AudioPlaybackService.instance
+
+                // If actively playing, don't interrupt
+                if (service != null && service.isCurrentlyPlaying()) return@launch
+
+                // Service is dead — update PlayerState directly so UI shows
+                // correct position and play button restart uses the right value
+                if (service == null) {
+                    if (serverPosition > 0 && serverPosition != localPosition) {
+                        sharedPlayerState.updatePosition(serverPosition)
+                    }
+                    return@launch
+                }
+
+                // Service alive but paused — seek if position differs by >2s
+                if (kotlin.math.abs(serverPosition - localPosition) > 2) {
+                    service.seekTo(serverPosition)
+                }
+            } catch (_: Exception) {
+                // Network failure — keep showing current state
+            }
+        }
+    }
+
+    fun togglePlayPauseWithGuard(audiobookId: Int) {
+        val service = AudioPlaybackService.instance
+
+        // Pause should always be immediate
+        if (service != null && service.isCurrentlyPlaying()) {
+            service.togglePlayPause()
+            return
+        }
+
+        // Check if state is stale
+        val lastActive = sharedPlayerState.lastActiveTimestamp.value
+        val isStale = lastActive == 0L ||
+            (System.currentTimeMillis() - lastActive) > STALENESS_THRESHOLD_MS
+
+        if (!isStale) {
+            // Recently active — safe to toggle immediately
+            val handled = service?.togglePlayPause() ?: false
+            if (!handled) {
+                loadAndStartPlayback(audiobookId, sharedPlayerState.currentPosition.value.toInt())
+            }
+            return
+        }
+
+        // Stale — fetch server progress first, then play
+        viewModelScope.launch {
+            var bestPosition = sharedPlayerState.currentPosition.value.toInt()
 
             try {
                 val response = api.getProgress(audiobookId)
                 if (response.isSuccessful) {
-                    val progress = response.body() ?: return@launch
-                    val serverPosition = progress.position.toLong()
-                    val localPosition = sharedPlayerState.currentPosition.value
-                    if (kotlin.math.abs(serverPosition - localPosition) > 5) {
-                        AudioPlaybackService.instance?.seekTo(serverPosition)
+                    val progress = response.body()
+                    if (progress != null && progress.completed != 1 && progress.position > 0) {
+                        bestPosition = progress.position
                     }
                 }
             } catch (_: Exception) {
+                // Network failed — use local position
+            }
+
+            val svc = AudioPlaybackService.instance
+            if (svc != null) {
+                if (kotlin.math.abs(bestPosition.toLong() - sharedPlayerState.currentPosition.value) > 2) {
+                    svc.seekTo(bestPosition.toLong())
+                }
+                svc.togglePlayPause()
+            } else {
+                loadAndStartPlayback(audiobookId, bestPosition)
             }
         }
     }
