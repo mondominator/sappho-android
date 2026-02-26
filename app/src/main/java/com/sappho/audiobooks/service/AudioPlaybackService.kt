@@ -1663,6 +1663,21 @@ class AudioPlaybackService : MediaLibraryService() {
         stopSelf()
     }
 
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        if (startInForegroundRequired) {
+            // Media3 says we need foreground — do the default
+            super.onUpdateNotification(session, startInForegroundRequired)
+        } else if (pauseTimeoutJob?.isActive == true) {
+            // Media3 wants to demote us out of foreground, but our pause timeout
+            // hasn't expired yet — re-assert foreground with our own notification
+            // so the user can resume from the notification shade.
+            startForeground(NOTIFICATION_ID, createNotification())
+        } else {
+            // Timeout expired or no active playback — let Media3 handle it
+            super.onUpdateNotification(session, startInForegroundRequired)
+        }
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? {
         // Allow any app to connect to the media session for Android Auto compatibility
         // The MediaLibrarySession.Callback methods handle authorization
