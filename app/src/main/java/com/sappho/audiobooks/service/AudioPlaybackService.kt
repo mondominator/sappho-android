@@ -1670,7 +1670,9 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        // Sync progress synchronously before the service dies
+        val isPlaying = player?.isPlaying == true
+
+        // Sync progress synchronously
         val book = playerState.currentAudiobook.value
         val position = playerState.currentPosition.value.toInt()
         val duration = playerState.duration.value.toInt()
@@ -1679,7 +1681,7 @@ class AudioPlaybackService : MediaLibraryService() {
                 try {
                     api.updateProgress(
                         book.id,
-                        ProgressUpdateRequest(position = position, completed = 0, state = "stopped")
+                        ProgressUpdateRequest(position = position, completed = 0, state = if (isPlaying) "playing" else "paused")
                     )
                 } catch (_: Exception) {
                     if (isPlayingLocalFile) {
@@ -1688,7 +1690,27 @@ class AudioPlaybackService : MediaLibraryService() {
                 }
             }
         }
-        super.onTaskRemoved(rootIntent)
+
+        if (isPlaying) {
+            // Playing — keep the service alive (super will keep foreground)
+            super.onTaskRemoved(rootIntent)
+        } else if (pauseTimeoutJob?.isActive == true) {
+            // Paused but timeout hasn't expired — keep service alive for resume.
+            // Do NOT call super.onTaskRemoved() because MediaLibraryService's
+            // default implementation stops the service when the player is paused.
+            // Safety fallback: if the main timeout job gets cancelled unexpectedly,
+            // ensure the service doesn't stay alive forever.
+            serviceScope.launch {
+                delay(PAUSE_TIMEOUT_MS)
+                if (player?.isPlaying != true) {
+                    android.util.Log.w("AudioPlaybackService", "Fallback timeout — stopping stale service")
+                    stopPlayback()
+                }
+            }
+        } else {
+            // Paused and timeout already expired (shouldn't normally happen) — clean up
+            super.onTaskRemoved(rootIntent)
+        }
     }
 
     override fun onDestroy() {
