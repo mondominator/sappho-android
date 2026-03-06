@@ -3641,34 +3641,6 @@ fun SelectableBookGridItem(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Title
-        Text(
-            text = book.title,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = SapphoText,
-            maxLines = 1,
-            lineHeight = 14.sp,
-            modifier = Modifier.basicMarquee(
-                iterations = Int.MAX_VALUE,
-                initialDelayMillis = 2000,
-                velocity = 12.dp
-            )
-        )
-
-        // Author
-        book.author?.let {
-            Text(
-                text = it,
-                fontSize = 10.sp,
-                color = SapphoIconDefault,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
     }
 }
 
