@@ -150,9 +150,13 @@ fun PlayerScreen(
         }
     }
 
-    // Load audiobook and start playback (restores saved position if startPosition is 0)
+    // Load audiobook details if not already loaded
     LaunchedEffect(audiobookId) {
-        viewModel.loadAndStartPlayback(audiobookId, startPosition)
+        if (!fromMinimized) {
+            viewModel.loadAndStartPlayback(audiobookId, startPosition)
+        } else {
+            viewModel.loadAudiobookDetails(audiobookId)
+        }
         viewModel.loadChapters(audiobookId)
     }
 
@@ -627,21 +631,8 @@ fun PlayerScreen(
                     var dragPosition by remember { mutableFloatStateOf(0f) }
                     var wasPlayingBeforeDrag by remember { mutableStateOf(false) }
 
-                    // Chapter-aware seek: use chapter boundaries when available
-                    val chapterStart = currentChapter?.startTime?.toFloat() ?: 0f
-                    val chapterEnd = currentChapter?.endTime?.toFloat()
-                        ?: currentChapter?.let { (it.startTime + (it.duration ?: 0.0)).toFloat() }
-                        ?: duration.toFloat()
-                    val hasChapter = currentChapter != null && chapters.size > 1
-                    val seekRangeStart = if (hasChapter) chapterStart else 0f
-                    val seekRangeEnd = if (hasChapter) chapterEnd else duration.toFloat()
-
                     // The displayed position: use drag position while dragging, actual position otherwise
                     val displayedPosition = if (isDragging) dragPosition else currentPosition.toFloat()
-
-                    // Chapter-relative times for display
-                    val displayPos = displayedPosition - seekRangeStart
-                    val displayDur = seekRangeEnd - seekRangeStart
 
                     Column(modifier = Modifier.fillMaxWidth()) {
                         // Time popup while dragging
@@ -660,7 +651,7 @@ fun PlayerScreen(
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
                                     Text(
-                                        text = formatTime(displayPos.toLong().coerceAtLeast(0)),
+                                        text = formatTime(dragPosition.toLong()),
                                         style = MaterialTheme.typography.titleLarge,
                                         color = SapphoInfo
                                     )
@@ -673,19 +664,19 @@ fun PlayerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = formatTime(displayPos.toLong().coerceAtLeast(0)),
+                                text = formatTime(displayedPosition.toLong()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isDragging) SapphoInfo else SapphoIconDefault
                             )
                             Text(
-                                text = formatTime(displayDur.toLong().coerceAtLeast(0)),
+                                text = formatTime(duration),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = SapphoIconDefault
                             )
                         }
 
                         Slider(
-                            value = if (seekRangeEnd > seekRangeStart) displayedPosition.coerceIn(seekRangeStart, seekRangeEnd) else 0f,
+                            value = if (duration > 0) displayedPosition else 0f,
                             onValueChange = { newValue ->
                                 if (!isDragging) {
                                     // Capture playing state when drag starts
@@ -695,7 +686,7 @@ fun PlayerScreen(
                                 dragPosition = newValue
                             },
                             onValueChangeFinished = {
-                                // Seek to absolute position, only resume playback if it was playing before
+                                // Seek to position, only resume playback if it was playing before
                                 if (wasPlayingBeforeDrag) {
                                     AudioPlaybackService.instance?.seekToAndPlay(dragPosition.toLong())
                                 } else {
@@ -703,7 +694,7 @@ fun PlayerScreen(
                                 }
                                 isDragging = false
                             },
-                            valueRange = seekRangeStart..seekRangeEnd.coerceAtLeast(seekRangeStart + 1f),
+                            valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
                             thumb = {
                                 Box(
                                     modifier = Modifier
