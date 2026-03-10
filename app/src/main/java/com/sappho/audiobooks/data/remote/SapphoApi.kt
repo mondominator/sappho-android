@@ -72,10 +72,16 @@ interface SapphoApi {
 
     // Favorites
     @GET("api/audiobooks/favorites")
-    suspend fun getFavorites(): Response<List<Audiobook>>
+    suspend fun getFavorites(@Query("sort") sort: String = "custom"): Response<List<Audiobook>>
 
     @POST("api/audiobooks/{id}/favorite/toggle")
     suspend fun toggleFavorite(@Path("id") audiobookId: Int): Response<FavoriteResponse>
+
+    @PUT("api/audiobooks/favorites/reorder")
+    suspend fun reorderFavorites(@Body request: ReorderFavoritesRequest): Response<Unit>
+
+    @DELETE("api/audiobooks/{id}/favorite")
+    suspend fun removeFavorite(@Path("id") audiobookId: Int): Response<Unit>
 
     // Progress
     @GET("api/audiobooks/{id}/progress")
@@ -640,6 +646,10 @@ data class FavoriteResponse(
     val success: Boolean,
     @com.google.gson.annotations.SerializedName("is_favorite")
     val isFavorite: Boolean
+)
+
+data class ReorderFavoritesRequest(
+    val order: List<Int>
 )
 
 data class UserInfo(
