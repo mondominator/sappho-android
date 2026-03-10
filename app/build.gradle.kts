@@ -175,6 +175,9 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.36.0")
     implementation("com.google.accompanist:accompanist-swiperefresh:0.36.0")
 
+    // Reorderable (Drag-and-drop for LazyColumn)
+    implementation("sh.calvin.reorderable:reorderable:3.0.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.11")
