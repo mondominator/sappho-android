@@ -16,8 +16,8 @@ android {
         applicationId = "com.sappho.audiobooks"
         minSdk = 26
         targetSdk = 35
-        versionCode = 65
-        versionName = "0.9.47"
+        versionCode = 66
+        versionName = "0.9.48"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -174,6 +174,9 @@ dependencies {
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
     implementation("com.google.accompanist:accompanist-permissions:0.36.0")
     implementation("com.google.accompanist:accompanist-swiperefresh:0.36.0")
+
+    // Reorderable (Drag-and-drop for LazyColumn)
+    implementation("sh.calvin.reorderable:reorderable:3.0.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
