@@ -610,66 +610,6 @@ fun AudiobookDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Play button
-                        Button(
-                            onClick = {
-                                if (!canPlay) return@Button
-                                playButtonHaptic()
-                                val service = AudioPlaybackService.instance
-                                if (isThisBookLoaded && service != null) {
-                                    // Book is already loaded and service is alive, try to toggle play/pause
-                                    val playerHandled = service.togglePlayPause()
-                                    if (!playerHandled) {
-                                        // Player was null (service exists but player released)
-                                        // Restart playback from current position or saved progress
-                                        val position = if (currentPosition > 0) currentPosition.toInt() else progress?.position
-                                        onPlayClick(book.id, position)
-                                    }
-                                } else {
-                                    // Start playing a new book (or restart if service was killed)
-                                    onPlayClick(book.id, progress?.position)
-                                }
-                            },
-                            enabled = canPlay,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isThisBookPlaying) SapphoSuccess.copy(alpha = 0.15f) else SapphoInfo.copy(alpha = 0.15f),
-                                contentColor = if (isThisBookPlaying) LegacyGreenPale else LegacyBluePale,
-                                disabledContainerColor = SapphoSurface,
-                                disabledContentColor = SapphoTextSecondary
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = if (canPlay) 0.1f else 0.05f))
-                        ) {
-                            if (isProgressLoading && !isThisBookLoaded) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = SapphoTextSecondary,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Loading...",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = if (isThisBookPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isThisBookPlaying) "Pause" else if (progress?.position ?: 0 > 0) "Continue" else "Play",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-
                         // Download button (icon only)
                         if (showDownloadButton) {
                             val downloadStartHaptic = HapticPatterns.downloadStart()
@@ -933,6 +873,62 @@ fun AudiobookDetailScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+
+                        // Play button (expands to fill remaining space)
+                        Button(
+                            onClick = {
+                                if (!canPlay) return@Button
+                                playButtonHaptic()
+                                val service = AudioPlaybackService.instance
+                                if (isThisBookLoaded && service != null) {
+                                    val playerHandled = service.togglePlayPause()
+                                    if (!playerHandled) {
+                                        val position = if (currentPosition > 0) currentPosition.toInt() else progress?.position
+                                        onPlayClick(book.id, position)
+                                    }
+                                } else {
+                                    onPlayClick(book.id, progress?.position)
+                                }
+                            },
+                            enabled = canPlay,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isThisBookPlaying) SapphoSuccess.copy(alpha = 0.15f) else SapphoInfo.copy(alpha = 0.15f),
+                                contentColor = if (isThisBookPlaying) LegacyGreenPale else LegacyBluePale,
+                                disabledContainerColor = SapphoSurface,
+                                disabledContentColor = SapphoTextSecondary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = if (canPlay) 0.1f else 0.05f))
+                        ) {
+                            if (isProgressLoading && !isThisBookLoaded) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = SapphoTextSecondary,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Loading...",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isThisBookPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isThisBookPlaying) "Pause" else if (progress?.position ?: 0 > 0) "Continue" else "Play",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
