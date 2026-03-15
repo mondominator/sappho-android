@@ -113,7 +113,6 @@ fun AudiobookDetailScreen(
     val fetchChaptersResult by viewModel.fetchChaptersResult.collectAsState()
     val isDeletingFile by viewModel.isDeletingFile.collectAsState()
     val deleteFileError by viewModel.deleteFileError.collectAsState()
-    var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
     var fileToDelete by remember { mutableStateOf<com.sappho.audiobooks.domain.model.DirectoryFile?>(null) }
     var showEditMetadataDialog by remember { mutableStateOf(false) }
@@ -683,8 +682,7 @@ fun AudiobookDetailScreen(
                                             DownloadService.cancelDownload(context)
                                         }
                                         isDownloaded -> {
-                                            downloadCancelHaptic()
-                                            if (!isOffline) showDeleteDownloadDialog = true
+                                            // No-op: deletion only available from Downloads screen
                                         }
                                         hasDownloadError -> {
                                             downloadStartHaptic()
@@ -1558,35 +1556,6 @@ fun AudiobookDetailScreen(
             )
         }
 
-        // Delete Download Confirmation Dialog
-        if (showDeleteDownloadDialog) {
-            AlertDialog(
-                onDismissRequest = { showDeleteDownloadDialog = false },
-                title = { Text("Remove Download", color = Color.White) },
-                text = {
-                    Text(
-                        "Remove this book from downloads? This will only delete the local file - your listening progress on the server will not be affected.",
-                        color = SapphoTextLight
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.deleteDownload()
-                            showDeleteDownloadDialog = false
-                        }
-                    ) {
-                        Text("Remove", color = SapphoError)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteDownloadDialog = false }) {
-                        Text("Cancel", color = SapphoInfo)
-                    }
-                },
-                containerColor = SapphoSurfaceLight
-            )
-        }
 
         // AI Recap Dialog (Catch Up)
         if (showRecapDialog) {
