@@ -529,7 +529,7 @@ fun PlayerScreen(
                                 .size(72.dp)
                                 .scale(playScale)
                                 .clip(CircleShape)
-                                .background(SapphoInfo)
+                                .background(if (isPlaying) SapphoSuccess else SapphoInfo)
                                 .clickable(
                                     interactionSource = playSource,
                                     indication = null

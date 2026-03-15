@@ -635,8 +635,8 @@ fun AudiobookDetailScreen(
                                 .weight(1f)
                                 .height(56.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isThisBookPlaying) SapphoInfo.copy(alpha = 0.15f) else SapphoSuccess.copy(alpha = 0.15f),
-                                contentColor = if (isThisBookPlaying) LegacyBluePale else LegacyGreenPale,
+                                containerColor = if (isThisBookPlaying) SapphoSuccess.copy(alpha = 0.15f) else SapphoInfo.copy(alpha = 0.15f),
+                                contentColor = if (isThisBookPlaying) LegacyGreenPale else LegacyBluePale,
                                 disabledContainerColor = SapphoSurface,
                                 disabledContentColor = SapphoTextSecondary
                             ),
