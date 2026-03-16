@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -82,6 +83,8 @@ import com.sappho.audiobooks.presentation.player.MinimizedPlayerBar
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.service.PlayerState
 import com.sappho.audiobooks.cast.CastHelper
+import com.sappho.audiobooks.presentation.notifications.NotificationPanel
+import com.sappho.audiobooks.presentation.notifications.parseNotificationMetadata
 import java.io.File
 import javax.inject.Inject
 
@@ -151,6 +154,11 @@ fun MainScreen(
     val downloadManager = viewModel.downloadManager
     val downloadedBooks by downloadManager.downloadedBooks.collectAsState()
 
+    // Notification state
+    var showNotificationPanel by remember { mutableStateOf(false) }
+    val unreadNotificationCount by viewModel.unreadNotificationCount.collectAsState()
+    val notifications by viewModel.notifications.collectAsState()
+
     // Check if we should show navigation rail (tablets/landscape)
     val useNavigationRail = shouldShowNavigationRail()
 
@@ -202,7 +210,31 @@ fun MainScreen(
                         showDownloadsDialog = true
                     },
                     downloadCount = downloadedBooks.size,
-                    showNavButtons = !useNavigationRail
+                    showNavButtons = !useNavigationRail,
+                    unreadNotificationCount = unreadNotificationCount,
+                    showNotificationPanel = showNotificationPanel,
+                    onNotificationBellClick = {
+                        showNotificationPanel = !showNotificationPanel
+                        if (!showNotificationPanel) {
+                            // Panel just closed, no action needed
+                        } else {
+                            // Panel just opened, load notifications
+                            viewModel.loadNotifications()
+                        }
+                    },
+                    notifications = notifications,
+                    onDismissNotificationPanel = { showNotificationPanel = false },
+                    onMarkAllNotificationsRead = { viewModel.markAllNotificationsRead() },
+                    onNotificationClick = { notification ->
+                        viewModel.markNotificationRead(notification.id)
+                        showNotificationPanel = false
+                        val (audiobookId, collectionId) = parseNotificationMetadata(notification.metadata)
+                        if (audiobookId > 0) {
+                            navController.navigate(Screen.AudiobookDetail.createRoute(audiobookId))
+                        } else if (collectionId > 0) {
+                            navController.navigate(Screen.CollectionDetail.createRoute(collectionId))
+                        }
+                    }
                 )
             },
             bottomBar = {
@@ -411,6 +443,19 @@ fun MainScreen(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = { showUserMenu = false }
+                        )
+                )
+            }
+
+            // Invisible overlay to dismiss notification panel when clicking outside
+            if (showNotificationPanel) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showNotificationPanel = false }
                         )
                 )
             }
@@ -1065,7 +1110,14 @@ fun TopBar(
     onLogoClick: () -> Unit,
     onDownloadsClick: () -> Unit,
     downloadCount: Int,
-    showNavButtons: Boolean = true
+    showNavButtons: Boolean = true,
+    unreadNotificationCount: Int = 0,
+    showNotificationPanel: Boolean = false,
+    onNotificationBellClick: () -> Unit = {},
+    notifications: List<com.sappho.audiobooks.data.remote.NotificationItem> = emptyList(),
+    onDismissNotificationPanel: () -> Unit = {},
+    onMarkAllNotificationsRead: () -> Unit = {},
+    onNotificationClick: (com.sappho.audiobooks.data.remote.NotificationItem) -> Unit = {}
 ) {
     val appVersion = BuildConfig.VERSION_NAME
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -1137,6 +1189,37 @@ fun TopBar(
             } else {
                 // Spacer to maintain layout when nav buttons are hidden
                 Spacer(modifier = Modifier.weight(1f))
+            }
+
+            // Notification Bell
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable(onClick = onNotificationBellClick),
+                contentAlignment = Alignment.Center
+            ) {
+                BadgedBox(
+                    badge = {
+                        if (unreadNotificationCount > 0) {
+                            Badge(
+                                containerColor = SapphoError
+                            ) {
+                                Text(
+                                    text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString(),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Notifications,
+                        contentDescription = "Notifications",
+                        tint = SapphoIconDefault,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
             // User Avatar
@@ -1252,6 +1335,22 @@ fun TopBar(
                         }
                     }
                 }
+            }
+        }
+
+        // Notification Panel
+        if (showNotificationPanel) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-20).dp, y = 65.dp)
+            ) {
+                NotificationPanel(
+                    notifications = notifications,
+                    onDismiss = onDismissNotificationPanel,
+                    onMarkAllRead = onMarkAllNotificationsRead,
+                    onNotificationClick = onNotificationClick
+                )
             }
         }
     }

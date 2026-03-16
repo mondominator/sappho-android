@@ -15,6 +15,7 @@ import com.sappho.audiobooks.data.remote.CreateCollectionRequest
 import com.sappho.audiobooks.data.remote.FetchChaptersRequest
 import com.sappho.audiobooks.data.remote.MetadataSearchResult
 import com.sappho.audiobooks.data.remote.RatingRequest
+import com.sappho.audiobooks.data.remote.ReviewItem
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.domain.model.DeleteFileRequest
 import com.sappho.audiobooks.data.remote.UserRating
@@ -91,6 +92,15 @@ class AudiobookDetailViewModel @Inject constructor(
 
     private val _averageRating = MutableStateFlow<AverageRating?>(null)
     val averageRating: StateFlow<AverageRating?> = _averageRating
+
+    private val _reviews = MutableStateFlow<List<ReviewItem>>(emptyList())
+    val reviews: StateFlow<List<ReviewItem>> = _reviews
+
+    private val _userReviewText = MutableStateFlow("")
+    val userReviewText: StateFlow<String> = _userReviewText
+
+    private val _currentUserId = MutableStateFlow<Int?>(null)
+    val currentUserId: StateFlow<Int?> = _currentUserId
 
     private val _isUpdatingRating = MutableStateFlow(false)
     val isUpdatingRating: StateFlow<Boolean> = _isUpdatingRating
@@ -217,7 +227,10 @@ class AudiobookDetailViewModel @Inject constructor(
                 try {
                     val ratingResponse = api.getUserRating(id)
                     if (ratingResponse.isSuccessful) {
-                        _userRating.value = ratingResponse.body()?.rating
+                        val userRatingData = ratingResponse.body()
+                        _userRating.value = userRatingData?.rating
+                        _userReviewText.value = userRatingData?.review ?: ""
+                        _currentUserId.value = userRatingData?.userId
                     }
                 } catch (e: Exception) {
                     // Rating is optional, don't show error to user
@@ -232,6 +245,9 @@ class AudiobookDetailViewModel @Inject constructor(
                     }
                 } catch (e: Exception) {
                 }
+
+                // Load reviews
+                loadReviews(id)
 
                 // Load progress separately - this is the authoritative source
                 try {
@@ -556,15 +572,17 @@ class AudiobookDetailViewModel @Inject constructor(
         }
     }
 
-    fun setRating(rating: Int) {
+    fun setRating(rating: Int, review: String? = null) {
         viewModelScope.launch {
             _audiobook.value?.let { book ->
                 if (_isUpdatingRating.value) return@launch
                 _isUpdatingRating.value = true
                 try {
-                    val response = api.setRating(book.id, RatingRequest(rating))
+                    val reviewText = review?.takeIf { it.isNotBlank() }
+                    val response = api.setRating(book.id, RatingRequest(rating, reviewText))
                     if (response.isSuccessful) {
                         _userRating.value = rating
+                        _currentUserId.value = response.body()?.userId
                         // Refresh average rating
                         try {
                             val avgResponse = api.getAverageRating(book.id)
@@ -573,12 +591,29 @@ class AudiobookDetailViewModel @Inject constructor(
                             }
                         } catch (e: Exception) {
                         }
+                        // Refresh reviews list
+                        loadReviews(book.id)
                     }
                 } catch (e: Exception) {
                 } finally {
                     _isUpdatingRating.value = false
                 }
             }
+        }
+    }
+
+    fun updateUserReviewText(text: String) {
+        _userReviewText.value = text
+    }
+
+    private suspend fun loadReviews(audiobookId: Int) {
+        try {
+            val response = api.getAllRatings(audiobookId)
+            if (response.isSuccessful) {
+                _reviews.value = response.body() ?: emptyList()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AudiobookDetailViewModel", "Failed to load reviews", e)
         }
     }
 
