@@ -3,6 +3,7 @@ package com.sappho.audiobooks.presentation.player
 import androidx.compose.animation.animateColor
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -13,6 +14,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forward10
@@ -24,7 +26,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.sappho.audiobooks.presentation.theme.*
 import com.sappho.audiobooks.presentation.theme.Timing
@@ -33,7 +39,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -92,12 +97,49 @@ fun MinimizedPlayerBar(
         0f
     }
 
+    // Derive current chapter title from chapters list and position
+    val currentChapterTitle = remember(audiobook?.chapters, currentPosition) {
+        audiobook?.chapters?.let { chapters ->
+            if (chapters.isEmpty()) return@let null
+            val posSec = currentPosition.toDouble()
+            chapters.firstOrNull { chapter ->
+                val end = chapter.endTime ?: (chapter.startTime + (chapter.duration ?: 0.0))
+                posSec >= chapter.startTime && posSec < end
+            }?.title ?: chapters.lastOrNull { it.startTime <= posSec }?.title
+        }
+    }
+
+    // Animated gradient offset for progress bar shimmer
+    val gradientTransition = rememberInfiniteTransition(label = "gradientShimmer")
+    val gradientOffset by gradientTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gradientOffset"
+    )
+
+    // Cover art pulse animation when playing
+    val coverPulseTransition = rememberInfiniteTransition(label = "coverPulse")
+    val coverScale by coverPulseTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.03f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "coverScale"
+    )
+
+
     audiobook?.let { book ->
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding(),
-            color = SapphoSurfaceLight,
+            color = SapphoSurfaceElevated,
             shadowElevation = 8.dp
         ) {
             Column(modifier = Modifier
@@ -173,13 +215,31 @@ fun MinimizedPlayerBar(
                                 .background(SapphoInfo.copy(alpha = 0.3f))
                         )
 
-                        // Active progress
+                        // Active progress - animated gradient when playing, solid when paused
+                        val progressBrush = if (isPlaying) {
+                            val offset = gradientOffset * 2f
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    SapphoInfo,
+                                    SapphoSuccess,
+                                    SapphoInfo,
+                                    SapphoSuccess
+                                ),
+                                start = Offset(sliderWidth * (offset - 1f), 0f),
+                                end = Offset(sliderWidth * offset, 0f)
+                            )
+                        } else {
+                            Brush.linearGradient(
+                                colors = listOf(SapphoInfo, SapphoInfo)
+                            )
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(sliderPosition.coerceIn(0f, 1f))
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(1.5.dp))
-                                .background(SapphoInfo)
+                                .background(progressBrush)
                         )
                     }
 
@@ -188,13 +248,36 @@ fun MinimizedPlayerBar(
                         val thumbRadiusPx = 6.dp.toPx()
                         ((sliderWidth * sliderPosition) - thumbRadiusPx).coerceAtLeast(0f).toDp()
                     }
+
+                    // Glowing thumb when playing
+                    if (isPlaying) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .offset(x = thumbOffset - 2.dp)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(SapphoInfo.copy(alpha = 0.3f))
+                        )
+                    }
+
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .offset(x = thumbOffset)
                             .size(12.dp)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(SapphoInfo)
+                            .clip(CircleShape)
+                            .background(
+                                if (isPlaying) {
+                                    Brush.linearGradient(
+                                        colors = listOf(SapphoInfo, SapphoSuccess)
+                                    )
+                                } else {
+                                    Brush.linearGradient(
+                                        colors = listOf(SapphoInfo, SapphoInfo)
+                                    )
+                                }
+                            )
                     )
                 }
 
@@ -207,10 +290,11 @@ fun MinimizedPlayerBar(
                         .padding(start = 8.dp, end = 8.dp, top = 0.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Cover art
+                    // Cover art with subtle pulse when playing
                     Box(
                         modifier = Modifier
                             .size(48.dp)
+                            .scale(if (isPlaying) coverScale else 1f)
                             .clip(RoundedCornerShape(6.dp))
                             .background(SapphoProgressTrack)
                     ) {
@@ -261,6 +345,18 @@ fun MinimizedPlayerBar(
                             )
                         }
 
+                        // Chapter name display
+                        currentChapterTitle?.let { chapterTitle ->
+                            Text(
+                                text = chapterTitle,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                color = SapphoTextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
                         // Time display with pulsing animation when playing
                         val timePulseTransition = rememberInfiniteTransition(label = "timePulse")
                         val timeColor by timePulseTransition.animateColor(
@@ -281,6 +377,16 @@ fun MinimizedPlayerBar(
                             style = MaterialTheme.typography.labelSmall,
                             fontSize = 10.sp,
                             color = if (isPlaying) timeColor else SapphoTextMuted
+                        )
+                    }
+
+                    // Waveform visualizer bars - only visible when playing
+                    if (isPlaying) {
+                        WaveformVisualizer(
+                            modifier = Modifier
+                                .padding(end = 4.dp)
+                                .height(22.dp)
+                                .width(25.dp)
                         )
                     }
 
@@ -347,15 +453,42 @@ fun MinimizedPlayerBar(
                         SapphoInfo
                     }
 
+                    // Play button glow color when playing
+                    val playGlowAlpha by playPulseTransition.animateFloat(
+                        initialValue = 0.2f,
+                        targetValue = 0.5f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(
+                                durationMillis = 3000,
+                                easing = FastOutSlowInEasing
+                            ),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "playGlowAlpha"
+                    )
+
                     Box(
                         modifier = Modifier
                             .size(48.dp)
                             .scale(if (isPlaying) playScale * playPulseScale else playScale)
+                            .then(
+                                if (isPlaying) {
+                                    Modifier.drawBehind {
+                                        // Green glow shadow behind play button
+                                        drawCircle(
+                                            color = SapphoSuccess.copy(alpha = playGlowAlpha),
+                                            radius = size.maxDimension / 1.4f
+                                        )
+                                    }
+                                } else {
+                                    Modifier
+                                }
+                            )
                             .graphicsLayer {
                                 alpha = if (isPlaying) playPulseAlpha else 1f
                                 shadowElevation = if (isPlaying) 20f else 4f
                             }
-                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .clip(CircleShape)
                             .background(buttonColor)
                             .clickable(
                                 interactionSource = playInteractionSource,
@@ -413,6 +546,82 @@ fun MinimizedPlayerBar(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Animated waveform visualizer with 5 bars.
+ * Bars use a gradient from green to blue with varied heights and animation speeds.
+ */
+@Composable
+private fun WaveformVisualizer(
+    modifier: Modifier = Modifier
+) {
+    val transition = rememberInfiniteTransition(label = "waveform")
+
+    // Each bar has a different animation speed and phase for organic feel
+    val barAnimations = listOf(
+        transition.animateFloat(
+            initialValue = 0.3f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ), label = "bar0"
+        ),
+        transition.animateFloat(
+            initialValue = 0.5f, targetValue = 0.8f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(450, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ), label = "bar1"
+        ),
+        transition.animateFloat(
+            initialValue = 0.2f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(700, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ), label = "bar2"
+        ),
+        transition.animateFloat(
+            initialValue = 0.6f, targetValue = 0.9f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(500, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ), label = "bar3"
+        ),
+        transition.animateFloat(
+            initialValue = 0.4f, targetValue = 0.85f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(550, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ), label = "bar4"
+        )
+    )
+
+    val barGradient = Brush.verticalGradient(
+        colors = listOf(SapphoSuccess, SapphoInfo)
+    )
+
+    Canvas(modifier = modifier) {
+        val barWidthPx = 3.dp.toPx()
+        val spacingPx = 2.5.dp.toPx()
+        val totalWidth = 5 * barWidthPx + 4 * spacingPx
+        val startX = (size.width - totalWidth) / 2f
+        val maxBarHeight = size.height
+
+        for (i in 0 until 5) {
+            val fraction = barAnimations[i].value
+            val barHeight = maxBarHeight * fraction
+            val x = startX + i * (barWidthPx + spacingPx)
+            val y = (maxBarHeight - barHeight) / 2f // Center vertically
+
+            drawRoundRect(
+                brush = barGradient,
+                topLeft = Offset(x, y),
+                size = Size(barWidthPx, barHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidthPx / 2f)
+            )
         }
     }
 }
