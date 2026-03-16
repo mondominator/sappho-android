@@ -268,6 +268,9 @@ interface SapphoApi {
         @Body request: RatingRequest
     ): Response<UserRating>
 
+    @GET("api/ratings/audiobook/{audiobookId}/all")
+    suspend fun getAllRatings(@Path("audiobookId") audiobookId: Int): Response<List<ReviewItem>>
+
     @DELETE("api/ratings/audiobook/{audiobookId}")
     suspend fun deleteRating(@Path("audiobookId") audiobookId: Int): Response<Unit>
 
@@ -693,6 +696,18 @@ data class UserRating(
     val createdAt: String?,
     @com.google.gson.annotations.SerializedName("updated_at")
     val updatedAt: String?
+)
+
+data class ReviewItem(
+    val id: Int,
+    @com.google.gson.annotations.SerializedName("user_id") val userId: Int,
+    @com.google.gson.annotations.SerializedName("audiobook_id") val audiobookId: Int,
+    val rating: Int?,
+    val review: String?,
+    val username: String?,
+    @com.google.gson.annotations.SerializedName("display_name") val displayName: String?,
+    @com.google.gson.annotations.SerializedName("created_at") val createdAt: String?,
+    @com.google.gson.annotations.SerializedName("updated_at") val updatedAt: String?
 )
 
 data class AverageRating(
