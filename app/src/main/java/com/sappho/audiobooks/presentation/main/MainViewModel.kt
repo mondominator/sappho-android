@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sappho.audiobooks.data.remote.NotificationItem
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.domain.model.User
 import com.sappho.audiobooks.service.UploadService
@@ -11,6 +12,7 @@ import com.sappho.audiobooks.service.UploadServiceState
 import com.sappho.audiobooks.service.UploadStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -70,6 +72,13 @@ class MainViewModel @Inject constructor(
     private val _uploadResult = MutableStateFlow<UploadResultData?>(null)
     val uploadResult: StateFlow<UploadResultData?> = _uploadResult
 
+    // Notification state
+    private val _unreadNotificationCount = MutableStateFlow(0)
+    val unreadNotificationCount: StateFlow<Int> = _unreadNotificationCount
+
+    private val _notifications = MutableStateFlow<List<NotificationItem>>(emptyList())
+    val notifications: StateFlow<List<NotificationItem>> = _notifications
+
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
         loadCachedUser() // Load cached user first for immediate display
@@ -77,6 +86,7 @@ class MainViewModel @Inject constructor(
         loadUser()
         loadServerVersion()
         observeUploadService()
+        startNotificationPolling()
     }
 
     private fun observeUploadService() {
@@ -246,5 +256,70 @@ class MainViewModel @Inject constructor(
     ) {
         if (uris.isEmpty()) return
         UploadService.startUploadSingle(context, uris, title, author)
+    }
+
+    // Notification methods
+
+    private fun startNotificationPolling() {
+        viewModelScope.launch {
+            while (true) {
+                try {
+                    val response = api.getUnreadNotificationCount()
+                    if (response.isSuccessful) {
+                        _unreadNotificationCount.value = response.body()?.count ?: 0
+                    }
+                } catch (_: Exception) {
+                    // Ignore errors - notification count is non-critical
+                }
+                delay(120_000) // Poll every 2 minutes
+            }
+        }
+    }
+
+    fun loadNotifications() {
+        viewModelScope.launch {
+            try {
+                val response = api.getNotifications()
+                if (response.isSuccessful) {
+                    _notifications.value = response.body() ?: emptyList()
+                }
+            } catch (_: Exception) {
+                // Ignore errors
+            }
+        }
+    }
+
+    fun markNotificationRead(id: Int) {
+        viewModelScope.launch {
+            try {
+                val response = api.markNotificationRead(id)
+                if (response.isSuccessful) {
+                    // Update local state
+                    _notifications.value = _notifications.value.map {
+                        if (it.id == id) it.copy(isRead = 1) else it
+                    }
+                    _unreadNotificationCount.value =
+                        (_unreadNotificationCount.value - 1).coerceAtLeast(0)
+                }
+            } catch (_: Exception) {
+                // Ignore errors
+            }
+        }
+    }
+
+    fun markAllNotificationsRead() {
+        viewModelScope.launch {
+            try {
+                val response = api.markAllNotificationsRead()
+                if (response.isSuccessful) {
+                    _notifications.value = _notifications.value.map {
+                        it.copy(isRead = 1)
+                    }
+                    _unreadNotificationCount.value = 0
+                }
+            } catch (_: Exception) {
+                // Ignore errors
+            }
+        }
     }
 }
