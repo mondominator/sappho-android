@@ -72,9 +72,11 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
+import com.sappho.audiobooks.data.remote.ReviewItem
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.service.DownloadService
 import com.sappho.audiobooks.util.HapticPatterns
+import com.sappho.audiobooks.util.formatRelativeTime
 
 @Composable
 fun AudiobookDetailScreen(
@@ -100,6 +102,9 @@ fun AudiobookDetailScreen(
     val userRating by viewModel.userRating.collectAsState()
     val averageRating by viewModel.averageRating.collectAsState()
     val isUpdatingRating by viewModel.isUpdatingRating.collectAsState()
+    val reviews by viewModel.reviews.collectAsState()
+    val userReviewText by viewModel.userReviewText.collectAsState()
+    val currentUserId by viewModel.currentUserId.collectAsState()
     val isSavingMetadata by viewModel.isSavingMetadata.collectAsState()
     val metadataSaveResult by viewModel.metadataSaveResult.collectAsState()
     val isSearchingMetadata by viewModel.isSearchingMetadata.collectAsState()
@@ -580,7 +585,7 @@ fun AudiobookDetailScreen(
                                                         if (userRating == starIndex) {
                                                             viewModel.clearRating()
                                                         } else {
-                                                            viewModel.setRating(starIndex)
+                                                            viewModel.setRating(starIndex, userReviewText)
                                                             showRatingPicker = false
                                                         }
                                                     }
@@ -589,7 +594,72 @@ fun AudiobookDetailScreen(
                                     }
                                 }
                             }
+
+                            // Review text input (show when user has a rating)
+                            if (userRating != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                OutlinedTextField(
+                                    value = userReviewText,
+                                    onValueChange = { viewModel.updateUserReviewText(it) },
+                                    placeholder = {
+                                        Text(
+                                            "Write a review (optional)",
+                                            color = SapphoTextMuted
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    minLines = 2,
+                                    maxLines = 5,
+                                    enabled = !isUpdatingRating,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = SapphoText,
+                                        unfocusedTextColor = SapphoText,
+                                        focusedBorderColor = SapphoInfo,
+                                        unfocusedBorderColor = SapphoProgressTrack,
+                                        focusedPlaceholderColor = SapphoTextMuted,
+                                        unfocusedPlaceholderColor = SapphoTextMuted,
+                                        cursorColor = SapphoInfo,
+                                        disabledTextColor = SapphoTextMuted,
+                                        disabledBorderColor = SapphoProgressTrack.copy(alpha = 0.5f)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = {
+                                        viewModel.setRating(userRating!!, userReviewText)
+                                    },
+                                    enabled = !isUpdatingRating,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = SapphoInfo,
+                                        contentColor = Color.White,
+                                        disabledContainerColor = SapphoInfo.copy(alpha = 0.4f),
+                                        disabledContentColor = Color.White.copy(alpha = 0.5f)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp)
+                                ) {
+                                    if (isUpdatingRating) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = Color.White,
+                                            strokeWidth = 2.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                    Text("Submit", fontSize = 14.sp)
+                                }
+                            }
                         }
+                    }
+
+                    // Reviews list
+                    val otherReviews = reviews.filter { review ->
+                        !review.review.isNullOrBlank() && review.userId != currentUserId
+                    }
+                    if (otherReviews.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ReviewsSection(reviews = otherReviews)
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -2115,6 +2185,96 @@ private fun AverageRatingDisplay(
             fontWeight = FontWeight.Medium,
             color = SapphoStarFilled
         )
+    }
+}
+
+@Composable
+private fun ReviewsSection(reviews: List<ReviewItem>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+    ) {
+        Text(
+            text = "Reviews (${reviews.size})",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = SapphoText
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        reviews.forEach { review ->
+            ReviewCard(review = review)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun ReviewCard(review: ReviewItem) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                SapphoSurface,
+                RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = SapphoSurfaceBorder,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(12.dp)
+    ) {
+        // Header row: name + date
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = review.displayName ?: review.username ?: "Anonymous",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = SapphoText,
+                modifier = Modifier.weight(1f)
+            )
+            val relativeDate = formatRelativeTime(review.updatedAt ?: review.createdAt)
+            if (relativeDate.isNotEmpty()) {
+                Text(
+                    text = relativeDate,
+                    fontSize = 12.sp,
+                    color = SapphoTextMuted
+                )
+            }
+        }
+
+        // Star rating
+        review.rating?.let { rating ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for (i in 1..5) {
+                    Icon(
+                        imageVector = if (i <= rating) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        contentDescription = null,
+                        tint = if (i <= rating) SapphoStarFilled else SapphoTextMuted.copy(alpha = 0.3f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+
+        // Review text
+        review.review?.let { text ->
+            if (text.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = text,
+                    fontSize = 14.sp,
+                    color = SapphoTextLight,
+                    lineHeight = 20.sp
+                )
+            }
+        }
     }
 }
 
