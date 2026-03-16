@@ -1,6 +1,7 @@
 package com.sappho.audiobooks.presentation.player
 
 import androidx.compose.animation.animateColor
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -551,8 +552,8 @@ fun MinimizedPlayerBar(
 }
 
 /**
- * Animated waveform visualizer with 5 bars.
- * Bars use a gradient from green to blue with varied heights and animation speeds.
+ * Animated waveform visualizer with 3 bars.
+ * Bars use a color-shifting gradient from green to blue with smooth cubic-bezier easing.
  */
 @Composable
 private fun WaveformVisualizer(
@@ -560,67 +561,81 @@ private fun WaveformVisualizer(
 ) {
     val transition = rememberInfiniteTransition(label = "waveform")
 
-    // Each bar has a different animation speed and phase for organic feel
+    // 3 bars with varied speeds for organic feel (matches PWA)
     val barAnimations = listOf(
         transition.animateFloat(
             initialValue = 0.3f, targetValue = 1f,
             animationSpec = infiniteRepeatable(
-                animation = tween(600, easing = FastOutSlowInEasing),
+                animation = tween(1200, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse
             ), label = "bar0"
         ),
         transition.animateFloat(
-            initialValue = 0.5f, targetValue = 0.8f,
+            initialValue = 0.5f, targetValue = 0.25f,
             animationSpec = infiniteRepeatable(
-                animation = tween(450, easing = FastOutSlowInEasing),
+                animation = tween(900, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse
             ), label = "bar1"
         ),
         transition.animateFloat(
-            initialValue = 0.2f, targetValue = 1f,
+            initialValue = 0.4f, targetValue = 1f,
             animationSpec = infiniteRepeatable(
-                animation = tween(700, easing = FastOutSlowInEasing),
+                animation = tween(1100, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse
             ), label = "bar2"
-        ),
-        transition.animateFloat(
-            initialValue = 0.6f, targetValue = 0.9f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(500, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "bar3"
-        ),
-        transition.animateFloat(
-            initialValue = 0.4f, targetValue = 0.85f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(550, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "bar4"
         )
     )
 
-    val barGradient = Brush.verticalGradient(
-        colors = listOf(SapphoSuccess, SapphoInfo)
+    // Color shift animations — each bar shifts between green-first and blue-first gradients
+    val colorShifts = listOf(
+        transition.animateFloat(
+            initialValue = 0f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(2400, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ), label = "color0"
+        ),
+        transition.animateFloat(
+            initialValue = 1f, targetValue = 0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(2000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ), label = "color1"
+        ),
+        transition.animateFloat(
+            initialValue = 0f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(2800, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ), label = "color2"
+        )
     )
 
     Canvas(modifier = modifier) {
         val barWidthPx = 3.dp.toPx()
         val spacingPx = 2.5.dp.toPx()
-        val totalWidth = 5 * barWidthPx + 4 * spacingPx
+        val totalWidth = 3 * barWidthPx + 2 * spacingPx
         val startX = (size.width - totalWidth) / 2f
         val maxBarHeight = size.height
 
-        for (i in 0 until 5) {
+        for (i in 0 until 3) {
             val fraction = barAnimations[i].value
             val barHeight = maxBarHeight * fraction
             val x = startX + i * (barWidthPx + spacingPx)
-            val y = (maxBarHeight - barHeight) / 2f // Center vertically
+            val y = (maxBarHeight - barHeight) / 2f
+
+            // Interpolate gradient direction based on color shift
+            val shift = colorShifts[i].value
+            val topColor = lerp(SapphoSuccess, SapphoInfo, shift)
+            val bottomColor = lerp(SapphoInfo, SapphoSuccess, shift)
 
             drawRoundRect(
-                brush = barGradient,
+                brush = Brush.verticalGradient(
+                    colors = listOf(topColor, bottomColor)
+                ),
                 topLeft = Offset(x, y),
                 size = Size(barWidthPx, barHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidthPx / 2f)
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidthPx)
             )
         }
     }

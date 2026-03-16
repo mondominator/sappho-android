@@ -756,12 +756,12 @@ fun PlayerScreen(
                                     tint = LegacyBlueLight
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                Text(
+                                MarqueeText(
                                     text = currentChapter?.title ?: "—",
-                                    style = MaterialTheme.typography.labelMedium,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
                                     color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
