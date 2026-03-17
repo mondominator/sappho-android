@@ -202,7 +202,7 @@ class UserPreferencesRepository @Inject constructor(
         const val DEFAULT_REWIND_ON_RESUME = 0
         const val DEFAULT_SLEEP_TIMER = 0
         const val DEFAULT_BUFFER_SIZE = 60  // 1 minute default
-        const val DEFAULT_SHOW_CHAPTER_PROGRESS = false
+        const val DEFAULT_SHOW_CHAPTER_PROGRESS = true
 
         // Available options for skip intervals
         val SKIP_FORWARD_OPTIONS = listOf(10, 15, 30, 45, 60, 90)
