@@ -238,10 +238,10 @@ class LibraryViewModel @Inject constructor(
         _selectedCollection.value = null
     }
 
-    fun createCollection(name: String, description: String?, onResult: (Boolean, String) -> Unit) {
+    fun createCollection(name: String, description: String?, isPublic: Boolean = false, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             try {
-                val response = api.createCollection(CreateCollectionRequest(name, description))
+                val response = api.createCollection(CreateCollectionRequest(name, description, isPublic))
                 if (response.isSuccessful) {
                     loadCollections()
                     onResult(true, "Collection created")

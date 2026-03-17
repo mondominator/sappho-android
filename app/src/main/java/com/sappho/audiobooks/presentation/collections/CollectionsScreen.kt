@@ -287,8 +287,8 @@ fun CollectionsScreen(
             CreateCollectionDialog(
                 isCreating = isCreating,
                 onDismiss = { showCreateDialog = false },
-                onCreate = { name, description ->
-                    viewModel.createCollection(name, description) { success, _ ->
+                onCreate = { name, description, isPublic ->
+                    viewModel.createCollection(name, description, isPublic) { success, _ ->
                         if (success) {
                             showCreateDialog = false
                         }
@@ -648,10 +648,11 @@ private fun SkeletonCollectionGrid() {
 private fun CreateCollectionDialog(
     isCreating: Boolean,
     onDismiss: () -> Unit,
-    onCreate: (String, String?) -> Unit
+    onCreate: (String, String?, Boolean) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var isPublic by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -710,6 +711,37 @@ private fun CreateCollectionDialog(
                     maxLines = 3
                 )
 
+                Spacer(modifier = Modifier.height(Spacing.M))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "Public Collection",
+                            color = SapphoText,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Visible to all users",
+                            color = SapphoIconDefault,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Switch(
+                        checked = isPublic,
+                        onCheckedChange = { isPublic = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = SapphoInfo,
+                            uncheckedThumbColor = SapphoIconDefault,
+                            uncheckedTrackColor = SapphoProgressTrack
+                        )
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(Spacing.L))
 
                 Row(
@@ -721,7 +753,7 @@ private fun CreateCollectionDialog(
                     }
                     Spacer(modifier = Modifier.width(Spacing.XS))
                     Button(
-                        onClick = { onCreate(name, description.ifBlank { null }) },
+                        onClick = { onCreate(name, description.ifBlank { null }, isPublic) },
                         enabled = name.isNotBlank() && !isCreating,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = SapphoInfo
