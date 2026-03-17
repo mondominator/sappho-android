@@ -1803,8 +1803,8 @@ fun AudiobookDetailScreen(
                     onToggleCollection = { collectionId ->
                         viewModel.toggleBookInCollection(collectionId, book.id)
                     },
-                    onCreateCollection = { name ->
-                        viewModel.createCollectionAndAddBook(name, book.id)
+                    onCreateCollection = { name, isPublic ->
+                        viewModel.createCollectionAndAddBook(name, book.id, isPublic)
                     }
                 )
             }
