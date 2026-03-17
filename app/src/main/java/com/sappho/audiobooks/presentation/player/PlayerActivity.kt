@@ -10,6 +10,9 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -675,6 +678,27 @@ fun PlayerScreen(
                             )
                         }
 
+                        // Animated gradient for progress fill
+                        val progressTransition = rememberInfiniteTransition(label = "progress")
+                        val progressGradientPhase by progressTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(2000, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "progressGradient"
+                        )
+                        val thumbGlowAlpha by progressTransition.animateFloat(
+                            initialValue = 0.2f,
+                            targetValue = 0.6f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(3000, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "thumbGlow"
+                        )
+
                         Slider(
                             value = if (duration > 0) displayedPosition else 0f,
                             onValueChange = { newValue ->
@@ -700,7 +724,17 @@ fun PlayerScreen(
                                     modifier = Modifier
                                         .size(16.dp)
                                         .clip(CircleShape)
-                                        .background(SapphoInfo)
+                                        .background(if (isPlaying) SapphoSuccess else SapphoInfo)
+                                        .then(
+                                            if (isPlaying) {
+                                                Modifier.drawBehind {
+                                                    drawCircle(
+                                                        color = SapphoSuccess.copy(alpha = thumbGlowAlpha),
+                                                        radius = size.maxDimension / 1.2f
+                                                    )
+                                                }
+                                            } else Modifier
+                                        )
                                 )
                             },
                             track = { sliderState ->
@@ -720,7 +754,19 @@ fun PlayerScreen(
                                             .fillMaxWidth(fraction)
                                             .height(4.dp)
                                             .clip(RoundedCornerShape(2.dp))
-                                            .background(SapphoInfo)
+                                            .background(
+                                                if (isPlaying) {
+                                                    Brush.horizontalGradient(
+                                                        colors = listOf(SapphoInfo, SapphoSuccess, SapphoInfo),
+                                                        startX = -200f + progressGradientPhase * 800f,
+                                                        endX = 200f + progressGradientPhase * 800f
+                                                    )
+                                                } else {
+                                                    Brush.horizontalGradient(
+                                                        colors = listOf(SapphoInfo, SapphoInfo)
+                                                    )
+                                                }
+                                            )
                                     )
                                 }
                             }
