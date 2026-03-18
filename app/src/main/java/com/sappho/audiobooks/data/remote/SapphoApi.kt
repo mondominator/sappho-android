@@ -1029,7 +1029,9 @@ data class CollectionDetail(
 
 data class CreateCollectionRequest(
     val name: String,
-    val description: String? = null
+    val description: String? = null,
+    @com.google.gson.annotations.SerializedName("is_public")
+    val isPublic: Boolean = false
 )
 
 data class UpdateCollectionRequest(

@@ -299,10 +299,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun createCollectionAndAddBook(name: String, bookId: Int) {
+    fun createCollectionAndAddBook(name: String, bookId: Int, isPublic: Boolean = false) {
         viewModelScope.launch {
             try {
-                val createResponse = api.createCollection(CreateCollectionRequest(name, null))
+                val createResponse = api.createCollection(CreateCollectionRequest(name, null, isPublic))
                 if (createResponse.isSuccessful) {
                     val newCollection = createResponse.body()
                     if (newCollection != null) {

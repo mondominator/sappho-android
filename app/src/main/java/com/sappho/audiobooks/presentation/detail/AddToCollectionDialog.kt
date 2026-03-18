@@ -32,10 +32,11 @@ internal fun AddToCollectionDialog(
     isLoading: Boolean,
     onDismiss: () -> Unit,
     onToggleCollection: (Int) -> Unit,
-    onCreateCollection: (String) -> Unit
+    onCreateCollection: (String, Boolean) -> Unit
 ) {
     var showCreateForm by remember { mutableStateOf(false) }
     var newCollectionName by remember { mutableStateOf("") }
+    var newCollectionIsPublic by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -91,15 +92,19 @@ internal fun AddToCollectionDialog(
                     if (showCreateForm) {
                         CreateCollectionForm(
                             name = newCollectionName,
+                            isPublic = newCollectionIsPublic,
                             onNameChange = { newCollectionName = it },
+                            onIsPublicChange = { newCollectionIsPublic = it },
                             onCancel = {
                                 showCreateForm = false
                                 newCollectionName = ""
+                                newCollectionIsPublic = false
                             },
                             onCreate = {
                                 if (newCollectionName.isNotBlank()) {
-                                    onCreateCollection(newCollectionName.trim())
+                                    onCreateCollection(newCollectionName.trim(), newCollectionIsPublic)
                                     newCollectionName = ""
+                                    newCollectionIsPublic = false
                                     showCreateForm = false
                                 }
                             }
@@ -171,7 +176,9 @@ internal fun AddToCollectionDialog(
 @Composable
 private fun CreateCollectionForm(
     name: String,
+    isPublic: Boolean,
     onNameChange: (String) -> Unit,
+    onIsPublicChange: (Boolean) -> Unit,
     onCancel: () -> Unit,
     onCreate: () -> Unit
 ) {
@@ -190,6 +197,28 @@ private fun CreateCollectionForm(
             ),
             singleLine = true
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Public",
+                color = SapphoIconDefault,
+                fontSize = 14.sp
+            )
+            Switch(
+                checked = isPublic,
+                onCheckedChange = onIsPublicChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = SapphoInfo,
+                    uncheckedThumbColor = SapphoIconDefault,
+                    uncheckedTrackColor = SapphoProgressTrack
+                )
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
