@@ -805,12 +805,11 @@ fun PlayerScreen(
                                     tint = LegacyBlueLight
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                MarqueeText(
-                                    text = currentChapter?.title ?: "—",
+                                Text(
+                                    text = "Chapters",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.White,
-                                    modifier = Modifier.fillMaxWidth()
+                                    color = Color.White
                                 )
                             }
                         }
