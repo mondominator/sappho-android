@@ -355,8 +355,8 @@ fun HomeScreen(
             onToggleCollection = { collectionId ->
                 viewModel.toggleBookInCollection(collectionId, selectedBookId)
             },
-            onCreateCollection = { name ->
-                viewModel.createCollectionAndAddBook(name, selectedBookId)
+            onCreateCollection = { name, isPublic ->
+                viewModel.createCollectionAndAddBook(name, selectedBookId, isPublic)
             }
         )
     }
@@ -726,10 +726,11 @@ private fun AddToCollectionDialog(
     isLoading: Boolean,
     onDismiss: () -> Unit,
     onToggleCollection: (Int) -> Unit,
-    onCreateCollection: (String) -> Unit
+    onCreateCollection: (String, Boolean) -> Unit
 ) {
     var showCreateForm by remember { mutableStateOf(false) }
     var newCollectionName by remember { mutableStateOf("") }
+    var newCollectionIsPublic by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -801,11 +802,34 @@ private fun AddToCollectionDialog(
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Public",
+                                    color = SapphoIconDefault,
+                                    fontSize = 14.sp
+                                )
+                                Switch(
+                                    checked = newCollectionIsPublic,
+                                    onCheckedChange = { newCollectionIsPublic = it },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.White,
+                                        checkedTrackColor = SapphoInfo,
+                                        uncheckedThumbColor = SapphoIconDefault,
+                                        uncheckedTrackColor = SapphoProgressTrack
+                                    )
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.End
                             ) {
                                 TextButton(onClick = {
                                     showCreateForm = false
                                     newCollectionName = ""
+                                    newCollectionIsPublic = false
                                 }) {
                                     Text("Cancel", color = SapphoIconDefault)
                                 }
@@ -813,8 +837,9 @@ private fun AddToCollectionDialog(
                                 Button(
                                     onClick = {
                                         if (newCollectionName.isNotBlank()) {
-                                            onCreateCollection(newCollectionName.trim())
+                                            onCreateCollection(newCollectionName.trim(), newCollectionIsPublic)
                                             newCollectionName = ""
+                                            newCollectionIsPublic = false
                                             showCreateForm = false
                                         }
                                     },
@@ -825,8 +850,8 @@ private fun AddToCollectionDialog(
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text("Create & Add")
-    }
-}
+                                }
+                            }
                         }
                     } else {
                         Button(
@@ -889,10 +914,8 @@ private fun AddToCollectionDialog(
                                             contentDescription = "In collection",
                                             tint = SapphoInfo
                                         )
-    }
-}
-
-
+                                    }
+                                }
                             }
                         }
                     }
