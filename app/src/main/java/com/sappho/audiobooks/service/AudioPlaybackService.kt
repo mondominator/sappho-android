@@ -93,6 +93,10 @@ class AudioPlaybackService : MediaLibraryService() {
     // Track playback session start time for progress sync delay
     private var playbackSessionStartTime: Long = 0L
 
+    // Track chapter index for end-of-chapter sleep timer
+    private var previousChapterIndex: Int = -1
+    private var sleepAtEndOfChapter: Boolean = false
+
     // Track whether current playback is from a local/downloaded file (true offline support)
     // vs streaming from server (transient API errors should not create pending sync items)
     private var isPlayingLocalFile: Boolean = false
@@ -1433,7 +1437,26 @@ class AudioPlaybackService : MediaLibraryService() {
     fun cancelSleepTimer() {
         sleepTimerJob?.cancel()
         sleepTimerJob = null
+        sleepAtEndOfChapter = false
         playerState.updateSleepTimerRemaining(null)
+        playerState.updateSleepAtEndOfChapter(false)
+    }
+
+    fun setSleepTimerEndOfChapter() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        playerState.updateSleepTimerRemaining(null)
+        sleepAtEndOfChapter = true
+        playerState.updateSleepAtEndOfChapter(true)
+
+        // Initialize the previous chapter index based on current position
+        val currentPositionSec = player?.currentPosition?.div(1000) ?: 0L
+        val chapters = playerState.currentAudiobook.value?.chapters
+        previousChapterIndex = if (!chapters.isNullOrEmpty()) {
+            chapters.indexOfLast { it.startTime <= currentPositionSec.toDouble() }
+        } else {
+            -1
+        }
     }
 
     private fun startPositionUpdates() {
@@ -1441,8 +1464,27 @@ class AudioPlaybackService : MediaLibraryService() {
         positionUpdateJob = serviceScope.launch {
             while (isActive) {
                 player?.let {
-                    playerState.updatePosition(it.currentPosition / 1000)
+                    val positionSec = it.currentPosition / 1000
+                    playerState.updatePosition(positionSec)
                     playerState.updateBufferedPosition(it.contentBufferedPosition / 1000)
+
+                    // Check for chapter change when end-of-chapter sleep timer is active
+                    if (sleepAtEndOfChapter) {
+                        val chapters = playerState.currentAudiobook.value?.chapters
+                        if (!chapters.isNullOrEmpty()) {
+                            val currentChapterIdx = chapters.indexOfLast { ch ->
+                                ch.startTime <= positionSec.toDouble()
+                            }
+                            if (previousChapterIndex >= 0 && currentChapterIdx != previousChapterIndex) {
+                                // Chapter changed - pause playback
+                                it.pause()
+                                sleepAtEndOfChapter = false
+                                playerState.updateSleepAtEndOfChapter(false)
+                                playerState.updateSleepTimerRemaining(null)
+                            }
+                            previousChapterIndex = currentChapterIdx
+                        }
+                    }
                 }
                 delay(500)
             }
@@ -1654,6 +1696,7 @@ class AudioPlaybackService : MediaLibraryService() {
         positionUpdateJob?.cancel()
         sleepTimerJob?.cancel()
         pauseTimeoutJob?.cancel()
+        sleepAtEndOfChapter = false
         playerState.deactivate()
         audiobookCache.clear() // Clear cache to avoid stale data after re-login
         abandonAudioFocus()
