@@ -52,6 +52,8 @@ import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -178,6 +180,7 @@ fun PlayerScreen(
     val isLoading = playerState?.isLoading?.collectAsState()?.value ?: false
     val playbackSpeed = playerState?.playbackSpeed?.collectAsState()?.value ?: 1.0f
     val sleepTimerRemaining = playerState?.sleepTimerRemaining?.collectAsState()?.value
+    val sleepAtEndOfChapter = playerState?.sleepAtEndOfChapter?.collectAsState()?.value ?: false
 
     // When casting, poll the Cast position periodically
     var castPosition by remember { mutableLongStateOf(0L) }
@@ -974,27 +977,46 @@ fun PlayerScreen(
 
         // Playback Speed Dialog
         if (showPlaybackSpeed) {
-            val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
-            androidx.compose.material3.AlertDialog(
+            var sliderSpeed by remember { mutableFloatStateOf(playbackSpeed) }
+            val displaySpeed = String.format("%.2f", sliderSpeed).trimEnd('0').trimEnd('.')
+            AlertDialog(
                 onDismissRequest = { showPlaybackSpeed = false },
                 title = { Text("Playback Speed", color = Color.White) },
                 text = {
-                    Column {
-                        speeds.forEach { speed ->
-                            androidx.compose.material3.TextButton(
-                                onClick = {
-                                    AudioPlaybackService.instance?.setPlaybackSpeed(speed)
-                                    showPlaybackSpeed = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "${speed}x",
-                                    color = if (speed == playbackSpeed) SapphoInfo else Color.White,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "${displaySpeed}x",
+                            color = SapphoInfo,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("0.5x", color = LegacyGray, style = MaterialTheme.typography.bodySmall)
+                            Text("3x", color = LegacyGray, style = MaterialTheme.typography.bodySmall)
                         }
+                        Slider(
+                            value = sliderSpeed,
+                            onValueChange = { newSpeed ->
+                                // Round to nearest 0.05
+                                val rounded = (Math.round(newSpeed * 20f) / 20f)
+                                    .coerceIn(0.5f, 3.0f)
+                                sliderSpeed = rounded
+                                AudioPlaybackService.instance?.setPlaybackSpeed(rounded)
+                            },
+                            valueRange = 0.5f..3.0f,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = SliderDefaults.colors(
+                                thumbColor = SapphoInfo,
+                                activeTrackColor = SapphoInfo,
+                                inactiveTrackColor = LegacyGrayDark
+                            )
+                        )
                     }
                 },
                 confirmButton = {
@@ -1020,6 +1042,8 @@ fun PlayerScreen(
                 120 to "2 hours"
             )
             val currentTimerActive = sleepTimerRemaining != null && sleepTimerRemaining > 0
+            val hasChapters = chapters.isNotEmpty()
+            var customMinutesText by remember { mutableStateOf("") }
 
             AlertDialog(
                 onDismissRequest = { showSleepTimer = false },
@@ -1081,6 +1105,37 @@ fun PlayerScreen(
                             }
                         }
 
+                        if (sleepAtEndOfChapter) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = SapphoInfo.copy(alpha = 0.15f)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Stopping at end of chapter",
+                                        color = SapphoInfo,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            AudioPlaybackService.instance?.cancelSleepTimer()
+                                        }
+                                    ) {
+                                        Text("Cancel", color = SapphoError)
+                                    }
+                                }
+                            }
+                        }
+
                         timerOptions.forEach { (minutes, label) ->
                             TextButton(
                                 onClick = {
@@ -1097,7 +1152,7 @@ fun PlayerScreen(
                                         text = label,
                                         color = Color.White
                                     )
-                                    if (minutes == 0 && !currentTimerActive) {
+                                    if (minutes == 0 && !currentTimerActive && !sleepAtEndOfChapter) {
                                         Icon(
                                             imageVector = Icons.Default.CheckCircle,
                                             contentDescription = null,
@@ -1106,6 +1161,82 @@ fun PlayerScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+
+                        // End of chapter option
+                        if (hasChapters) {
+                            TextButton(
+                                onClick = {
+                                    AudioPlaybackService.instance?.setSleepTimerEndOfChapter()
+                                    showSleepTimer = false
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "End of chapter",
+                                        color = Color.White
+                                    )
+                                    if (sleepAtEndOfChapter) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = SapphoSuccess,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Custom timer input
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = customMinutesText,
+                                onValueChange = { newValue ->
+                                    // Only allow digits
+                                    if (newValue.all { it.isDigit() } && newValue.length <= 4) {
+                                        customMinutesText = newValue
+                                    }
+                                },
+                                placeholder = {
+                                    Text("Minutes", color = LegacyGray)
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    cursorColor = SapphoInfo,
+                                    focusedBorderColor = SapphoInfo,
+                                    unfocusedBorderColor = LegacyGrayDark
+                                )
+                            )
+                            Button(
+                                onClick = {
+                                    val minutes = customMinutesText.toIntOrNull()
+                                    if (minutes != null && minutes > 0) {
+                                        AudioPlaybackService.instance?.setSleepTimer(minutes)
+                                        showSleepTimer = false
+                                    }
+                                },
+                                enabled = customMinutesText.toIntOrNull()?.let { it > 0 } == true,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = SapphoInfo,
+                                    disabledContainerColor = LegacyGrayDark
+                                )
+                            ) {
+                                Text("Set")
                             }
                         }
                     }
