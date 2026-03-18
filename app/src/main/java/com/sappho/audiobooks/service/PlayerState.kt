@@ -29,6 +29,9 @@ class PlayerState @Inject constructor() {
     private val _sleepTimerRemaining = MutableStateFlow<Long?>(null)
     val sleepTimerRemaining: StateFlow<Long?> = _sleepTimerRemaining
 
+    private val _sleepAtEndOfChapter = MutableStateFlow(false)
+    val sleepAtEndOfChapter: StateFlow<Boolean> = _sleepAtEndOfChapter
+
     private val _bufferedPosition = MutableStateFlow(0L)
     val bufferedPosition: StateFlow<Long> = _bufferedPosition
 
@@ -67,6 +70,10 @@ class PlayerState @Inject constructor() {
         _sleepTimerRemaining.value = remaining
     }
 
+    fun updateSleepAtEndOfChapter(enabled: Boolean) {
+        _sleepAtEndOfChapter.value = enabled
+    }
+
     fun updateBufferedPosition(position: Long) {
         _bufferedPosition.value = position
     }
@@ -80,6 +87,7 @@ class PlayerState @Inject constructor() {
         _isPlaying.value = false
         _isLoading.value = false
         _sleepTimerRemaining.value = null
+        _sleepAtEndOfChapter.value = false
         _bufferedPosition.value = 0L
         _lastActiveTimestamp.value = 0L
     }
@@ -92,6 +100,7 @@ class PlayerState @Inject constructor() {
         _isLoading.value = false
         _playbackSpeed.value = 1.0f
         _sleepTimerRemaining.value = null
+        _sleepAtEndOfChapter.value = false
         _bufferedPosition.value = 0L
         _lastActiveTimestamp.value = 0L
     }
