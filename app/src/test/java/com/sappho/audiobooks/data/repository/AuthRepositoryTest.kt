@@ -128,11 +128,272 @@ class AuthRepositoryTest {
     fun `clearToken removes token`() {
         // When
         repository.clearToken()
-        
+
         // Then
         verify { editor.remove("auth_token") }
         verify { editor.apply() }
     }
-    
 
+    @Test
+    fun `saveServerUrl trims whitespace from URL`() {
+        // Given
+        val url = "  https://sappho.example.com  "
+
+        // When
+        repository.saveServerUrl(url)
+
+        // Then
+        verify { editor.putString("server_url", "https://sappho.example.com") }
+    }
+
+    @Test
+    fun `saveServerUrl removes trailing slash from URL`() {
+        // Given
+        val url = "https://sappho.example.com/"
+
+        // When
+        repository.saveServerUrl(url)
+
+        // Then
+        verify { editor.putString("server_url", "https://sappho.example.com") }
+    }
+
+    @Test
+    fun `saveServerUrl removes multiple trailing slashes from URL`() {
+        // Given
+        val url = "https://sappho.example.com///"
+
+        // When
+        repository.saveServerUrl(url)
+
+        // Then - trimEnd('/') removes all trailing slashes
+        verify { editor.putString("server_url", "https://sappho.example.com") }
+    }
+
+    @Test
+    fun `hasServerUrl returns true when URL is stored`() {
+        // Given
+        every { sharedPreferences.getString("server_url", null) } returns "https://sappho.example.com"
+
+        // When
+        val result = repository.hasServerUrl()
+
+        // Then
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `hasServerUrl returns false when no URL is stored`() {
+        // Given
+        every { sharedPreferences.getString("server_url", null) } returns null
+
+        // When
+        val result = repository.hasServerUrl()
+
+        // Then
+        assertThat(result).isFalse()
+    }
+
+    @Test
+    fun `isAuthenticated is true when both token and server URL exist`() {
+        // Given
+        every { sharedPreferences.getString("auth_token", null) } returns "test-token"
+        every { sharedPreferences.getString("server_url", null) } returns "https://sappho.example.com"
+
+        // When
+        val repo = AuthRepository(context)
+
+        // Then
+        assertThat(repo.isAuthenticated.value).isTrue()
+    }
+
+    @Test
+    fun `isAuthenticated is false when token is missing`() {
+        // Given
+        every { sharedPreferences.getString("auth_token", null) } returns null
+        every { sharedPreferences.getString("server_url", null) } returns "https://sappho.example.com"
+
+        // When
+        val repo = AuthRepository(context)
+
+        // Then
+        assertThat(repo.isAuthenticated.value).isFalse()
+    }
+
+    @Test
+    fun `isAuthenticated is false when server URL is missing`() {
+        // Given
+        every { sharedPreferences.getString("auth_token", null) } returns "test-token"
+        every { sharedPreferences.getString("server_url", null) } returns null
+
+        // When
+        val repo = AuthRepository(context)
+
+        // Then
+        assertThat(repo.isAuthenticated.value).isFalse()
+    }
+
+    @Test
+    fun `clearToken sets isAuthenticated to false`() {
+        // Given
+        every { sharedPreferences.getString("auth_token", null) } returns "test-token"
+        every { sharedPreferences.getString("server_url", null) } returns "https://sappho.example.com"
+        val repo = AuthRepository(context)
+        assertThat(repo.isAuthenticated.value).isTrue()
+
+        // When
+        every { sharedPreferences.getString("auth_token", null) } returns null
+        repo.clearToken()
+
+        // Then
+        assertThat(repo.isAuthenticated.value).isFalse()
+    }
+
+    @Test
+    fun `triggerAuthError sets authError to true`() {
+        // When
+        repository.triggerAuthError()
+
+        // Then
+        assertThat(repository.authError.value).isTrue()
+    }
+
+    @Test
+    fun `clearAuthError sets authError to false`() {
+        // Given
+        repository.triggerAuthError()
+        assertThat(repository.authError.value).isTrue()
+
+        // When
+        repository.clearAuthError()
+
+        // Then
+        assertThat(repository.authError.value).isFalse()
+    }
+
+    @Test
+    fun `saveUserInfo stores username, display name, and avatar`() {
+        // When
+        repository.saveUserInfo("testuser", "Test User", "avatar_hash")
+
+        // Then
+        verify { editor.putString("cached_username", "testuser") }
+        verify { editor.putString("cached_display_name", "Test User") }
+        verify { editor.putString("cached_avatar", "avatar_hash") }
+        verify { editor.apply() }
+    }
+
+    @Test
+    fun `getCachedUsername returns stored username`() {
+        // Given
+        every { sharedPreferences.getString("cached_username", null) } returns "testuser"
+
+        // When
+        val result = repository.getCachedUsername()
+
+        // Then
+        assertThat(result).isEqualTo("testuser")
+    }
+
+    @Test
+    fun `getCachedUsername returns null when no username stored`() {
+        // Given
+        every { sharedPreferences.getString("cached_username", null) } returns null
+
+        // When
+        val result = repository.getCachedUsername()
+
+        // Then
+        assertThat(result).isNull()
+    }
+
+    @Test
+    fun `getCachedDisplayName returns stored display name`() {
+        // Given
+        every { sharedPreferences.getString("cached_display_name", null) } returns "Test User"
+
+        // When
+        val result = repository.getCachedDisplayName()
+
+        // Then
+        assertThat(result).isEqualTo("Test User")
+    }
+
+    @Test
+    fun `getCachedAvatar returns stored avatar hash`() {
+        // Given
+        every { sharedPreferences.getString("cached_avatar", null) } returns "avatar_hash"
+
+        // When
+        val result = repository.getCachedAvatar()
+
+        // Then
+        assertThat(result).isEqualTo("avatar_hash")
+    }
+
+    @Test
+    fun `clearUserInfo removes all cached user data`() {
+        // When
+        repository.clearUserInfo()
+
+        // Then
+        verify { editor.remove("cached_username") }
+        verify { editor.remove("cached_display_name") }
+        verify { editor.remove("cached_avatar") }
+        verify { editor.apply() }
+    }
+
+    @Test
+    fun `savePlaybackSpeed stores speed in preferences`() {
+        // Given
+        every { editor.putFloat(any(), any()) } returns editor
+
+        // When
+        repository.savePlaybackSpeed(1.5f)
+
+        // Then
+        verify { editor.putFloat("playback_speed", 1.5f) }
+        verify { editor.apply() }
+    }
+
+    @Test
+    fun `getPlaybackSpeed returns stored speed`() {
+        // Given
+        every { sharedPreferences.getFloat("playback_speed", 1.0f) } returns 2.0f
+
+        // When
+        val result = repository.getPlaybackSpeed()
+
+        // Then
+        assertThat(result).isEqualTo(2.0f)
+    }
+
+    @Test
+    fun `getPlaybackSpeed returns default 1_0 when not set`() {
+        // Given
+        every { sharedPreferences.getFloat("playback_speed", 1.0f) } returns 1.0f
+
+        // When
+        val result = repository.getPlaybackSpeed()
+
+        // Then
+        assertThat(result).isEqualTo(1.0f)
+    }
+
+    @Test
+    fun `getCachedAvatarFile returns file in filesDir`() {
+        // Given
+        val testFilesDir = File("/test/files")
+        every { context.filesDir } returns testFilesDir
+
+        // Need to re-create repository after changing mock
+        val repo = AuthRepository(context)
+
+        // When
+        val result = repo.getCachedAvatarFile()
+
+        // Then
+        assertThat(result.name).isEqualTo("cached_avatar.jpg")
+        assertThat(result.parent).isEqualTo("/test/files")
+    }
 }
