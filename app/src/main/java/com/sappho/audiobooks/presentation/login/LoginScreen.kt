@@ -348,12 +348,12 @@ private fun ErrorBanner(message: String) {
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = Color(0xFF7F1D1D),
+                color = SapphoErrorBackground,
                 shape = RoundedCornerShape(8.dp)
             )
             .border(
                 width = 1.dp,
-                color = Color(0xFFDC2626),
+                color = SapphoErrorDark,
                 shape = RoundedCornerShape(8.dp)
             )
             .padding(12.dp),
@@ -362,13 +362,13 @@ private fun ErrorBanner(message: String) {
         Icon(
             imageVector = Icons.Default.Warning,
             contentDescription = "Error",
-            tint = Color(0xFFFCA5A5),
+            tint = SapphoErrorLight,
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = errorMessage,
-            color = Color(0xFFFECACA),
+            color = SapphoErrorText,
             style = MaterialTheme.typography.bodyMedium
         )
     }
