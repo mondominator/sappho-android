@@ -17,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -125,8 +124,6 @@ class CastManager @Inject constructor(
         chromecastTarget.startDiscovery(context)
 
         discoveryJob = scope.launch {
-            val allDevices = mutableListOf<CastDevice>()
-
             // Collect Chromecast routes as devices
             launch {
                 chromecastTarget.getAvailableRoutes().collect { routes ->
@@ -405,29 +402,6 @@ class CastManager @Inject constructor(
         } catch (e: Exception) {
             Log.v(TAG, "Not a Kodi device at $host:$port: ${e.message}")
             false
-        }
-    }
-
-    private fun fetchRokuDeviceName(device: CastDevice) {
-        scope.launch(Dispatchers.IO) {
-            try {
-                val request = okhttp3.Request.Builder()
-                    .url("http://${device.host}:${device.port}/query/device-info")
-                    .get()
-                    .build()
-                val response = localHttpClient.newCall(request).execute()
-                val body = response.body?.string() ?: ""
-                response.close()
-
-                val nameMatch = Regex("<friendly-device-name>(.*?)</friendly-device-name>").find(body)
-                val friendlyName = nameMatch?.groupValues?.get(1)
-                if (friendlyName != null) {
-                    val updatedDevice = device.copy(name = friendlyName)
-                    addDiscoveredDevice(updatedDevice)
-                }
-            } catch (e: Exception) {
-                Log.v(TAG, "Could not fetch Roku device name: ${e.message}")
-            }
         }
     }
 
