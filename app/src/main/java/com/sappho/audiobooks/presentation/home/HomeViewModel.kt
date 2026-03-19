@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import android.util.Log
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import com.sappho.audiobooks.sync.SyncStatusManager
@@ -29,6 +30,10 @@ class HomeViewModel @Inject constructor(
     private val syncStatusManager: SyncStatusManager,
     private val performanceMonitor: PerformanceMonitor
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "HomeViewModel"
+    }
 
     private val _inProgress = MutableStateFlow<List<Audiobook>>(emptyList())
     val inProgress: StateFlow<List<Audiobook>> = _inProgress
@@ -182,6 +187,7 @@ class HomeViewModel @Inject constructor(
                 downloadManager.clearAllPendingProgress()
                 syncStatusManager.updateSyncStatus(lastSyncSuccess = true)
             } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load home data", e)
                 } finally {
                     _isLoading.value = false
                     performanceMonitor.logMemoryUsage("After Home Data Load")
@@ -205,6 +211,7 @@ class HomeViewModel @Inject constructor(
                     onResult(isFavorite)
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to toggle favorite", e)
             }
         }
     }
@@ -273,6 +280,7 @@ class HomeViewModel @Inject constructor(
                         .toSet()
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to load collections for book", e)
             } finally {
                 _isLoadingCollections.value = false
             }
@@ -295,6 +303,7 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to toggle book in collection", e)
             }
         }
     }
@@ -314,6 +323,7 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to create collection and add book", e)
             }
         }
     }

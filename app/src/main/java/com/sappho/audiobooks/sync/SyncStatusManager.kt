@@ -12,6 +12,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import androidx.lifecycle.Observer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,6 +50,11 @@ class SyncStatusManager @Inject constructor(
     private var lastProcessedWorkRunId: UUID? = null
 
     private val workManager = WorkManager.getInstance(context)
+
+    // Store observer reference to allow cleanup and prevent leaks
+    private val workStatusObserver = Observer<List<WorkInfo>> { workInfos ->
+        handleWorkInfoUpdate(workInfos)
+    }
     
     init {
         observeWorkStatus()
@@ -58,50 +64,61 @@ class SyncStatusManager @Inject constructor(
     private fun observeWorkStatus() {
         // Observe the progress sync work status
         workManager.getWorkInfosForUniqueWorkLiveData("progress_sync")
-            .observeForever { workInfos ->
-                val workInfo = workInfos?.firstOrNull()
-                val isRunning = workInfo?.state == WorkInfo.State.RUNNING
+            .observeForever(workStatusObserver)
+    }
 
-                if (isRunning != _isSyncing.value) {
-                    _isSyncing.value = isRunning
-                    updateSyncStatus()
+    private fun handleWorkInfoUpdate(workInfos: List<WorkInfo>?) {
+        val workInfo = workInfos?.firstOrNull()
+        val isRunning = workInfo?.state == WorkInfo.State.RUNNING
+
+        if (isRunning != _isSyncing.value) {
+            _isSyncing.value = isRunning
+            updateSyncStatus()
+        }
+
+        val workRunId = workInfo?.id
+        if (workRunId != null && workRunId != lastProcessedWorkRunId) {
+            if (lastProcessedWorkRunId == null) {
+                // First observation after app launch - record the ID but
+                // don't show errors from stale WorkManager state. Only
+                // acknowledge success to clear any leftover UI state.
+                lastProcessedWorkRunId = workRunId
+                if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                    _lastSyncTime.value = System.currentTimeMillis()
+                    updateSyncStatus(lastSyncSuccess = true)
                 }
-
-                val workRunId = workInfo?.id
-                if (workRunId != null && workRunId != lastProcessedWorkRunId) {
-                    if (lastProcessedWorkRunId == null) {
-                        // First observation after app launch - record the ID but
-                        // don't show errors from stale WorkManager state. Only
-                        // acknowledge success to clear any leftover UI state.
+            } else {
+                // New work run during this session - process normally
+                when (workInfo.state) {
+                    WorkInfo.State.SUCCEEDED -> {
                         lastProcessedWorkRunId = workRunId
-                        if (workInfo.state == WorkInfo.State.SUCCEEDED) {
-                            _lastSyncTime.value = System.currentTimeMillis()
-                            updateSyncStatus(lastSyncSuccess = true)
-                        }
-                    } else {
-                        // New work run during this session - process normally
-                        when (workInfo.state) {
-                            WorkInfo.State.SUCCEEDED -> {
-                                lastProcessedWorkRunId = workRunId
-                                _lastSyncTime.value = System.currentTimeMillis()
-                                updateSyncStatus(lastSyncSuccess = true)
-                            }
-                            WorkInfo.State.FAILED -> {
-                                lastProcessedWorkRunId = workRunId
-                                updateSyncStatus(
-                                    lastSyncSuccess = false,
-                                    errorMessage = "Sync failed. Will retry when network is available."
-                                )
-                            }
-                            WorkInfo.State.CANCELLED -> {
-                                // Expected when using ExistingWorkPolicy.REPLACE
-                                lastProcessedWorkRunId = workRunId
-                            }
-                            else -> {}
-                        }
+                        _lastSyncTime.value = System.currentTimeMillis()
+                        updateSyncStatus(lastSyncSuccess = true)
                     }
+                    WorkInfo.State.FAILED -> {
+                        lastProcessedWorkRunId = workRunId
+                        updateSyncStatus(
+                            lastSyncSuccess = false,
+                            errorMessage = "Sync failed. Will retry when network is available."
+                        )
+                    }
+                    WorkInfo.State.CANCELLED -> {
+                        // Expected when using ExistingWorkPolicy.REPLACE
+                        lastProcessedWorkRunId = workRunId
+                    }
+                    else -> {}
                 }
             }
+        }
+    }
+    
+    /**
+     * Cleanup resources to prevent memory leaks.
+     * Should be called when this singleton is no longer needed.
+     */
+    fun cleanup() {
+        workManager.getWorkInfosForUniqueWorkLiveData("progress_sync")
+            .removeObserver(workStatusObserver)
     }
     
     private fun observePendingProgress() {

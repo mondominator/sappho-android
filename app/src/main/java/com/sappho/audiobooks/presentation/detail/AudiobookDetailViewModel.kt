@@ -1,6 +1,7 @@
 package com.sappho.audiobooks.presentation.detail
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.AudiobookRecapResponse
@@ -48,6 +49,10 @@ class AudiobookDetailViewModel @Inject constructor(
     val downloadManager: DownloadManager,
     private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "AudiobookDetailVM"
+    }
 
     private val _audiobook = MutableStateFlow<Audiobook?>(null)
     val audiobook: StateFlow<Audiobook?> = _audiobook
@@ -234,7 +239,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     }
                 } catch (e: Exception) {
                     // Rating is optional, don't show error to user
-                    android.util.Log.e("AudiobookDetailViewModel", "Failed to load rating", e)
+                    Log.e(TAG, "Failed to load rating", e)
                 }
 
                 // Load average rating
@@ -244,6 +249,7 @@ class AudiobookDetailViewModel @Inject constructor(
                         _averageRating.value = avgResponse.body()
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load average rating", e)
                 }
 
                 // Load reviews
@@ -275,6 +281,7 @@ class AudiobookDetailViewModel @Inject constructor(
                         _chapters.value = chaptersResponse.body() ?: emptyList()
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load chapters", e)
                 }
 
                 // Load files
@@ -284,6 +291,7 @@ class AudiobookDetailViewModel @Inject constructor(
                         _files.value = filesResponse.body() ?: emptyList()
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load files", e)
                 }
             } catch (e: Exception) {
                 // Network error - try to load from downloaded data with pending progress
@@ -317,6 +325,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     api.markFinished(book.id, com.sappho.audiobooks.data.remote.ProgressUpdateRequest(0, 1, "stopped"))
                     loadAudiobook(book.id) // Reload to get updated progress
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to mark book as finished", e)
                 }
             }
         }
@@ -329,6 +338,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     api.clearProgress(book.id)
                     loadAudiobook(book.id) // Reload to get updated progress
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear progress", e)
                 }
             }
         }
@@ -343,6 +353,7 @@ class AudiobookDetailViewModel @Inject constructor(
                         onDeleted()
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to delete audiobook", e)
                 }
             }
         }
@@ -470,7 +481,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     }
                 } catch (e: Exception) {
                     // Network error during poll — keep trying
-                    android.util.Log.w("AudiobookDetailVM", "Conversion poll failed: ${e.message}")
+                    Log.w(TAG, "Conversion poll failed: ${e.message}")
                 }
             }
         }
@@ -565,6 +576,7 @@ class AudiobookDetailViewModel @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to toggle favorite", e)
                 } finally {
                     _isTogglingFavorite.value = false
                 }
@@ -590,11 +602,13 @@ class AudiobookDetailViewModel @Inject constructor(
                                 _averageRating.value = avgResponse.body()
                             }
                         } catch (e: Exception) {
+                            Log.e(TAG, "Failed to refresh average rating", e)
                         }
                         // Refresh reviews list
                         loadReviews(book.id)
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to set rating", e)
                 } finally {
                     _isUpdatingRating.value = false
                 }
@@ -613,7 +627,7 @@ class AudiobookDetailViewModel @Inject constructor(
                 _reviews.value = response.body() ?: emptyList()
             }
         } catch (e: Exception) {
-            android.util.Log.e("AudiobookDetailViewModel", "Failed to load reviews", e)
+            Log.e(TAG, "Failed to load reviews", e)
         }
     }
 
@@ -633,9 +647,11 @@ class AudiobookDetailViewModel @Inject constructor(
                                 _averageRating.value = avgResponse.body()
                             }
                         } catch (e: Exception) {
+                            Log.e(TAG, "Failed to refresh average rating after clear", e)
                         }
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear rating", e)
                 } finally {
                     _isUpdatingRating.value = false
                 }
@@ -834,6 +850,7 @@ class AudiobookDetailViewModel @Inject constructor(
                         .toSet()
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to load collections for book", e)
             } finally {
                 _isLoadingCollections.value = false
             }
@@ -856,6 +873,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to toggle book in collection", e)
             }
         }
     }
@@ -876,6 +894,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to create collection and add book", e)
             }
         }
     }
@@ -974,6 +993,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     api.clearAudiobookRecap(book.id)
                     _recap.value = null
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear recap", e)
                 }
             }
         }

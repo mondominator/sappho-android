@@ -539,12 +539,6 @@ data class RequestUnlockRequest(
     val email: String
 )
 
-data class UpdateProgressRequest(
-    val audiobookId: Int,
-    val position: Int,
-    val currentChapter: Int? = null
-)
-
 data class ProgressUpdateRequest(
     val position: Int,
     val completed: Int,
