@@ -458,6 +458,19 @@ fun PlayerScreen(
                         )
                     }
 
+                    // Current chapter title
+                    currentChapter?.title?.let { chapterTitle ->
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = chapterTitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LegacyBlueLight,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(32.dp))
 
                     // Main playback controls with animations
