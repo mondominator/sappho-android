@@ -125,6 +125,7 @@ class AudioPlaybackService : MediaLibraryService() {
         const val ACTION_SKIP_BACKWARD = "com.sappho.audiobooks.SKIP_BACKWARD"
         const val ACTION_PLAY_PAUSE = "com.sappho.audiobooks.PLAY_PAUSE"
 
+        @Volatile
         var instance: AudioPlaybackService? = null
             private set
     }
