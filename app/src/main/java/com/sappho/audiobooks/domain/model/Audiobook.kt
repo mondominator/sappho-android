@@ -60,12 +60,12 @@ data class Chapter(
 
 data class AudiobookFile(
     val id: Int,
-    val audiobookId: Int,
+    @SerializedName("audiobook_id") val audiobookId: Int,
     val filename: String,
     val filepath: String,
     val size: Long,
     val duration: Int?,
-    val mimeType: String?
+    @SerializedName("mime_type") val mimeType: String?
 )
 
 // Response from /api/audiobooks/{id}/directory-files endpoint
