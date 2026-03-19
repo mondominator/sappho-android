@@ -6,6 +6,7 @@ import com.sappho.audiobooks.cast.CastProtocol
 import com.sappho.audiobooks.cast.CastTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,7 +57,7 @@ class RokuCastTarget(
 
     private var connectedDevice: CastDevice? = null
     private var pollingJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override suspend fun connect(device: CastDevice) {
         connectedDevice = device

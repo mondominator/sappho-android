@@ -14,6 +14,7 @@ import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -82,7 +83,7 @@ class CastManager @Inject constructor(
     private val _castError = MutableStateFlow<String?>(null)
     val castError: StateFlow<String?> = _castError
 
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var discoveryJob: Job? = null
     private var stateObserverJob: Job? = null
     private var multicastLock: WifiManager.MulticastLock? = null

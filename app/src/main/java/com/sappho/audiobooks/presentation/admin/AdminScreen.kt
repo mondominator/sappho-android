@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
+import com.sappho.audiobooks.domain.model.UploadState
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -3932,9 +3933,3 @@ private fun UploadDialog(
     )
 }
 
-enum class UploadState {
-    IDLE,
-    UPLOADING,
-    SUCCESS,
-    ERROR
-}

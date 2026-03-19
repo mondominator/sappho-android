@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.NotificationItem
 import com.sappho.audiobooks.data.remote.SapphoApi
+import com.sappho.audiobooks.domain.model.UploadState
 import com.sappho.audiobooks.domain.model.User
 import com.sappho.audiobooks.service.UploadService
 import com.sappho.audiobooks.service.UploadServiceState
@@ -24,12 +25,6 @@ import okhttp3.Request
 import java.io.File
 import javax.inject.Inject
 
-enum class UploadState {
-    IDLE,
-    UPLOADING,
-    SUCCESS,
-    ERROR
-}
 
 data class UploadResultData(
     val success: Boolean,
