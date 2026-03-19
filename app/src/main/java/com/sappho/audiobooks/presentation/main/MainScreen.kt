@@ -10,9 +10,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Cast
@@ -994,7 +994,7 @@ private fun UploadDialog(
                 // Upload progress
                 if (uploadState == UploadState.UPLOADING) {
                     LinearProgressIndicator(
-                        progress = uploadProgress,
+                        progress = { uploadProgress },
                         modifier = Modifier.fillMaxWidth(),
                         color = SapphoInfo
                     )
@@ -1156,7 +1156,7 @@ fun TopBar(
                 ) {
                     val navItems = listOf(
                         Triple(Screen.Home, Icons.Default.Home, "Home"),
-                        Triple(Screen.Library, Icons.Default.MenuBook, "Library"),
+                        Triple(Screen.Library, Icons.AutoMirrored.Filled.MenuBook, "Library"),
                         Triple(Screen.Search, Icons.Default.Search, "Search")
                     )
 
@@ -1308,7 +1308,7 @@ fun TopBar(
                         )
                     }
                     UserMenuItem(
-                        icon = Icons.Default.ExitToApp,
+                        icon = Icons.AutoMirrored.Filled.ExitToApp,
                         text = "Logout",
                         onClick = onLogout
                     )
@@ -1408,7 +1408,7 @@ fun SapphoNavigationRail(
         // Navigation items
         val navItems = listOf(
             Triple(Screen.Home, Icons.Default.Home, "Home"),
-            Triple(Screen.Library, Icons.Default.MenuBook, "Library"),
+            Triple(Screen.Library, Icons.AutoMirrored.Filled.MenuBook, "Library"),
             Triple(Screen.Search, Icons.Default.Search, "Search")
         )
 
