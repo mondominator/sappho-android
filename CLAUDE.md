@@ -202,12 +202,8 @@ The app features a comprehensive UI enhancement system with premium polish and a
 **Modular Skeleton System** (`SkeletonLoading.kt`):
 - `shimmerBrush()` - High-performance shimmer animation engine
 - `SkeletonBox` / `SkeletonCircle` - Basic building blocks
-- `SkeletonText` - Multi-line text placeholders with configurable widths
-- `SkeletonRow` - Icon + text combinations
-- `SkeletonAudiobookCard` - Perfect audiobook card placeholder
-- `SkeletonHomeSection` - Complete section with title + cards
-- `SkeletonHomeScreen` - Full screen loading state
-- `SkeletonAudiobookDetail` - Detail screen loading placeholder
+- `SkeletonSearchResults` - Search screen loading placeholder
+- `SkeletonLibraryGrid` - Library grid loading placeholder
 
 **Performance Features**:
 - Configurable shimmer effects with smooth infinite transitions
@@ -219,40 +215,16 @@ The app features a comprehensive UI enhancement system with premium polish and a
 
 **Micro-Interactions** (`Animations.kt`):
 - `bouncyClickable()` - Signature bouncy click animations with haptic feedback
-- `enhancedClickable()` - Sophisticated click animations with scale transitions
 - `progressiveReveal()` - Staggered list item animations
-- `rememberShakeAnimation()` - Error state feedback with configurable intensity
-- `rememberBreathingAnimation()` - Subtle active state indicators
-
-**State Transition Animations**:
-- `AnimatedContentSwap` - Smooth content transitions with slide effects
-- `rememberButtonScaleAnimation()` - Dynamic button state animations
-- `rememberElevationAnimation()` - Card hover/press elevation changes
-- `rememberColorAnimation()` - Smooth color transitions for interactive states
-
-**Content Animations**:
-- `SapphoAnimatedVisibility` - Signature enter/exit animations
-- `ContentStateAnimation` - Loading/error/success state management
-- Performance-optimized animation specs with proper easing curves
+- `SapphoAnimatedVisibility` - Signature enter/exit animations with reduce-motion support
+- `SapphoAnimations` - Common animation specs (fade, scale, slide)
+- `LocalReduceMotion` / `rememberReduceMotion()` - System accessibility integration
 
 ### Enhanced Empty States
 
-**Sophisticated Empty State System** (`EmptyStates.kt`):
+**Empty State System** (`EmptyStates.kt`):
 - `EmptyState` - Base component with animation, icons, and action buttons
-- Specialized states for different scenarios:
-  - `EmptyLibrary` - Library onboarding
-  - `EmptySearchResults` - Search feedback with query context
-  - `NoInternetConnection` - Network error with retry action
-  - `ServerError` - Server connectivity issues
-  - `EmptyAudiobooks` - Animated illustration for empty content
-  - `EmptyReadingList` - Reading list onboarding
-  - `LoadingError` - Generic error handling with custom messages
-
-**Animated Illustrations**:
-- `AnimatedAudiobookIllustration` - Rotating book icon with pulse effects
-- `AnimatedMusicWaves` - Dynamic audio waveform animation
-- Custom Canvas drawings with sophisticated animation timing
-- Performance-optimized illustration rendering
+- `EmptySearchResults` - Search feedback with query context
 
 ### Accessibility Features
 
@@ -270,7 +242,6 @@ The app features a comprehensive UI enhancement system with premium polish and a
 
 **Loading State Accessibility**:
 - Skeleton loading states maintain semantic structure
-- Progress announcements for screen readers
 - Meaningful loading descriptions and timeouts
 
 ## PWA Reference
