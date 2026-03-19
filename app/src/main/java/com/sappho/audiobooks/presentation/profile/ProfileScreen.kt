@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -716,7 +717,7 @@ fun ProfileScreen(
                     shape = RoundedCornerShape(Spacing.XS)
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Logout,
+                        imageVector = Icons.AutoMirrored.Outlined.Logout,
                         contentDescription = null,
                         modifier = Modifier.size(IconSize.Small)
                     )
