@@ -279,7 +279,14 @@ class CastManager @Inject constructor(
             return
         }
 
-        // For other protocols, append auth token to URL
+        // SECURITY NOTE: Auth token must be passed as a URL query parameter because all
+        // cast protocols (AirPlay, Kodi JSON-RPC, Roku ECP) work by instructing a remote
+        // device to fetch a URL. The remote device's HTTP client cannot be configured with
+        // custom headers from the sender app. This is an inherent limitation of these
+        // protocols, not a design choice. The risk is mitigated by:
+        //   1. Cast targets are local network devices (not internet-facing)
+        //   2. The Sappho server should treat token query params as equivalent to headers
+        //   3. Stream URLs are ephemeral and not persisted by cast receivers
         val token = authRepository.getTokenSync()
         val authenticatedUrl = if (token != null) "$streamUrl?token=$token" else streamUrl
         val authenticatedCoverUrl = if (coverUrl != null && token != null) {
@@ -289,7 +296,7 @@ class CastManager @Inject constructor(
         }
 
         Log.d(TAG, "castAudiobook: Sending to $protocol target, " +
-                "hasToken=${token != null}, urlLength=${authenticatedUrl.length}")
+                "hasToken=${token != null}")
 
         target.loadMedia(
             streamUrl = authenticatedUrl,

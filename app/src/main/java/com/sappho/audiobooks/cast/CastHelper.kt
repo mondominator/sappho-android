@@ -475,7 +475,11 @@ class CastHelper @Inject constructor(
             // Register callback to listen for Cast state changes
             remoteMediaClient.registerCallback(remoteMediaClientCallback)
 
-            // Add access token to stream URL for Cast receiver authentication
+            // SECURITY NOTE: Auth token must be passed as a URL query parameter because
+            // the Chromecast receiver app fetches the media URL directly. The Cast SDK does
+            // not support injecting custom HTTP headers into the receiver's media requests.
+            // This is an inherent limitation of the Google Cast protocol, not a design choice.
+            // See: https://developers.google.com/cast/docs/reference/web_receiver
             val token = authRepository.getTokenSync()
             val authenticatedStreamUrl = if (token != null) {
                 "$streamUrl?token=$token"
