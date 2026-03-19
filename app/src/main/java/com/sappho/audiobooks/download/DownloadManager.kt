@@ -190,33 +190,32 @@ class DownloadManager @Inject constructor(
                 val contentLength = body.contentLength()
 
                 val file = File(downloadsDir, "audiobook_$audiobookId.m4b")
-                val outputStream = FileOutputStream(file)
-                val inputStream = body.byteStream()
 
-                val buffer = ByteArray(8192)
-                var bytesRead: Int
-                var totalBytesRead = 0L
+                body.byteStream().use { inputStream ->
+                    FileOutputStream(file).use { outputStream ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        var totalBytesRead = 0L
 
-                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                    outputStream.write(buffer, 0, bytesRead)
-                    totalBytesRead += bytesRead
+                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                            outputStream.write(buffer, 0, bytesRead)
+                            totalBytesRead += bytesRead
 
-                    val progress = if (contentLength > 0) {
-                        totalBytesRead.toFloat() / contentLength.toFloat()
-                    } else {
-                        0f
+                            val progress = if (contentLength > 0) {
+                                totalBytesRead.toFloat() / contentLength.toFloat()
+                            } else {
+                                0f
+                            }
+
+                            updateDownloadState(audiobookId, DownloadState(
+                                audiobookId = audiobookId,
+                                progress = progress,
+                                isDownloading = true,
+                                isCompleted = false
+                            ))
+                        }
                     }
-
-                    updateDownloadState(audiobookId, DownloadState(
-                        audiobookId = audiobookId,
-                        progress = progress,
-                        isDownloading = true,
-                        isCompleted = false
-                    ))
                 }
-
-                outputStream.close()
-                inputStream.close()
 
                 // Fetch chapters for offline use
                 val chapters = try {

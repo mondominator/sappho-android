@@ -1,6 +1,7 @@
 package com.sappho.audiobooks.presentation.profile
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.*
@@ -25,6 +26,10 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     val userPreferences: UserPreferencesRepository
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "ProfileViewModel"
+    }
 
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user
@@ -82,6 +87,7 @@ class ProfileViewModel @Inject constructor(
                     _user.value = response.body()
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to load profile", e)
             } finally {
                 _isLoading.value = false
             }
@@ -96,6 +102,7 @@ class ProfileViewModel @Inject constructor(
                     _stats.value = response.body()
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to load stats", e)
             }
         }
     }
@@ -108,6 +115,7 @@ class ProfileViewModel @Inject constructor(
                     _serverVersion.value = response.body()?.version
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to load server version", e)
             }
         }
     }
@@ -252,6 +260,7 @@ class ProfileViewModel @Inject constructor(
                     _users.value = response.body() ?: emptyList()
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to load users", e)
             }
         }
     }
@@ -264,6 +273,7 @@ class ProfileViewModel @Inject constructor(
                     _aiSettings.value = response.body()?.settings
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to load AI settings", e)
             }
         }
     }
@@ -315,6 +325,7 @@ class ProfileViewModel @Inject constructor(
                     _scanResult.value = response.body()
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to scan library", e)
             } finally {
                 _isScanning.value = false
             }
