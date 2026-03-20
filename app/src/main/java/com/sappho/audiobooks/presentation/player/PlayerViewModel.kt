@@ -8,6 +8,7 @@ import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.domain.model.Chapter
+import com.sappho.audiobooks.domain.model.ListeningSession
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.service.PlayerState
@@ -45,6 +46,12 @@ class PlayerViewModel @Inject constructor(
 
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl
+
+    private val _listeningSessions = MutableStateFlow<List<ListeningSession>>(emptyList())
+    val listeningSessions: StateFlow<List<ListeningSession>> = _listeningSessions
+
+    private val _historyLoading = MutableStateFlow(false)
+    val historyLoading: StateFlow<Boolean> = _historyLoading
 
     init {
         _serverUrl.value = authRepository.getServerUrlSync()
@@ -251,6 +258,19 @@ class PlayerViewModel @Inject constructor(
             } else {
                 loadAndStartPlayback(audiobookId, bestPosition)
             }
+        }
+    }
+
+    fun loadListeningSessions(audiobookId: Int) {
+        viewModelScope.launch {
+            _historyLoading.value = true
+            try {
+                val response = api.getListeningSessions(audiobookId)
+                if (response.isSuccessful) {
+                    _listeningSessions.value = response.body()?.sessions ?: emptyList()
+                }
+            } catch (_: Exception) { }
+            _historyLoading.value = false
         }
     }
 
