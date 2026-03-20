@@ -87,6 +87,12 @@ interface SapphoApi {
     @GET("api/audiobooks/{id}/progress")
     suspend fun getProgress(@Path("id") audiobookId: Int): Response<Progress>
 
+    @GET("api/audiobooks/{id}/sessions")
+    suspend fun getListeningSessions(
+        @Path("id") audiobookId: Int,
+        @Query("limit") limit: Int = 50
+    ): Response<ListeningSessionsResponse>
+
     @POST("api/audiobooks/{id}/progress")
     suspend fun updateProgress(
         @Path("id") audiobookId: Int,

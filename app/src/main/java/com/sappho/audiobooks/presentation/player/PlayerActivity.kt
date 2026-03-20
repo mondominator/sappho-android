@@ -20,6 +20,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +39,7 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,6 +67,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import dagger.hilt.android.AndroidEntryPoint
+import com.sappho.audiobooks.domain.model.ListeningSession
 import com.sappho.audiobooks.service.AudioPlaybackService
 import com.sappho.audiobooks.cast.CastHelper
 import com.sappho.audiobooks.cast.CastManager
@@ -139,6 +143,7 @@ fun PlayerScreen(
     var showChapters by remember { mutableStateOf(false) }
     var showPlaybackSpeed by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
     val castCoroutineScope = rememberCoroutineScope()
 
     // Sync progress from server when returning from background
@@ -891,6 +896,41 @@ fun PlayerScreen(
                                 )
                             }
                         }
+
+                        // History button
+                        val historyInteractionSource = remember { MutableInteractionSource() }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(
+                                    interactionSource = historyInteractionSource,
+                                    indication = null
+                                ) {
+                                    showHistory = !showHistory
+                                    if (showHistory) {
+                                        audiobook?.let { viewModel.loadListeningSessions(it.id) }
+                                    }
+                                }
+                                .padding(vertical = 12.dp, horizontal = 12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.History,
+                                    contentDescription = "Listening history",
+                                    modifier = Modifier.size(24.dp),
+                                    tint = SapphoTextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "History",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     }
 
                     // Playing animation centered in remaining vertical space
@@ -1262,6 +1302,41 @@ fun PlayerScreen(
             )
         }
 
+        // History dialog
+        if (showHistory) {
+            val listeningSessions by viewModel.listeningSessions.collectAsState()
+            val historyLoading by viewModel.historyLoading.collectAsState()
+
+            AlertDialog(
+                onDismissRequest = { showHistory = false },
+                title = { Text("Listening History", color = Color.White) },
+                containerColor = SapphoSurfaceLight,
+                text = {
+                    if (historyLoading) {
+                        Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = SapphoPrimary)
+                        }
+                    } else if (listeningSessions.isEmpty()) {
+                        Text("No listening history yet", color = SapphoTextSecondary)
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                            items(listeningSessions) { session ->
+                                ListeningSessionItem(session) { position ->
+                                    AudioPlaybackService.instance?.seekTo(position * 1000L)
+                                    showHistory = false
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showHistory = false }) {
+                        Text("Close", color = SapphoPrimary)
+                    }
+                }
+            )
+        }
+
     }
 }
 
@@ -1319,4 +1394,46 @@ private fun formatSeriesPosition(position: Float?): String {
     } else {
         position.toString()
     }
+}
+
+@Composable
+private fun ListeningSessionItem(
+    session: ListeningSession,
+    onSeek: (Int) -> Unit
+) {
+    val dateFormat = remember { java.text.SimpleDateFormat("MMM d, h:mm a", java.util.Locale.getDefault()) }
+    val parseFormat = remember { java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault()) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSeek(session.startPosition) }
+            .padding(vertical = 8.dp)
+    ) {
+        Text(
+            text = try { dateFormat.format(parseFormat.parse(session.startedAt)!!) } catch (_: Exception) { session.startedAt },
+            style = MaterialTheme.typography.labelMedium,
+            color = SapphoTextSecondary
+        )
+        val startFormatted = formatSessionSeconds(session.startPosition)
+        val endFormatted = session.endPosition?.let { formatSessionSeconds(it) } ?: "In progress"
+        val duration = session.endPosition?.let { (it - session.startPosition) / 60 }
+        Text(
+            text = "$startFormatted \u2192 $endFormatted" + (duration?.let { " ($it min)" } ?: ""),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White
+        )
+        session.deviceName?.let {
+            Text(text = it, style = MaterialTheme.typography.labelSmall, color = SapphoTextSecondary)
+        }
+        HorizontalDivider(color = SapphoSurface.copy(alpha = 0.5f), modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+private fun formatSessionSeconds(totalSeconds: Int): String {
+    val h = totalSeconds / 3600
+    val m = (totalSeconds % 3600) / 60
+    val s = totalSeconds % 60
+    return if (h > 0) String.format("%d:%02d:%02d", h, m, s)
+    else String.format("%d:%02d", m, s)
 }
