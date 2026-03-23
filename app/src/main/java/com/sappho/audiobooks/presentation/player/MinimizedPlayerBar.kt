@@ -1,10 +1,8 @@
 package com.sappho.audiobooks.presentation.player
 
 import androidx.compose.animation.animateColor
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -381,16 +379,6 @@ fun MinimizedPlayerBar(
                         )
                     }
 
-                    // Waveform visualizer bars - only visible when playing
-                    if (isPlaying) {
-                        WaveformVisualizer(
-                            modifier = Modifier
-                                .padding(end = 4.dp)
-                                .height(22.dp)
-                                .width(25.dp)
-                        )
-                    }
-
                     // Seek back button (10 seconds)
                     IconButton(
                         onClick = {
@@ -547,96 +535,6 @@ fun MinimizedPlayerBar(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * Animated waveform visualizer with 3 bars.
- * Bars use a color-shifting gradient from green to blue with smooth cubic-bezier easing.
- */
-@Composable
-private fun WaveformVisualizer(
-    modifier: Modifier = Modifier
-) {
-    val transition = rememberInfiniteTransition(label = "waveform")
-
-    // 3 bars with varied speeds for organic feel (matches PWA)
-    val barAnimations = listOf(
-        transition.animateFloat(
-            initialValue = 0.3f, targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1200, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "bar0"
-        ),
-        transition.animateFloat(
-            initialValue = 0.5f, targetValue = 0.25f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(900, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "bar1"
-        ),
-        transition.animateFloat(
-            initialValue = 0.4f, targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1100, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "bar2"
-        )
-    )
-
-    // Color shift animations — each bar shifts between green-first and blue-first gradients
-    val colorShifts = listOf(
-        transition.animateFloat(
-            initialValue = 0f, targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(2400, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "color0"
-        ),
-        transition.animateFloat(
-            initialValue = 1f, targetValue = 0f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(2000, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "color1"
-        ),
-        transition.animateFloat(
-            initialValue = 0f, targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(2800, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ), label = "color2"
-        )
-    )
-
-    Canvas(modifier = modifier) {
-        val barWidthPx = 3.dp.toPx()
-        val spacingPx = 2.5.dp.toPx()
-        val totalWidth = 3 * barWidthPx + 2 * spacingPx
-        val startX = (size.width - totalWidth) / 2f
-        val maxBarHeight = size.height
-
-        for (i in 0 until 3) {
-            val fraction = barAnimations[i].value
-            val barHeight = maxBarHeight * fraction
-            val x = startX + i * (barWidthPx + spacingPx)
-            val y = (maxBarHeight - barHeight) / 2f
-
-            // Interpolate gradient direction based on color shift
-            val shift = colorShifts[i].value
-            val topColor = lerp(SapphoSuccess, SapphoInfo, shift)
-            val bottomColor = lerp(SapphoInfo, SapphoSuccess, shift)
-
-            drawRoundRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(topColor, bottomColor)
-                ),
-                topLeft = Offset(x, y),
-                size = Size(barWidthPx, barHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidthPx)
-            )
         }
     }
 }
