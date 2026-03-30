@@ -558,8 +558,9 @@ fun AudiobookDetailScreen(
                                     }
                                 }
 
-                                // Comment bubble with review count
-                                if (reviews.isNotEmpty()) {
+                                // Comment bubble with review count (only show if reviews have text)
+                                val reviewsWithText = reviews.filter { !it.review.isNullOrBlank() }
+                                if (reviewsWithText.isNotEmpty()) {
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Box(
                                         modifier = Modifier
@@ -582,7 +583,7 @@ fun AudiobookDetailScreen(
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text(
-                                                text = "${reviews.size}",
+                                                text = "${reviewsWithText.size}",
                                                 fontSize = 13.sp,
                                                 color = if (showReviewsDropdown) SapphoInfo else SapphoTextMuted
                                             )
