@@ -21,7 +21,17 @@ class AuthRepository @Inject constructor(
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
 
+    // Encrypted prefs for sensitive data (auth token only)
     private val securePrefs: SharedPreferences = createEncryptedPrefs()
+
+    // Plain prefs for non-sensitive data that must survive app updates
+    private val plainPrefs: SharedPreferences =
+        context.getSharedPreferences("sappho_prefs", Context.MODE_PRIVATE)
+
+    init {
+        // One-time migration: move non-sensitive data from encrypted to plain prefs
+        migrateToPlainPrefs()
+    }
 
     private val _isAuthenticated = MutableStateFlow(getTokenSync() != null && getServerUrlSync() != null)
     val isAuthenticated: StateFlow<Boolean> = _isAuthenticated
@@ -54,12 +64,12 @@ class AuthRepository @Inject constructor(
     }
 
     fun saveServerUrl(url: String) {
-        securePrefs.edit().putString(KEY_SERVER_URL, url.trim().trimEnd('/')).apply()
+        plainPrefs.edit().putString(KEY_SERVER_URL, url.trim().trimEnd('/')).apply()
         _isAuthenticated.value = getTokenSync() != null && getServerUrlSync() != null
     }
 
     fun getServerUrlSync(): String? {
-        return securePrefs.getString(KEY_SERVER_URL, null)?.trim()?.trimEnd('/')
+        return plainPrefs.getString(KEY_SERVER_URL, null)?.trim()?.trimEnd('/')
     }
 
     fun hasServerUrl(): Boolean {
@@ -68,7 +78,7 @@ class AuthRepository @Inject constructor(
 
     // Cache user info for offline display
     fun saveUserInfo(username: String, displayName: String?, avatar: String?) {
-        securePrefs.edit()
+        plainPrefs.edit()
             .putString(KEY_USERNAME, username)
             .putString(KEY_DISPLAY_NAME, displayName)
             .putString(KEY_AVATAR, avatar)
@@ -76,15 +86,15 @@ class AuthRepository @Inject constructor(
     }
 
     fun getCachedUsername(): String? {
-        return securePrefs.getString(KEY_USERNAME, null)
+        return plainPrefs.getString(KEY_USERNAME, null)
     }
 
     fun getCachedDisplayName(): String? {
-        return securePrefs.getString(KEY_DISPLAY_NAME, null)
+        return plainPrefs.getString(KEY_DISPLAY_NAME, null)
     }
 
     fun getCachedAvatar(): String? {
-        return securePrefs.getString(KEY_AVATAR, null)
+        return plainPrefs.getString(KEY_AVATAR, null)
     }
 
     /**
@@ -113,7 +123,7 @@ class AuthRepository @Inject constructor(
     }
 
     fun clearUserInfo() {
-        securePrefs.edit()
+        plainPrefs.edit()
             .remove(KEY_USERNAME)
             .remove(KEY_DISPLAY_NAME)
             .remove(KEY_AVATAR)
@@ -123,11 +133,47 @@ class AuthRepository @Inject constructor(
 
     // Playback speed preference (global setting)
     fun savePlaybackSpeed(speed: Float) {
-        securePrefs.edit().putFloat(KEY_PLAYBACK_SPEED, speed).apply()
+        plainPrefs.edit().putFloat(KEY_PLAYBACK_SPEED, speed).apply()
     }
 
     fun getPlaybackSpeed(): Float {
-        return securePrefs.getFloat(KEY_PLAYBACK_SPEED, 1.0f)
+        return plainPrefs.getFloat(KEY_PLAYBACK_SPEED, 1.0f)
+    }
+
+    /**
+     * Migrate non-sensitive data from encrypted prefs to plain prefs.
+     * Runs once — if plain prefs already have a server URL, skip.
+     */
+    private fun migrateToPlainPrefs() {
+        if (plainPrefs.getString(KEY_SERVER_URL, null) != null) return
+        try {
+            val serverUrl = securePrefs.getString(KEY_SERVER_URL, null)
+            val username = securePrefs.getString(KEY_USERNAME, null)
+            val displayName = securePrefs.getString(KEY_DISPLAY_NAME, null)
+            val avatar = securePrefs.getString(KEY_AVATAR, null)
+            val speed = securePrefs.getFloat(KEY_PLAYBACK_SPEED, 1.0f)
+
+            if (serverUrl != null) {
+                plainPrefs.edit()
+                    .putString(KEY_SERVER_URL, serverUrl)
+                    .putString(KEY_USERNAME, username)
+                    .putString(KEY_DISPLAY_NAME, displayName)
+                    .putString(KEY_AVATAR, avatar)
+                    .putFloat(KEY_PLAYBACK_SPEED, speed)
+                    .apply()
+                // Clean up old keys from encrypted prefs
+                securePrefs.edit()
+                    .remove(KEY_SERVER_URL)
+                    .remove(KEY_USERNAME)
+                    .remove(KEY_DISPLAY_NAME)
+                    .remove(KEY_AVATAR)
+                    .remove(KEY_PLAYBACK_SPEED)
+                    .apply()
+                Log.d("AuthRepository", "Migrated non-sensitive data to plain prefs")
+            }
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Migration failed (encrypted prefs may already be corrupted)", e)
+        }
     }
 
     private fun createEncryptedPrefs(): SharedPreferences {
