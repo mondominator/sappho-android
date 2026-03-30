@@ -618,7 +618,6 @@ fun AudiobookDetailScreen(
                                                             viewModel.clearRating()
                                                         } else {
                                                             viewModel.setRating(starIndex, userReviewText)
-                                                            showRatingPicker = false
                                                         }
                                                     }
                                             )
