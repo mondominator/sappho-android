@@ -665,7 +665,6 @@ fun AudiobookDetailScreen(
                                     Button(
                                         onClick = {
                                             viewModel.setRating(userRating!!, userReviewText)
-                                            viewModel.updateUserReviewText("")
                                             focusManager.clearFocus()
                                         },
                                         enabled = !isUpdatingRating && userReviewText.isNotBlank(),
