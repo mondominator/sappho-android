@@ -17,23 +17,42 @@ class AuthRepositoryTest {
 
     private lateinit var repository: AuthRepository
     private lateinit var context: Context
-    private lateinit var sharedPreferences: SharedPreferences
-    private lateinit var editor: SharedPreferences.Editor
+    private lateinit var securePrefs: SharedPreferences
+    private lateinit var secureEditor: SharedPreferences.Editor
+    private lateinit var plainPrefs: SharedPreferences
+    private lateinit var plainEditor: SharedPreferences.Editor
     private lateinit var filesDir: File
-    
+
+    // Alias for tests that don't care which prefs store is used
+    private val sharedPreferences get() = securePrefs
+    private val editor get() = secureEditor
+
     @Before
     fun setup() {
         context = mockk(relaxed = true)
-        sharedPreferences = mockk(relaxed = true)
-        editor = mockk(relaxed = true)
+        securePrefs = mockk(relaxed = true)
+        secureEditor = mockk(relaxed = true)
+        plainPrefs = mockk(relaxed = true)
+        plainEditor = mockk(relaxed = true)
         filesDir = mockk(relaxed = true)
-        
+
         every { context.filesDir } returns filesDir
-        every { sharedPreferences.edit() } returns editor
-        every { editor.putString(any(), any()) } returns editor
-        every { editor.remove(any()) } returns editor
-        every { editor.apply() } returns Unit
-        
+        every { securePrefs.edit() } returns secureEditor
+        every { secureEditor.putString(any(), any()) } returns secureEditor
+        every { secureEditor.remove(any()) } returns secureEditor
+        every { secureEditor.apply() } returns Unit
+        every { plainPrefs.edit() } returns plainEditor
+        every { plainEditor.putString(any(), any()) } returns plainEditor
+        every { plainEditor.putFloat(any(), any()) } returns plainEditor
+        every { plainEditor.remove(any()) } returns plainEditor
+        every { plainEditor.apply() } returns Unit
+        // Migration check: no server URL in plain prefs yet
+        every { plainPrefs.getString("server_url", null) } returns null
+        // No data in secure prefs to migrate
+        every { securePrefs.getString("server_url", null) } returns null
+
+        every { context.getSharedPreferences("sappho_prefs", Context.MODE_PRIVATE) } returns plainPrefs
+
         mockkStatic(EncryptedSharedPreferences::class)
         every {
             EncryptedSharedPreferences.create(
@@ -43,8 +62,8 @@ class AuthRepositoryTest {
                 any<EncryptedSharedPreferences.PrefKeyEncryptionScheme>(),
                 any<EncryptedSharedPreferences.PrefValueEncryptionScheme>()
             )
-        } returns sharedPreferences
-        
+        } returns securePrefs
+
         repository = AuthRepository(context)
     }
     
@@ -87,39 +106,39 @@ class AuthRepositoryTest {
     }
     
     @Test
-    fun `saveServerUrl stores URL in preferences`() {
+    fun `saveServerUrl stores URL in plain preferences`() {
         // Given
         val url = "https://sappho.example.com"
-        
+
         // When
         repository.saveServerUrl(url)
-        
+
         // Then
-        verify { editor.putString("server_url", url) }
-        verify { editor.apply() }
+        verify { plainEditor.putString("server_url", url) }
+        verify { plainEditor.apply() }
     }
-    
+
     @Test
     fun `getServerUrlSync returns stored URL`() {
         // Given
         val url = "https://sappho.example.com"
-        every { sharedPreferences.getString("server_url", null) } returns url
-        
+        every { plainPrefs.getString("server_url", null) } returns url
+
         // When
         val result = repository.getServerUrlSync()
-        
+
         // Then
         assertThat(result).isEqualTo(url)
     }
-    
+
     @Test
     fun `getServerUrlSync returns null when no URL stored`() {
         // Given
-        every { sharedPreferences.getString("server_url", null) } returns null
-        
+        every { plainPrefs.getString("server_url", null) } returns null
+
         // When
         val result = repository.getServerUrlSync()
-        
+
         // Then
         assertThat(result).isNull()
     }
@@ -143,7 +162,7 @@ class AuthRepositoryTest {
         repository.saveServerUrl(url)
 
         // Then
-        verify { editor.putString("server_url", "https://sappho.example.com") }
+        verify { plainEditor.putString("server_url", "https://sappho.example.com") }
     }
 
     @Test
@@ -155,7 +174,7 @@ class AuthRepositoryTest {
         repository.saveServerUrl(url)
 
         // Then
-        verify { editor.putString("server_url", "https://sappho.example.com") }
+        verify { plainEditor.putString("server_url", "https://sappho.example.com") }
     }
 
     @Test
@@ -167,13 +186,13 @@ class AuthRepositoryTest {
         repository.saveServerUrl(url)
 
         // Then - trimEnd('/') removes all trailing slashes
-        verify { editor.putString("server_url", "https://sappho.example.com") }
+        verify { plainEditor.putString("server_url", "https://sappho.example.com") }
     }
 
     @Test
     fun `hasServerUrl returns true when URL is stored`() {
         // Given
-        every { sharedPreferences.getString("server_url", null) } returns "https://sappho.example.com"
+        every { plainPrefs.getString("server_url", null) } returns "https://sappho.example.com"
 
         // When
         val result = repository.hasServerUrl()
@@ -185,7 +204,7 @@ class AuthRepositoryTest {
     @Test
     fun `hasServerUrl returns false when no URL is stored`() {
         // Given
-        every { sharedPreferences.getString("server_url", null) } returns null
+        every { plainPrefs.getString("server_url", null) } returns null
 
         // When
         val result = repository.hasServerUrl()
@@ -196,9 +215,9 @@ class AuthRepositoryTest {
 
     @Test
     fun `isAuthenticated is true when both token and server URL exist`() {
-        // Given
-        every { sharedPreferences.getString("auth_token", null) } returns "test-token"
-        every { sharedPreferences.getString("server_url", null) } returns "https://sappho.example.com"
+        // Given - token in secure prefs, server URL in plain prefs
+        every { securePrefs.getString("auth_token", null) } returns "test-token"
+        every { plainPrefs.getString("server_url", null) } returns "https://sappho.example.com"
 
         // When
         val repo = AuthRepository(context)
@@ -210,8 +229,8 @@ class AuthRepositoryTest {
     @Test
     fun `isAuthenticated is false when token is missing`() {
         // Given
-        every { sharedPreferences.getString("auth_token", null) } returns null
-        every { sharedPreferences.getString("server_url", null) } returns "https://sappho.example.com"
+        every { securePrefs.getString("auth_token", null) } returns null
+        every { plainPrefs.getString("server_url", null) } returns "https://sappho.example.com"
 
         // When
         val repo = AuthRepository(context)
@@ -223,8 +242,8 @@ class AuthRepositoryTest {
     @Test
     fun `isAuthenticated is false when server URL is missing`() {
         // Given
-        every { sharedPreferences.getString("auth_token", null) } returns "test-token"
-        every { sharedPreferences.getString("server_url", null) } returns null
+        every { securePrefs.getString("auth_token", null) } returns "test-token"
+        every { plainPrefs.getString("server_url", null) } returns null
 
         // When
         val repo = AuthRepository(context)
@@ -236,13 +255,13 @@ class AuthRepositoryTest {
     @Test
     fun `clearToken sets isAuthenticated to false`() {
         // Given
-        every { sharedPreferences.getString("auth_token", null) } returns "test-token"
-        every { sharedPreferences.getString("server_url", null) } returns "https://sappho.example.com"
+        every { securePrefs.getString("auth_token", null) } returns "test-token"
+        every { plainPrefs.getString("server_url", null) } returns "https://sappho.example.com"
         val repo = AuthRepository(context)
         assertThat(repo.isAuthenticated.value).isTrue()
 
         // When
-        every { sharedPreferences.getString("auth_token", null) } returns null
+        every { securePrefs.getString("auth_token", null) } returns null
         repo.clearToken()
 
         // Then
@@ -272,21 +291,21 @@ class AuthRepositoryTest {
     }
 
     @Test
-    fun `saveUserInfo stores username, display name, and avatar`() {
+    fun `saveUserInfo stores username, display name, and avatar in plain prefs`() {
         // When
         repository.saveUserInfo("testuser", "Test User", "avatar_hash")
 
         // Then
-        verify { editor.putString("cached_username", "testuser") }
-        verify { editor.putString("cached_display_name", "Test User") }
-        verify { editor.putString("cached_avatar", "avatar_hash") }
-        verify { editor.apply() }
+        verify { plainEditor.putString("cached_username", "testuser") }
+        verify { plainEditor.putString("cached_display_name", "Test User") }
+        verify { plainEditor.putString("cached_avatar", "avatar_hash") }
+        verify { plainEditor.apply() }
     }
 
     @Test
     fun `getCachedUsername returns stored username`() {
         // Given
-        every { sharedPreferences.getString("cached_username", null) } returns "testuser"
+        every { plainPrefs.getString("cached_username", null) } returns "testuser"
 
         // When
         val result = repository.getCachedUsername()
@@ -298,7 +317,7 @@ class AuthRepositoryTest {
     @Test
     fun `getCachedUsername returns null when no username stored`() {
         // Given
-        every { sharedPreferences.getString("cached_username", null) } returns null
+        every { plainPrefs.getString("cached_username", null) } returns null
 
         // When
         val result = repository.getCachedUsername()
@@ -310,7 +329,7 @@ class AuthRepositoryTest {
     @Test
     fun `getCachedDisplayName returns stored display name`() {
         // Given
-        every { sharedPreferences.getString("cached_display_name", null) } returns "Test User"
+        every { plainPrefs.getString("cached_display_name", null) } returns "Test User"
 
         // When
         val result = repository.getCachedDisplayName()
@@ -322,7 +341,7 @@ class AuthRepositoryTest {
     @Test
     fun `getCachedAvatar returns stored avatar hash`() {
         // Given
-        every { sharedPreferences.getString("cached_avatar", null) } returns "avatar_hash"
+        every { plainPrefs.getString("cached_avatar", null) } returns "avatar_hash"
 
         // When
         val result = repository.getCachedAvatar()
@@ -337,29 +356,26 @@ class AuthRepositoryTest {
         repository.clearUserInfo()
 
         // Then
-        verify { editor.remove("cached_username") }
-        verify { editor.remove("cached_display_name") }
-        verify { editor.remove("cached_avatar") }
-        verify { editor.apply() }
+        verify { plainEditor.remove("cached_username") }
+        verify { plainEditor.remove("cached_display_name") }
+        verify { plainEditor.remove("cached_avatar") }
+        verify { plainEditor.apply() }
     }
 
     @Test
-    fun `savePlaybackSpeed stores speed in preferences`() {
-        // Given
-        every { editor.putFloat(any(), any()) } returns editor
-
+    fun `savePlaybackSpeed stores speed in plain preferences`() {
         // When
         repository.savePlaybackSpeed(1.5f)
 
         // Then
-        verify { editor.putFloat("playback_speed", 1.5f) }
-        verify { editor.apply() }
+        verify { plainEditor.putFloat("playback_speed", 1.5f) }
+        verify { plainEditor.apply() }
     }
 
     @Test
     fun `getPlaybackSpeed returns stored speed`() {
         // Given
-        every { sharedPreferences.getFloat("playback_speed", 1.0f) } returns 2.0f
+        every { plainPrefs.getFloat("playback_speed", 1.0f) } returns 2.0f
 
         // When
         val result = repository.getPlaybackSpeed()
@@ -371,7 +387,7 @@ class AuthRepositoryTest {
     @Test
     fun `getPlaybackSpeed returns default 1_0 when not set`() {
         // Given
-        every { sharedPreferences.getFloat("playback_speed", 1.0f) } returns 1.0f
+        every { plainPrefs.getFloat("playback_speed", 1.0f) } returns 1.0f
 
         // When
         val result = repository.getPlaybackSpeed()
