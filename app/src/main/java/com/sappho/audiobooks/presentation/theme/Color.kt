@@ -37,6 +37,7 @@ val SapphoTextMuted = Color(0xFF9CA3AF)  // Muted/disabled text (4.5:1 contrast)
 val SapphoTextLight = Color(0xFFD1D5DB)  // Light gray text
 val SapphoTextHigh = Color(0xFFF8FAFC)  // High contrast white text
 val SapphoTextDim = Color(0xFF8B92A6)  // Dimmed text for subtle elements
+val SapphoTeal = Color(0xFF06B6D4)  // Teal accent (history button)
 
 // -----------------------------------------------------------------------------
 // Semantic Colors (Enhanced)
