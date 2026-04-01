@@ -921,13 +921,13 @@ fun PlayerScreen(
                                     imageVector = Icons.Default.History,
                                     contentDescription = "Listening history",
                                     modifier = Modifier.size(24.dp),
-                                    tint = SapphoTextSecondary
+                                    tint = SapphoTeal
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = "History",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White
+                                    color = SapphoTeal
                                 )
                             }
                         }
