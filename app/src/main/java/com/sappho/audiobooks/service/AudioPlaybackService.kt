@@ -391,7 +391,7 @@ class AudioPlaybackService : MediaLibraryService() {
                         pauseTimeoutJob?.cancel()
                     } else {
                         stopPositionUpdates()
-                        syncProgress()
+                        syncProgressImmediate() // Always sync on pause — no delay guard
                         // Re-assert foreground status so system doesn't kill us
                         startForeground(NOTIFICATION_ID, createNotification())
                         // Stop service after 30 minutes of inactivity
@@ -1507,6 +1507,15 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private fun syncProgress() {
+        syncProgressInternal(respectDelayGuard = true)
+    }
+
+    /** Sync immediately, bypassing the initial delay guard. Used on pause and stop events. */
+    private fun syncProgressImmediate() {
+        syncProgressInternal(respectDelayGuard = false)
+    }
+
+    private fun syncProgressInternal(respectDelayGuard: Boolean) {
         serviceScope.launch {
             playerState.currentAudiobook.value?.let { book ->
                 val position = playerState.currentPosition.value.toInt()
@@ -1519,10 +1528,16 @@ class AudioPlaybackService : MediaLibraryService() {
 
                 // Skip sync if not enough time has passed since playback started
                 // This prevents recording progress for accidental plays or quick skips
-                val secondsSinceStart = (System.currentTimeMillis() - playbackSessionStartTime) / 1000
-                if (secondsSinceStart < INITIAL_PROGRESS_DELAY_SECONDS) {
-                    return@launch
+                // Bypassed for explicit pause/stop events
+                if (respectDelayGuard) {
+                    val secondsSinceStart = (System.currentTimeMillis() - playbackSessionStartTime) / 1000
+                    if (secondsSinceStart < INITIAL_PROGRESS_DELAY_SECONDS) {
+                        return@launch
+                    }
                 }
+
+                // Always save locally as fallback in case API call fails or process is killed
+                downloadManager.saveOfflineProgress(book.id, position)
 
                 try {
                     api.updateProgress(
@@ -1536,12 +1551,8 @@ class AudioPlaybackService : MediaLibraryService() {
                     // Successfully synced - clear any pending progress for this book
                     downloadManager.clearPendingProgress(book.id)
                 } catch (e: Exception) {
-                    if (isPlayingLocalFile) {
-                        // Playing downloaded file offline - save progress locally for later sync
-                        downloadManager.saveOfflineProgress(book.id, position)
-                    }
-                    // When streaming, transient API errors are expected and don't need
-                    // offline progress tracking — the next sync cycle will succeed
+                    // Progress already saved locally above — ProgressSyncWorker will retry
+                    android.util.Log.w("AudioPlaybackService", "Progress sync failed, saved locally", e)
                 }
             }
         }
@@ -1687,7 +1698,7 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     fun stopPlayback() {
-        syncProgress()
+        syncProgressImmediate() // Bypass delay guard — this is an explicit stop
         player?.stop()
         player?.release()
         player = null
@@ -1736,16 +1747,17 @@ class AudioPlaybackService : MediaLibraryService() {
         val position = playerState.currentPosition.value.toInt()
         val duration = playerState.duration.value.toInt()
         if (book != null && position > 0 && (duration == 0 || (duration - position) >= 30)) {
+            // Always save locally first as a safety net
+            downloadManager.saveOfflineProgress(book.id, position)
             runBlocking {
                 try {
                     api.updateProgress(
                         book.id,
                         ProgressUpdateRequest(position = position, completed = 0, state = if (isPlaying) "playing" else "paused")
                     )
+                    downloadManager.clearPendingProgress(book.id)
                 } catch (_: Exception) {
-                    if (isPlayingLocalFile) {
-                        downloadManager.saveOfflineProgress(book.id, position)
-                    }
+                    // Saved locally above — ProgressSyncWorker will retry
                 }
             }
         }
@@ -1780,16 +1792,17 @@ class AudioPlaybackService : MediaLibraryService() {
         val position = playerState.currentPosition.value.toInt()
         val duration = playerState.duration.value.toInt()
         if (book != null && position > 0 && (duration == 0 || (duration - position) >= 30)) {
+            // Always save locally first as a safety net
+            downloadManager.saveOfflineProgress(book.id, position)
             runBlocking {
                 try {
                     api.updateProgress(
                         book.id,
                         ProgressUpdateRequest(position = position, completed = 0, state = "stopped")
                     )
+                    downloadManager.clearPendingProgress(book.id)
                 } catch (_: Exception) {
-                    if (isPlayingLocalFile) {
-                        downloadManager.saveOfflineProgress(book.id, position)
-                    }
+                    // Saved locally above — ProgressSyncWorker will retry
                 }
             }
         }
