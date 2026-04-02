@@ -69,6 +69,19 @@ class ProgressSyncWorker @AssistedInject constructor(
 
             for (pending in pendingList) {
                 try {
+                    // Check server position first — don't overwrite if another device is ahead
+                    val progressResponse = api.getProgress(pending.audiobookId)
+                    if (progressResponse.isSuccessful) {
+                        val serverPosition = progressResponse.body()?.position ?: 0
+                        if (serverPosition > pending.position) {
+                            // Server is ahead (listened on another device) — discard local
+                            Log.d(TAG, "Server position ($serverPosition) ahead of local (${pending.position}) for book ${pending.audiobookId}, discarding local")
+                            downloadManager.clearPendingProgress(pending.audiobookId)
+                            successCount++
+                            continue
+                        }
+                    }
+
                     val response = api.updateProgress(
                         pending.audiobookId,
                         ProgressUpdateRequest(

@@ -1536,8 +1536,10 @@ class AudioPlaybackService : MediaLibraryService() {
                     }
                 }
 
-                // Always save locally as fallback in case API call fails or process is killed
-                downloadManager.saveOfflineProgress(book.id, position)
+                // Save locally on pause/stop as safety net in case API fails or process is killed
+                if (!respectDelayGuard) {
+                    downloadManager.saveOfflineProgress(book.id, position)
+                }
 
                 try {
                     api.updateProgress(
@@ -1551,8 +1553,11 @@ class AudioPlaybackService : MediaLibraryService() {
                     // Successfully synced - clear any pending progress for this book
                     downloadManager.clearPendingProgress(book.id)
                 } catch (e: Exception) {
-                    // Progress already saved locally above — ProgressSyncWorker will retry
-                    android.util.Log.w("AudioPlaybackService", "Progress sync failed, saved locally", e)
+                    if (!respectDelayGuard || isPlayingLocalFile) {
+                        // Pause/stop event or offline — save locally for later sync
+                        downloadManager.saveOfflineProgress(book.id, position)
+                    }
+                    android.util.Log.w("AudioPlaybackService", "Progress sync failed", e)
                 }
             }
         }
