@@ -147,10 +147,10 @@ object NetworkModule {
                     chain.proceed(request)
                 }
             }
-            // Interceptor to detect auth errors (401 Unauthorized or 403 Forbidden with token error)
+            // Interceptor to detect auth errors (401 only — 403 is used for non-auth permission checks)
             .addInterceptor { chain ->
                 val response = chain.proceed(chain.request())
-                if (response.code == 401 || response.code == 403) {
+                if (response.code == 401) {
                     // Token expired or invalid - trigger auth error
                     authRepository.triggerAuthError()
                 }
