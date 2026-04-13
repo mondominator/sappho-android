@@ -24,6 +24,10 @@ class LoginViewModel @Inject constructor(
     private val _serverUrl = MutableStateFlow(authRepository.getServerUrlSync() ?: "https://")
     val serverUrl: StateFlow<String> = _serverUrl
 
+    // Pre-fill username from the last session so a token expiry only
+    // requires re-entering the password, not everything from scratch.
+    val savedUsername: String? = authRepository.getCachedUsername()
+
     fun updateServerUrl(url: String) {
         _serverUrl.value = url
     }
