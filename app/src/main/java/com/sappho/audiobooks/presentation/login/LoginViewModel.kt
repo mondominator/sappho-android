@@ -75,6 +75,7 @@ class LoginViewModel @Inject constructor(
                             }
                         }
                         404 -> "Server endpoint not found. Please check your server URL"
+                        429 -> "Too many login attempts. Please wait a few minutes and try again."
                         500 -> "Server error. Please try again later"
                         else -> "Login failed (${response.code()})"
                     }
