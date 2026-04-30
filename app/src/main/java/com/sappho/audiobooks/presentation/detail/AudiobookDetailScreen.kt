@@ -127,6 +127,7 @@ fun AudiobookDetailScreen(
     var showCollectionsDialog by remember { mutableStateOf(false) }
     var showDeleteBookDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showRemoveDownloadConfirm by remember { mutableStateOf(false) }
     val isRefreshingMetadata by viewModel.isRefreshingMetadata.collectAsState()
     val refreshMetadataResult by viewModel.refreshMetadataResult.collectAsState()
     val isConverting by viewModel.isConverting.collectAsState()
@@ -917,6 +918,24 @@ fun AudiobookDetailScreen(
                                                     imageVector = Icons.Filled.Close,
                                                     contentDescription = null,
                                                     tint = SapphoWarning
+                                                )
+                                            }
+                                        )
+                                    }
+
+                                    // Remove Download (only if downloaded and not currently downloading)
+                                    if (isDownloaded && !isDownloading) {
+                                        DropdownMenuItem(
+                                            text = { Text("Remove Download", color = SapphoText) },
+                                            onClick = {
+                                                showOverflowMenu = false
+                                                showRemoveDownloadConfirm = true
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Delete,
+                                                    contentDescription = null,
+                                                    tint = SapphoError
                                                 )
                                             }
                                         )
@@ -1891,6 +1910,36 @@ fun AudiobookDetailScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteBookDialog = false }) {
+                        Text("Cancel", color = SapphoInfo)
+                    }
+                },
+                containerColor = SapphoSurfaceLight
+            )
+        }
+
+        // Remove Download Confirmation Dialog
+        if (showRemoveDownloadConfirm) {
+            AlertDialog(
+                onDismissRequest = { showRemoveDownloadConfirm = false },
+                title = { Text("Remove Download", color = Color.White) },
+                text = {
+                    Text(
+                        "Remove \"${audiobook?.title ?: "this book"}\" from downloads? This will only delete the local file - your listening progress on the server will not be affected.",
+                        color = SapphoTextLight
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteDownload()
+                            showRemoveDownloadConfirm = false
+                        }
+                    ) {
+                        Text("Remove", color = SapphoError)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRemoveDownloadConfirm = false }) {
                         Text("Cancel", color = SapphoInfo)
                     }
                 },
