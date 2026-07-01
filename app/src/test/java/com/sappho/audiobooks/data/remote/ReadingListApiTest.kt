@@ -30,7 +30,8 @@ class ReadingListApiTest {
         every { authRepository.getServerUrlSync() } returns mockWebServer.url("/").toString()
         every { authRepository.getTokenSync() } returns "test-token"
 
-        val okHttpClient = NetworkModule.provideOkHttpClient(authRepository)
+        val refreshApi = mockk<SapphoApi>(relaxed = true)
+        val okHttpClient = NetworkModule.provideOkHttpClient(authRepository, refreshApi)
         val retrofit = Retrofit.Builder()
             .baseUrl(mockWebServer.url("/"))
             .client(okHttpClient)

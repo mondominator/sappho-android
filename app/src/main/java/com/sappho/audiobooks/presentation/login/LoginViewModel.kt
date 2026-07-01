@@ -59,7 +59,7 @@ class LoginViewModel @Inject constructor(
                             // MFA required - show code entry
                             _uiState.value = LoginUiState.MfaRequired(authResponse.mfaToken)
                         } else if (authResponse.token != null) {
-                            authRepository.saveToken(authResponse.token)
+                            authRepository.saveTokens(authResponse.token, authResponse.refreshToken)
                             _uiState.value = LoginUiState.Success
                         } else {
                             _uiState.value = LoginUiState.Error("Invalid response from server")
@@ -114,7 +114,7 @@ class LoginViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     response.body()?.let { authResponse ->
                         if (authResponse.token != null) {
-                            authRepository.saveToken(authResponse.token)
+                            authRepository.saveTokens(authResponse.token, authResponse.refreshToken)
                             _uiState.value = LoginUiState.Success
                         } else {
                             _uiState.value = LoginUiState.MfaError(mfaToken, "Invalid response from server")

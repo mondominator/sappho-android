@@ -34,6 +34,12 @@ interface SapphoApi {
         @Body credentials: RegisterRequest
     ): Response<AuthResponse>
 
+    // Non-suspend, Call-returning refresh endpoint. The TokenAuthenticator runs
+    // synchronously (off the OkHttp dispatcher) and must call .execute(), so a
+    // suspend function cannot be used here.
+    @POST("api/auth/refresh")
+    fun refreshTokenCall(@Body request: RefreshTokenRequest): retrofit2.Call<AuthResponse>
+
     // Audiobooks
     @GET("api/audiobooks")
     suspend fun getAudiobooks(
@@ -522,6 +528,9 @@ data class RegisterRequest(
     val password: String,
     val email: String? = null
 )
+
+// Serializes to {"refreshToken":"..."} — camelCase, NO @SerializedName.
+data class RefreshTokenRequest(val refreshToken: String)
 
 data class MfaVerifyRequest(
     @com.google.gson.annotations.SerializedName("mfa_token")

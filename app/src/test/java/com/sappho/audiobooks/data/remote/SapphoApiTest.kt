@@ -33,8 +33,10 @@ class SapphoApiTest {
         every { authRepository.getServerUrlSync() } returns mockWebServer.url("/").toString()
         every { authRepository.getTokenSync() } returns "test-token"
         
-        // Create API with mock server
-        val okHttpClient = NetworkModule.provideOkHttpClient(authRepository)
+        // Create API with mock server. The refresh API is unused by these tests
+        // (no 401s are enqueued), so a relaxed mock is sufficient.
+        val refreshApi = mockk<SapphoApi>(relaxed = true)
+        val okHttpClient = NetworkModule.provideOkHttpClient(authRepository, refreshApi)
         val retrofit = Retrofit.Builder()
             .baseUrl(mockWebServer.url("/"))
             .client(okHttpClient)
