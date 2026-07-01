@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.collectLatest
 import android.util.Log
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CancellationException
 import com.sappho.audiobooks.sync.SyncStatusManager
 import javax.inject.Inject
 
@@ -33,6 +36,8 @@ class HomeViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "HomeViewModel"
+        // Cap the home-feed load so an unreachable-but-online server can't hang it.
+        private const val FEED_TIMEOUT_MS = 10_000L
     }
 
     private val _inProgress = MutableStateFlow<List<Audiobook>>(emptyList())
@@ -96,105 +101,106 @@ class HomeViewModel @Inject constructor(
 
     private fun loadData() {
         if (!networkMonitor.isOnline.value) {
-            // Don't try to load if we know we're offline
+            // Device itself has no network — offline, surface downloads.
+            _isOffline.value = true
             return
         }
 
         viewModelScope.launch {
             performanceMonitor.measureTime("Home Data Load") {
                 _isLoading.value = true
-                try {
-                // Load all data in parallel for better performance
-                val favoritesDeferred = async {
-                    try {
-                        api.getFavorites()
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                
-                val inProgressDeferred = async { 
-                    try {
-                        api.getInProgress(10)
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                
-                val recentlyAddedDeferred = async { 
-                    try {
-                        api.getRecentlyAdded(10) 
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                
-                val upNextDeferred = async { 
-                    try {
-                        api.getUpNext(10)
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                
-                val finishedDeferred = async {
-                    try {
-                        api.getFinished(10)
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-
-                // Wait for favorites first to apply status to other lists
-                val favoriteIds = mutableSetOf<Int>()
-                val favoritesResponse = favoritesDeferred.await()
-                if (favoritesResponse?.isSuccessful == true) {
-                    favoriteIds.addAll(favoritesResponse.body()?.map { it.id } ?: emptyList())
-                }
-
-                // Helper function to apply favorite status to book lists
-                fun List<Audiobook>.withFavoriteStatus(): List<Audiobook> {
-                    return map { book ->
-                        if (favoriteIds.contains(book.id)) book.copy(isFavorite = true) else book
-                    }
-                }
-
-                // Process all responses in parallel
-                val inProgressResponse = inProgressDeferred.await()
-                if (inProgressResponse?.isSuccessful == true) {
-                    _inProgress.value = (inProgressResponse.body() ?: emptyList()).withFavoriteStatus()
-                }
-
-                val recentlyAddedResponse = recentlyAddedDeferred.await()
-                if (recentlyAddedResponse?.isSuccessful == true) {
-                    _recentlyAdded.value = (recentlyAddedResponse.body() ?: emptyList()).withFavoriteStatus()
-                }
-
-                val upNextResponse = upNextDeferred.await()
-                if (upNextResponse?.isSuccessful == true) {
-                    val upNextBooks = (upNextResponse.body() ?: emptyList()).withFavoriteStatus()
-                    // Prioritize next book in series of the currently playing book
-                    _upNext.value = prioritizeUpNext(upNextBooks, _inProgress.value)
-                }
-
-                val finishedResponse = finishedDeferred.await()
-                if (finishedResponse?.isSuccessful == true) {
-                    _finished.value = (finishedResponse.body() ?: emptyList()).withFavoriteStatus()
-                }
-                // Data loaded successfully from server — clear any stale sync state.
-                // Pending progress items are now stale since the server has the real
-                // position from successful streaming syncs.
-                downloadManager.clearAllPendingProgress()
-                syncStatusManager.updateSyncStatus(lastSyncSuccess = true)
-            } catch (e: Exception) {
+                // The device can be online while the SERVER is unreachable (it's
+                // down, or we're off its network). Those calls would otherwise
+                // block on OkHttp's read timeout (minutes) and leave Home spinning
+                // forever, so cap the whole load. On timeout or total failure we
+                // fall back to the offline UI (downloaded books).
+                val reachedServer = try {
+                    withTimeoutOrNull(FEED_TIMEOUT_MS) { loadHomeFeed() } ?: false
+                } catch (e: Exception) {
                     Log.e(TAG, "Failed to load home data", e)
+                    false
                 } finally {
                     _isLoading.value = false
                     performanceMonitor.logMemoryUsage("After Home Data Load")
                 }
+                _isOffline.value = !reachedServer
             }
         }
     }
+
+    /**
+     * Loads the home-feed sections in parallel. Returns true if the server was
+     * reachable (at least one request produced an HTTP response), false if every
+     * request failed with a network error.
+     */
+    private suspend fun loadHomeFeed(): Boolean = coroutineScope {
+        val favoritesDeferred = async { safeCall { api.getFavorites() } }
+        val inProgressDeferred = async { safeCall { api.getInProgress(10) } }
+        val recentlyAddedDeferred = async { safeCall { api.getRecentlyAdded(10) } }
+        val upNextDeferred = async { safeCall { api.getUpNext(10) } }
+        val finishedDeferred = async { safeCall { api.getFinished(10) } }
+
+        // Favorites first so we can flag favorite books in the other lists.
+        val favoritesResponse = favoritesDeferred.await()
+        val favoriteIds = mutableSetOf<Int>()
+        if (favoritesResponse?.isSuccessful == true) {
+            favoriteIds.addAll(favoritesResponse.body()?.map { it.id } ?: emptyList())
+        }
+
+        fun List<Audiobook>.withFavoriteStatus(): List<Audiobook> =
+            map { book -> if (favoriteIds.contains(book.id)) book.copy(isFavorite = true) else book }
+
+        // A non-null response means we actually reached the server (even an HTTP
+        // error counts); all-null means the server was unreachable.
+        var reached = favoritesResponse != null
+
+        val inProgressResponse = inProgressDeferred.await()
+        if (inProgressResponse != null) reached = true
+        if (inProgressResponse?.isSuccessful == true) {
+            _inProgress.value = (inProgressResponse.body() ?: emptyList()).withFavoriteStatus()
+        }
+
+        val recentlyAddedResponse = recentlyAddedDeferred.await()
+        if (recentlyAddedResponse != null) reached = true
+        if (recentlyAddedResponse?.isSuccessful == true) {
+            _recentlyAdded.value = (recentlyAddedResponse.body() ?: emptyList()).withFavoriteStatus()
+        }
+
+        val upNextResponse = upNextDeferred.await()
+        if (upNextResponse != null) reached = true
+        if (upNextResponse?.isSuccessful == true) {
+            val upNextBooks = (upNextResponse.body() ?: emptyList()).withFavoriteStatus()
+            _upNext.value = prioritizeUpNext(upNextBooks, _inProgress.value)
+        }
+
+        val finishedResponse = finishedDeferred.await()
+        if (finishedResponse != null) reached = true
+        if (finishedResponse?.isSuccessful == true) {
+            _finished.value = (finishedResponse.body() ?: emptyList()).withFavoriteStatus()
+        }
+
+        if (reached) {
+            // Server has the real positions from successful syncs — stale pending
+            // items can be dropped.
+            downloadManager.clearAllPendingProgress()
+            syncStatusManager.updateSyncStatus(lastSyncSuccess = true)
+        }
+        reached
+    }
+
+    /**
+     * Runs an API call, swallowing network errors (returns null) while letting
+     * coroutine cancellation propagate — so the feed timeout actually cancels
+     * the in-flight request instead of being caught and ignored.
+     */
+    private suspend fun <T> safeCall(block: suspend () -> retrofit2.Response<T>): retrofit2.Response<T>? =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
 
     fun refresh() {
         loadData()
