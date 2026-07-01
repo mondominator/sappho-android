@@ -186,25 +186,32 @@ class AudiobookDetailViewModel @Inject constructor(
             _isLoading.value = true
             _isProgressLoading.value = true
 
-            // If offline, load from downloaded data and merge with pending progress
-            if (!networkMonitor.isOnline.value) {
-                val downloadedBook = downloadManager.getDownloadedBook(id)
-                if (downloadedBook != null) {
-                    _audiobook.value = downloadedBook.audiobook
-                    _chapters.value = downloadedBook.chapters
+            // Seed from downloaded data first (if we have it) so a downloaded
+            // book's detail screen is usable immediately — even when the device
+            // is online but the SERVER is unreachable, where the refresh below
+            // would otherwise block on a long socket timeout and hang the screen.
+            val downloadedBook = downloadManager.getDownloadedBook(id)
+            if (downloadedBook != null) {
+                _audiobook.value = downloadedBook.audiobook
+                _chapters.value = downloadedBook.chapters
 
-                    // Check for pending progress that may be more recent than downloaded data
-                    val pendingProgress = downloadManager.pendingProgress.value[id]
-                    if (pendingProgress != null) {
-                        // Use pending progress if it exists (more recent than downloaded data)
-                        _progress.value = Progress(
-                            position = pendingProgress.position,
-                            completed = downloadedBook.audiobook.progress?.completed ?: 0
-                        )
-                    } else {
-                        _progress.value = downloadedBook.audiobook.progress
-                    }
+                // Check for pending progress that may be more recent than downloaded data
+                val pendingProgress = downloadManager.pendingProgress.value[id]
+                if (pendingProgress != null) {
+                    // Use pending progress if it exists (more recent than downloaded data)
+                    _progress.value = Progress(
+                        position = pendingProgress.position,
+                        completed = downloadedBook.audiobook.progress?.completed ?: 0
+                    )
+                } else {
+                    _progress.value = downloadedBook.audiobook.progress
                 }
+                _isProgressLoading.value = false
+                _isLoading.value = false
+            }
+
+            // Device offline — nothing to refresh from the server.
+            if (!networkMonitor.isOnline.value) {
                 _isProgressLoading.value = false
                 _isLoading.value = false
                 return@launch
@@ -294,8 +301,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     Log.e(TAG, "Failed to load files", e)
                 }
             } catch (e: Exception) {
-                // Network error - try to load from downloaded data with pending progress
-                val downloadedBook = downloadManager.getDownloadedBook(id)
+                // Network error - fall back to the downloaded data seeded above
+                // (if any), refreshing pending progress in case it changed.
                 if (downloadedBook != null) {
                     _audiobook.value = downloadedBook.audiobook
                     _chapters.value = downloadedBook.chapters

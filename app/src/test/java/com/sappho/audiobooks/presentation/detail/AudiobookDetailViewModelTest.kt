@@ -54,6 +54,9 @@ class AudiobookDetailViewModelTest {
 
         every { authRepository.getServerUrlSync() } returns "https://test.com"
         every { networkMonitor.isOnline } returns MutableStateFlow(true)
+        // Default: the book isn't downloaded. loadAudiobook() now seeds from
+        // downloaded data first, so the online-path tests need this to be null.
+        every { downloadManager.getDownloadedBook(any()) } returns null
         
         viewModel = AudiobookDetailViewModel(
             context = context,
