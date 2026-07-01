@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.sappho.audiobooks.data.remote.SapphoApi
+import com.sappho.audiobooks.data.remote.TokenAuthenticator
 import com.sappho.audiobooks.data.repository.AuthRepository
 import dagger.Module
 import dagger.Provides
@@ -15,6 +16,7 @@ import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -26,6 +28,8 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+
+    private const val DEFAULT_BASE_URL = "http://192.168.1.100:3002"
 
     @Provides
     @Singleton
@@ -58,10 +62,8 @@ object NetworkModule {
             .create()
     }
 
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(authRepository: AuthRepository): OkHttpClient {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
+    private fun provideLoggingInterceptor(): HttpLoggingInterceptor {
+        return HttpLoggingInterceptor().apply {
             // HEADERS level: logs request/response headers without buffering bodies.
             // BODY level would buffer entire audio files into memory for logging
             // and cause ProgressRequestBody.writeTo to be called twice.
@@ -71,83 +73,97 @@ object NetworkModule {
                 HttpLoggingInterceptor.Level.NONE
             }
         }
+    }
 
-        return OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
-            .addInterceptor { chain ->
-                val original = chain.request()
-                val originalHost = original.url.host
+    /**
+     * Interceptor that rewrites request URLs to the dynamically-configured
+     * server URL and (optionally) injects the auth header.
+     *
+     * @param addAuthHeader when true, adds `Authorization: Bearer <token>` if a
+     *   token is stored. The refresh client passes false because the refresh
+     *   token travels in the request body, not a header.
+     */
+    private fun serverUrlInterceptor(
+        authRepository: AuthRepository,
+        addAuthHeader: Boolean
+    ) = Interceptor { chain ->
+        val original = chain.request()
+        val originalHost = original.url.host
 
-                // Get the current server URL dynamically
-                val serverUrl = authRepository.getServerUrlSync()
-                val serverHost = serverUrl?.toHttpUrlOrNull()?.host
+        // Get the current server URL dynamically
+        val serverUrl = authRepository.getServerUrlSync()
+        val serverHost = serverUrl?.toHttpUrlOrNull()?.host
 
-                // Check if this is an external URL (not going to our server)
-                // External URLs should be passed through unchanged without auth headers
-                val isExternalUrl = serverHost != null &&
-                    originalHost != serverHost &&
-                    originalHost != "localhost" &&
-                    !originalHost.startsWith("192.168.") &&
-                    !originalHost.startsWith("10.") &&
-                    originalHost != "127.0.0.1"
+        // Check if this is an external URL (not going to our server)
+        // External URLs should be passed through unchanged without auth headers
+        val isExternalUrl = serverHost != null &&
+            originalHost != serverHost &&
+            originalHost != "localhost" &&
+            !originalHost.startsWith("192.168.") &&
+            !originalHost.startsWith("10.") &&
+            originalHost != "127.0.0.1"
 
-                if (isExternalUrl) {
-                    // External URL - pass through unchanged (no auth, no URL rewriting)
-                    chain.proceed(original)
-                } else {
-                    val request = if (serverUrl != null && serverUrl.isNotBlank()) {
-                        // Parse the server URL to extract components
-                        val baseUrl = if (!serverUrl.endsWith("/")) "$serverUrl/" else serverUrl
-                        val httpUrl = baseUrl.toHttpUrlOrNull()
+        if (isExternalUrl) {
+            // External URL - pass through unchanged (no auth, no URL rewriting)
+            chain.proceed(original)
+        } else {
+            fun withAuth(builder: okhttp3.Request.Builder): okhttp3.Request.Builder {
+                if (addAuthHeader) {
+                    val token = authRepository.getTokenSync()
+                    if (token != null) {
+                        builder.header("Authorization", "Bearer $token")
+                    }
+                }
+                return builder
+            }
 
-                        if (httpUrl != null) {
-                            // Rebuild the request URL with the dynamic server URL, preserving query parameters
-                            val urlBuilder = httpUrl.newBuilder()
-                                .addPathSegments(original.url.encodedPath.removePrefix("/"))
+            val request = if (serverUrl != null && serverUrl.isNotBlank()) {
+                // Parse the server URL to extract components
+                val baseUrl = if (!serverUrl.endsWith("/")) "$serverUrl/" else serverUrl
+                val httpUrl = baseUrl.toHttpUrlOrNull()
 
-                            // Copy all query parameters from the original request
-                            for (i in 0 until original.url.querySize) {
-                                val name = original.url.queryParameterName(i)
-                                val value = original.url.queryParameterValue(i)
-                                if (value != null) {
-                                    urlBuilder.addQueryParameter(name, value)
-                                }
-                            }
+                if (httpUrl != null) {
+                    // Rebuild the request URL with the dynamic server URL, preserving query parameters
+                    val urlBuilder = httpUrl.newBuilder()
+                        .addPathSegments(original.url.encodedPath.removePrefix("/"))
 
-                            val newUrl = urlBuilder.build()
-
-                            val requestBuilder = original.newBuilder().url(newUrl)
-
-                            // Add authorization header if token exists
-                            val token = authRepository.getTokenSync()
-                            if (token != null) {
-                                requestBuilder.header("Authorization", "Bearer $token")
-                            }
-
-                            requestBuilder.build()
-                        } else {
-                            // Fall back to original if URL parsing fails
-                            val requestBuilder = original.newBuilder()
-                            val token = authRepository.getTokenSync()
-                            if (token != null) {
-                                requestBuilder.header("Authorization", "Bearer $token")
-                            }
-                            requestBuilder.build()
+                    // Copy all query parameters from the original request
+                    for (i in 0 until original.url.querySize) {
+                        val name = original.url.queryParameterName(i)
+                        val value = original.url.queryParameterValue(i)
+                        if (value != null) {
+                            urlBuilder.addQueryParameter(name, value)
                         }
-                    } else {
-                        // No server URL set, use original
-                        val requestBuilder = original.newBuilder()
-                        val token = authRepository.getTokenSync()
-                        if (token != null) {
-                            requestBuilder.header("Authorization", "Bearer $token")
-                        }
-                        requestBuilder.build()
                     }
 
-                    chain.proceed(request)
+                    val newUrl = urlBuilder.build()
+                    withAuth(original.newBuilder().url(newUrl)).build()
+                } else {
+                    // Fall back to original if URL parsing fails
+                    withAuth(original.newBuilder()).build()
                 }
+            } else {
+                // No server URL set, use original
+                withAuth(original.newBuilder()).build()
             }
-            // Interceptor to detect auth errors (401 only — 403 is used for non-auth permission checks)
+
+            chain.proceed(request)
+        }
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        authRepository: AuthRepository,
+        @Named("refreshApi") refreshApi: SapphoApi
+    ): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(provideLoggingInterceptor())
+            .addInterceptor(serverUrlInterceptor(authRepository, addAuthHeader = true))
+            // Interceptor to detect auth errors (401 only — 403 is used for non-auth permission checks).
+            // Runs ABOVE the Authenticator: on a successful refresh it sees the final 200
+            // (not the intermediate 401) and does NOT log out; on refresh failure it sees the
+            // final 401 and triggers logout.
             .addInterceptor { chain ->
                 val response = chain.proceed(chain.request())
                 if (response.code == 401) {
@@ -156,10 +172,47 @@ object NetworkModule {
                 }
                 response
             }
+            .authenticator(TokenAuthenticator(authRepository, refreshApi))
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.MINUTES)
             .writeTimeout(5, TimeUnit.MINUTES)
             .build()
+    }
+
+    /**
+     * No-auth OkHttpClient used ONLY for the token-refresh call. It shares the
+     * dynamic-server-URL rewrite (so the refresh hits the correct server) but
+     * has NO Authenticator (prevents infinite loops) and NO 401-trigger, and it
+     * does not attach the Authorization header (the refresh token is in the body).
+     */
+    @Provides
+    @Singleton
+    @Named("refreshClient")
+    fun provideRefreshOkHttpClient(authRepository: AuthRepository): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(provideLoggingInterceptor())
+            .addInterceptor(serverUrlInterceptor(authRepository, addAuthHeader = false))
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    @Named("refreshApi")
+    fun provideRefreshApi(
+        @Named("refreshClient") client: OkHttpClient,
+        gson: Gson,
+        authRepository: AuthRepository
+    ): SapphoApi {
+        val baseUrl = authRepository.getServerUrlSync() ?: DEFAULT_BASE_URL
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+            .create(SapphoApi::class.java)
     }
 
     @Provides
@@ -181,7 +234,7 @@ object NetworkModule {
         authRepository: AuthRepository
     ): Retrofit {
         // Get base URL from auth repository (where server URL is stored)
-        val baseUrl = authRepository.getServerUrlSync() ?: "http://192.168.1.100:3002"
+        val baseUrl = authRepository.getServerUrlSync() ?: DEFAULT_BASE_URL
 
         return Retrofit.Builder()
             .baseUrl(baseUrl)
