@@ -104,7 +104,11 @@ fun HomeScreen(
         }
     }
 
-    if (isLoading) {
+    // Only take over the whole screen with the skeleton when there's nothing
+    // cached to show yet. If downloaded books exist they render immediately
+    // (and the feed refreshes underneath), so an unreachable server can't hide
+    // them behind an endless loading state.
+    if (isLoading && downloadedBooks.isEmpty()) {
         SkeletonHomeScreen()
     } else {
         Column(
