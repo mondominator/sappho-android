@@ -75,7 +75,7 @@ class LoginViewModelTest {
         
         coEvery { 
             api.login(LoginRequest(username, password)) 
-        } returns Response.success(AuthResponse(token, user))
+        } returns Response.success(AuthResponse(token = token, user = user))
         
         // When
         viewModel.uiState.test {
@@ -87,8 +87,8 @@ class LoginViewModelTest {
             assertThat(awaitItem()).isEqualTo(LoginUiState.Loading)
             assertThat(awaitItem()).isEqualTo(LoginUiState.Success)
             
-            // Verify token was saved
-            verify { authRepository.saveToken(token) }
+            // Verify tokens were saved (access + refresh; refreshToken null here)
+            verify { authRepository.saveTokens(token, null) }
         }
     }
     

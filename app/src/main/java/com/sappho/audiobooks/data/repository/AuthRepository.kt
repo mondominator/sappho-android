@@ -58,8 +58,34 @@ class AuthRepository @Inject constructor(
         return securePrefs.getString(KEY_TOKEN, null)
     }
 
+    fun saveRefreshToken(token: String) {
+        securePrefs.edit().putString(KEY_REFRESH_TOKEN, token).apply()
+    }
+
+    fun getRefreshTokenSync(): String? {
+        return securePrefs.getString(KEY_REFRESH_TOKEN, null)
+    }
+
+    fun clearRefreshToken() {
+        securePrefs.edit().remove(KEY_REFRESH_TOKEN).apply()
+    }
+
+    /**
+     * Persist a freshly issued access token (and, when present, its rotated
+     * refresh token). Reuses [saveToken] so isAuthenticated stays in sync.
+     */
+    fun saveTokens(accessToken: String, refreshToken: String?) {
+        saveToken(accessToken)
+        if (refreshToken != null) {
+            saveRefreshToken(refreshToken)
+        }
+    }
+
     fun clearToken() {
-        securePrefs.edit().remove(KEY_TOKEN).apply()
+        securePrefs.edit()
+            .remove(KEY_TOKEN)
+            .remove(KEY_REFRESH_TOKEN)
+            .apply()
         _isAuthenticated.value = false
     }
 
@@ -239,6 +265,7 @@ class AuthRepository @Inject constructor(
     companion object {
         private const val PREFS_NAME = "secure_prefs"
         private const val KEY_TOKEN = "auth_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_USERNAME = "cached_username"
         private const val KEY_DISPLAY_NAME = "cached_display_name"

@@ -154,6 +154,85 @@ class AuthRepositoryTest {
     }
 
     @Test
+    fun `saveRefreshToken stores refresh token in encrypted preferences`() {
+        // Given
+        val refreshToken = "refresh-token-abc"
+
+        // When
+        repository.saveRefreshToken(refreshToken)
+
+        // Then
+        verify { editor.putString("refresh_token", refreshToken) }
+        verify { editor.apply() }
+    }
+
+    @Test
+    fun `getRefreshTokenSync returns stored refresh token`() {
+        // Given
+        val refreshToken = "refresh-token-abc"
+        every { sharedPreferences.getString("refresh_token", null) } returns refreshToken
+
+        // When
+        val result = repository.getRefreshTokenSync()
+
+        // Then
+        assertThat(result).isEqualTo(refreshToken)
+    }
+
+    @Test
+    fun `getRefreshTokenSync returns null when no refresh token stored`() {
+        // Given
+        every { sharedPreferences.getString("refresh_token", null) } returns null
+
+        // When
+        val result = repository.getRefreshTokenSync()
+
+        // Then
+        assertThat(result).isNull()
+    }
+
+    @Test
+    fun `clearRefreshToken removes refresh token`() {
+        // When
+        repository.clearRefreshToken()
+
+        // Then
+        verify { editor.remove("refresh_token") }
+        verify { editor.apply() }
+    }
+
+    @Test
+    fun `saveTokens stores both access and refresh tokens`() {
+        // When
+        repository.saveTokens("access-123", "refresh-456")
+
+        // Then
+        verify { editor.putString("auth_token", "access-123") }
+        verify { editor.putString("refresh_token", "refresh-456") }
+    }
+
+    @Test
+    fun `saveTokens stores only access token when refresh token is null`() {
+        // When
+        repository.saveTokens("access-123", null)
+
+        // Then
+        verify { editor.putString("auth_token", "access-123") }
+        verify(exactly = 0) { editor.putString("refresh_token", any()) }
+    }
+
+    @Test
+    fun `clearToken removes refresh token too`() {
+        // When
+        repository.clearToken()
+
+        // Then
+        verify { editor.remove("auth_token") }
+        verify { editor.remove("refresh_token") }
+        verify { editor.apply() }
+    }
+
+    @Test
     fun `saveServerUrl trims whitespace from URL`() {
         // Given
         val url = "  https://sappho.example.com  "

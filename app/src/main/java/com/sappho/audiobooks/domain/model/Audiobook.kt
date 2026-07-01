@@ -83,6 +83,7 @@ data class DeleteFileRequest(
 
 data class AuthResponse(
     val token: String? = null,
+    val refreshToken: String? = null,
     val user: User? = null,
     @SerializedName("mfa_required") val mfaRequired: Boolean = false,
     @SerializedName("mfa_token") val mfaToken: String? = null
