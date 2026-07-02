@@ -43,6 +43,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.sappho.audiobooks.data.remote.Collection
 import com.sappho.audiobooks.presentation.theme.*
@@ -56,10 +57,10 @@ fun CollectionsScreen(
     onBackClick: () -> Unit = {},
     viewModel: CollectionsViewModel = hiltViewModel()
 ) {
-    val collections by viewModel.collections.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
-    val isCreating by viewModel.isCreating.collectAsState()
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
+    val isCreating by viewModel.isCreating.collectAsStateWithLifecycle()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var isEditMode by remember { mutableStateOf(false) }

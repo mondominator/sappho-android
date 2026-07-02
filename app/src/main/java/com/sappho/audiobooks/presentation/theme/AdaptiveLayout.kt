@@ -222,13 +222,3 @@ fun shouldShowNavigationRail(): Boolean {
     return screenSize == ScreenSize.EXPANDED ||
            (screenSize == ScreenSize.MEDIUM && isLandscape())
 }
-
-/**
- * Determine if detail screen should use two-column layout
- */
-@Composable
-fun shouldUseTwoColumnDetail(): Boolean {
-    val screenSize = rememberScreenSize()
-    return screenSize == ScreenSize.EXPANDED ||
-           (screenSize == ScreenSize.MEDIUM && isLandscape())
-}

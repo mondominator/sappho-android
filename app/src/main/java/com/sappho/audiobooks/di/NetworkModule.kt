@@ -111,6 +111,50 @@ object NetworkModule {
     }
 
     /**
+     * Rebuilds [originalUrl] against the stored server URL, preserving the
+     * request path and query parameters.
+     *
+     * For subpath deployments (e.g. "https://host/sappho"), absolute request
+     * URLs built from the server URL (Coil cover requests, stream URLs) already
+     * contain the subpath in their path. Since the rewrite appends the original
+     * path to the server URL (which also carries the subpath), the prefix would
+     * be duplicated ("/sappho/sappho/api/..."). To prevent that, the server's
+     * path prefix is stripped from the request path when it is already present
+     * and the request targets the server host.
+     *
+     * Returns null when the server URL cannot be parsed.
+     */
+    internal fun rewriteUrlForServer(originalUrl: okhttp3.HttpUrl, serverUrl: String): okhttp3.HttpUrl? {
+        val baseUrl = if (!serverUrl.endsWith("/")) "$serverUrl/" else serverUrl
+        val httpUrl = baseUrl.toHttpUrlOrNull() ?: return null
+
+        // Strip the server's own path prefix (subpath deployment) if the
+        // request already includes it, so it isn't appended twice.
+        val serverPrefix = httpUrl.encodedPath // e.g. "/sappho/" or "/"
+        var requestPath = originalUrl.encodedPath
+        if (serverPrefix != "/" &&
+            originalUrl.host == httpUrl.host &&
+            "$requestPath/".startsWith(serverPrefix)
+        ) {
+            requestPath = requestPath.removePrefix(serverPrefix.trimEnd('/'))
+        }
+
+        // Rebuild the request URL with the dynamic server URL, preserving query parameters
+        val urlBuilder = httpUrl.newBuilder()
+            .addPathSegments(requestPath.removePrefix("/"))
+
+        // Copy all query parameters from the original request
+        for (i in 0 until originalUrl.querySize) {
+            val name = originalUrl.queryParameterName(i)
+            val value = originalUrl.queryParameterValue(i)
+            if (value != null) {
+                urlBuilder.addQueryParameter(name, value)
+            }
+        }
+        return urlBuilder.build()
+    }
+
+    /**
      * Interceptor that rewrites request URLs to the dynamically-configured
      * server URL and (optionally) injects the auth header.
      *
@@ -150,25 +194,9 @@ object NetworkModule {
             }
 
             val request = if (serverUrl != null && serverUrl.isNotBlank()) {
-                // Parse the server URL to extract components
-                val baseUrl = if (!serverUrl.endsWith("/")) "$serverUrl/" else serverUrl
-                val httpUrl = baseUrl.toHttpUrlOrNull()
+                val newUrl = rewriteUrlForServer(original.url, serverUrl)
 
-                if (httpUrl != null) {
-                    // Rebuild the request URL with the dynamic server URL, preserving query parameters
-                    val urlBuilder = httpUrl.newBuilder()
-                        .addPathSegments(original.url.encodedPath.removePrefix("/"))
-
-                    // Copy all query parameters from the original request
-                    for (i in 0 until original.url.querySize) {
-                        val name = original.url.queryParameterName(i)
-                        val value = original.url.queryParameterValue(i)
-                        if (value != null) {
-                            urlBuilder.addQueryParameter(name, value)
-                        }
-                    }
-
-                    val newUrl = urlBuilder.build()
+                if (newUrl != null) {
                     withAuth(original.newBuilder().url(newUrl)).build()
                 } else {
                     // Fall back to original if URL parsing fails
@@ -244,16 +272,6 @@ object NetworkModule {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
             .create(SapphoApi::class.java)
-    }
-
-    @Provides
-    @Singleton
-    @Named("localNetwork")
-    fun provideLocalOkHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .build()
     }
 
     @Provides

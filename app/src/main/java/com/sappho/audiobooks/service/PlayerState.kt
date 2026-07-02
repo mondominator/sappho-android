@@ -104,18 +104,4 @@ class PlayerState @Inject constructor() {
         _bufferedPosition.value = 0L
         _lastActiveTimestamp.value = 0L
     }
-
-    fun clear() {
-        _currentAudiobook.value = null
-        _isPlaying.value = false
-        _currentPosition.value = 0L
-        _duration.value = 0L
-        _isLoading.value = false
-        _playbackSpeed.value = 1.0f
-        _sleepTimerRemaining.value = null
-        _sleepAtEndOfChapter.value = false
-        _bufferedPosition.value = 0L
-        _lastActiveTimestamp.value = 0L
-        _playbackError.value = null
-    }
 }

@@ -6,6 +6,7 @@ import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -132,6 +133,8 @@ class SearchViewModel @Inject constructor(
                 series = filteredSeries,
                 authors = filteredAuthors
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("SearchViewModel", "Search error", e)
             _results.value = SearchResults()

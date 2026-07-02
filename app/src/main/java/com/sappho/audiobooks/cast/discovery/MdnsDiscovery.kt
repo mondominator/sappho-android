@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -73,6 +74,8 @@ class MdnsDiscovery(private val context: Context) {
                 Log.d(TAG, "Service found: ${serviceInfo.serviceName}")
                 try {
                     nsdManager.resolveService(serviceInfo, resolveListener)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Error resolving service", e)
                 }
@@ -85,6 +88,8 @@ class MdnsDiscovery(private val context: Context) {
 
         try {
             nsdManager.discoverServices(serviceType, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start mDNS discovery", e)
             close(e)
@@ -93,6 +98,8 @@ class MdnsDiscovery(private val context: Context) {
         awaitClose {
             try {
                 nsdManager.stopServiceDiscovery(discoveryListener)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error stopping mDNS discovery", e)
             }

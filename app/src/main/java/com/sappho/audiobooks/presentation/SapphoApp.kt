@@ -2,12 +2,12 @@ package com.sappho.audiobooks.presentation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -23,8 +23,8 @@ fun SapphoApp(
     initialSeries: String? = null
 ) {
     val navController = rememberNavController()
-    val isAuthenticated by authRepository.isAuthenticated.collectAsState()
-    val authError by authRepository.authError.collectAsState()
+    val isAuthenticated by authRepository.isAuthenticated.collectAsStateWithLifecycle()
+    val authError by authRepository.authError.collectAsStateWithLifecycle()
 
     val startDestination = if (isAuthenticated) "main" else "login"
 

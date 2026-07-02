@@ -15,15 +15,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.SwipeRefreshIndicator
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.domain.model.UploadState
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -63,7 +64,7 @@ fun AdminScreen(
     viewModel: AdminViewModel = hiltViewModel()
 ) {
     var selectedSection by remember { mutableStateOf<AdminSection?>(null) }
-    val message by viewModel.message.collectAsState()
+    val message by viewModel.message.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(message) {
@@ -252,14 +253,15 @@ private fun AdminSectionContent(
 }
 
 // ============ Library Tab ============
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LibraryTab(viewModel: AdminViewModel) {
-    val serverSettings by viewModel.serverSettings.collectAsState()
-    val duplicates by viewModel.duplicates.collectAsState()
-    val jobs by viewModel.jobs.collectAsState()
-    val orphanDirectories by viewModel.orphanDirectories.collectAsState()
-    val organizePreview by viewModel.organizePreview.collectAsState()
-    val loadingSection by viewModel.loadingSection.collectAsState()
+    val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
+    val duplicates by viewModel.duplicates.collectAsStateWithLifecycle()
+    val jobs by viewModel.jobs.collectAsStateWithLifecycle()
+    val orphanDirectories by viewModel.orphanDirectories.collectAsStateWithLifecycle()
+    val organizePreview by viewModel.organizePreview.collectAsStateWithLifecycle()
+    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
     val isLoading = loadingSection == "serverSettings" || loadingSection == "library"
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedDuplicateGroup by remember { mutableStateOf<DuplicateGroup?>(null) }
@@ -278,20 +280,22 @@ private fun LibraryTab(viewModel: AdminViewModel) {
         if (loadingSection != "library") isRefreshing = false
     }
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+    val pullToRefreshState = rememberPullToRefreshState()
 
-    SwipeRefresh(
-        state = swipeRefreshState,
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             viewModel.refreshLibraryTab()
         },
-        indicator = { state, trigger ->
-            SwipeRefreshIndicator(
-                state = state,
-                refreshTriggerDistance = trigger,
-                backgroundColor = SapphoSurfaceLight,
-                contentColor = SapphoInfo
+        state = pullToRefreshState,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = SapphoSurfaceLight,
+                color = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -805,8 +809,8 @@ private fun LockedField(label: String, value: String) {
 // ============ Server Settings Tab ============
 @Composable
 private fun ServerSettingsTab(viewModel: AdminViewModel) {
-    val serverSettings by viewModel.serverSettings.collectAsState()
-    val loadingSection by viewModel.loadingSection.collectAsState()
+    val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
+    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
     val isLoading = loadingSection == "serverSettings"
     var showEditDialog by remember { mutableStateOf(false) }
 
@@ -995,8 +999,8 @@ private fun EditServerSettingsDialog(
 // ============ AI Settings Tab ============
 @Composable
 private fun AiSettingsTab(viewModel: AdminViewModel) {
-    val aiSettings by viewModel.aiSettings.collectAsState()
-    val loadingSection by viewModel.loadingSection.collectAsState()
+    val aiSettings by viewModel.aiSettings.collectAsStateWithLifecycle()
+    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
     val isLoading = loadingSection == "aiSettings"
     var showProviderDialog by remember { mutableStateOf(false) }
     var showRecapDialog by remember { mutableStateOf(false) }
@@ -1400,10 +1404,11 @@ private fun EditRecapSettingsDialog(
 }
 
 // ============ Users Tab ============
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UsersTab(viewModel: AdminViewModel) {
-    val users by viewModel.users.collectAsState()
-    val loadingSection by viewModel.loadingSection.collectAsState()
+    val users by viewModel.users.collectAsStateWithLifecycle()
+    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingUser by remember { mutableStateOf<UserInfo?>(null) }
     var userToDelete by remember { mutableStateOf<UserInfo?>(null) }
@@ -1417,20 +1422,22 @@ private fun UsersTab(viewModel: AdminViewModel) {
         if (loadingSection != "users") isRefreshing = false
     }
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+    val pullToRefreshState = rememberPullToRefreshState()
 
-    SwipeRefresh(
-        state = swipeRefreshState,
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             viewModel.refreshUsers()
         },
-        indicator = { state, trigger ->
-            SwipeRefreshIndicator(
-                state = state,
-                refreshTriggerDistance = trigger,
-                backgroundColor = SapphoSurfaceLight,
-                contentColor = SapphoInfo
+        state = pullToRefreshState,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = SapphoSurfaceLight,
+                color = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -1790,10 +1797,11 @@ private fun EditUserDialog(
 }
 
 // ============ API Keys Tab ============
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ApiKeysTab(viewModel: AdminViewModel) {
-    val apiKeys by viewModel.apiKeys.collectAsState()
-    val loadingSection by viewModel.loadingSection.collectAsState()
+    val apiKeys by viewModel.apiKeys.collectAsStateWithLifecycle()
+    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
     var keyToDelete by remember { mutableStateOf<ApiKey?>(null) }
     var newlyCreatedKey by remember { mutableStateOf<CreateApiKeyResponse?>(null) }
@@ -1807,20 +1815,22 @@ private fun ApiKeysTab(viewModel: AdminViewModel) {
         if (loadingSection != "apiKeys") isRefreshing = false
     }
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+    val pullToRefreshState = rememberPullToRefreshState()
 
-    SwipeRefresh(
-        state = swipeRefreshState,
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             viewModel.refreshApiKeys()
         },
-        indicator = { state, trigger ->
-            SwipeRefreshIndicator(
-                state = state,
-                refreshTriggerDistance = trigger,
-                backgroundColor = SapphoSurfaceLight,
-                contentColor = SapphoInfo
+        state = pullToRefreshState,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = SapphoSurfaceLight,
+                color = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -2260,11 +2270,12 @@ private fun NewApiKeyDialog(
 }
 
 // ============ Backup Tab ============
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BackupTab(viewModel: AdminViewModel) {
-    val backups by viewModel.backups.collectAsState()
-    val serverSettings by viewModel.serverSettings.collectAsState()
-    val loadingSection by viewModel.loadingSection.collectAsState()
+    val backups by viewModel.backups.collectAsStateWithLifecycle()
+    val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
+    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
     var backupToDelete by remember { mutableStateOf<BackupInfo?>(null) }
     var backupToRestore by remember { mutableStateOf<BackupInfo?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -2277,20 +2288,22 @@ private fun BackupTab(viewModel: AdminViewModel) {
         if (loadingSection != "backups") isRefreshing = false
     }
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+    val pullToRefreshState = rememberPullToRefreshState()
 
-    SwipeRefresh(
-        state = swipeRefreshState,
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             viewModel.refreshBackups()
         },
-        indicator = { state, trigger ->
-            SwipeRefreshIndicator(
-                state = state,
-                refreshTriggerDistance = trigger,
-                backgroundColor = SapphoSurfaceLight,
-                contentColor = SapphoInfo
+        state = pullToRefreshState,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = SapphoSurfaceLight,
+                color = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -2766,8 +2779,8 @@ private fun DuplicateMergeDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LogsTab(viewModel: AdminViewModel) {
-    val logs by viewModel.logs.collectAsState()
-    val loadingSection by viewModel.loadingSection.collectAsState()
+    val logs by viewModel.logs.collectAsStateWithLifecycle()
+    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
     val isLoading = loadingSection == "logs"
     var selectedLevel by remember { mutableStateOf<String?>(null) }
     var autoRefresh by remember { mutableStateOf(false) }
@@ -2809,20 +2822,22 @@ private fun LogsTab(viewModel: AdminViewModel) {
         }
     }
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+    val pullToRefreshState = rememberPullToRefreshState()
 
-    SwipeRefresh(
-        state = swipeRefreshState,
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             viewModel.refreshLogs(level = selectedLevel)
         },
-        indicator = { state, trigger ->
-            SwipeRefreshIndicator(
-                state = state,
-                refreshTriggerDistance = trigger,
-                backgroundColor = SapphoSurfaceLight,
-                contentColor = SapphoInfo
+        state = pullToRefreshState,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = SapphoSurfaceLight,
+                color = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -3031,15 +3046,16 @@ private fun LogEntryCard(log: LogEntry) {
 }
 
 // ============ Statistics Tab ============
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatisticsTab(viewModel: AdminViewModel, onBookClick: (Int) -> Unit) {
-    val statistics by viewModel.statistics.collectAsState()
-    val loadingSection by viewModel.loadingSection.collectAsState()
+    val statistics by viewModel.statistics.collectAsStateWithLifecycle()
+    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
     val isLoading = loadingSection == "statistics"
     var isRefreshing by remember { mutableStateOf(false) }
     var selectedFormat by remember { mutableStateOf<FormatStats?>(null) }
-    val formatBooks by viewModel.formatBooks.collectAsState()
-    val isLoadingFormatBooks by viewModel.isLoadingFormatBooks.collectAsState()
+    val formatBooks by viewModel.formatBooks.collectAsStateWithLifecycle()
+    val isLoadingFormatBooks by viewModel.isLoadingFormatBooks.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.loadStatistics()
@@ -3050,20 +3066,22 @@ private fun StatisticsTab(viewModel: AdminViewModel, onBookClick: (Int) -> Unit)
         if (!isLoading) isRefreshing = false
     }
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing)
+    val pullToRefreshState = rememberPullToRefreshState()
 
-    SwipeRefresh(
-        state = swipeRefreshState,
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
         onRefresh = {
             isRefreshing = true
             viewModel.refreshStatistics()
         },
-        indicator = { state, trigger ->
-            SwipeRefreshIndicator(
-                state = state,
-                refreshTriggerDistance = trigger,
-                backgroundColor = SapphoSurfaceLight,
-                contentColor = SapphoInfo
+        state = pullToRefreshState,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = SapphoSurfaceLight,
+                color = SapphoInfo
             )
         },
         modifier = Modifier.fillMaxSize()
@@ -3742,9 +3760,9 @@ private fun UploadDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val uploadState by viewModel.uploadState.collectAsState()
-    val uploadProgress by viewModel.uploadProgress.collectAsState()
-    val uploadResult by viewModel.uploadResult.collectAsState()
+    val uploadState by viewModel.uploadState.collectAsStateWithLifecycle()
+    val uploadProgress by viewModel.uploadProgress.collectAsStateWithLifecycle()
+    val uploadResult by viewModel.uploadResult.collectAsStateWithLifecycle()
 
     var selectedFiles by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var title by remember { mutableStateOf("") }
