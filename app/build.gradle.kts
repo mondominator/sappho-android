@@ -4,7 +4,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
-    kotlin("plugin.serialization") version "2.0.21"
     id("jacoco")
 }
 
@@ -16,8 +15,8 @@ android {
         applicationId = "com.sappho.audiobooks"
         minSdk = 26
         targetSdk = 35
-        versionCode = 103
-        versionName = "0.9.85"
+        versionCode = 104
+        versionName = "0.9.86"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -125,16 +124,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    // Kotlin Serialization (alternative to Gson)
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
-
-    // Room (Database)
-    val roomVersion = "2.6.1"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
-
     // Media3 (ExoPlayer)
     val media3Version = "1.5.1"
     implementation("androidx.media3:media3-exoplayer:$media3Version")
@@ -169,11 +158,6 @@ dependencies {
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-
-    // Accompanist (Compose utilities)
-    implementation("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
-    implementation("com.google.accompanist:accompanist-permissions:0.36.0")
-    implementation("com.google.accompanist:accompanist-swiperefresh:0.36.0")
 
     // Reorderable (Drag-and-drop for LazyColumn)
     implementation("sh.calvin.reorderable:reorderable:3.0.0")

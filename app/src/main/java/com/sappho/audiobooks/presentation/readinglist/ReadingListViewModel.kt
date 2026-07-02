@@ -7,6 +7,7 @@ import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -43,6 +44,8 @@ class ReadingListViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _books.value = response.body() ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Silently handle network errors
             } finally {
@@ -67,6 +70,8 @@ class ReadingListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 api.reorderFavorites(ReorderFavoritesRequest(current.map { it.id }))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Silently handle sync failure; local state already updated optimistically
             }
@@ -80,6 +85,8 @@ class ReadingListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 api.removeFavorite(audiobookId)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Revert on failure by reloading from server
                 loadReadingList()

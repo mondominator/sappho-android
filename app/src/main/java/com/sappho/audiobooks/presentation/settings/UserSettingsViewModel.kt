@@ -9,6 +9,7 @@ import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.User
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -49,6 +50,8 @@ class UserSettingsViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _user.value = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
             } finally {
                 _isLoading.value = false
@@ -63,6 +66,8 @@ class UserSettingsViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _serverVersion.value = response.body()?.version
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
             }
         }
@@ -79,6 +84,8 @@ class UserSettingsViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to update profile"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -97,6 +104,8 @@ class UserSettingsViewModel @Inject constructor(
                 } else {
                     _message.value = response.errorBody()?.string() ?: "Failed to update password"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {

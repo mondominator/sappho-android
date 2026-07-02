@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -29,16 +30,16 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     viewModel: UserSettingsViewModel = hiltViewModel()
 ) {
-    val isLoading by viewModel.isLoading.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     // Playback settings
-    val skipForwardSeconds by viewModel.userPreferences.skipForwardSeconds.collectAsState()
-    val skipBackwardSeconds by viewModel.userPreferences.skipBackwardSeconds.collectAsState()
-    val defaultPlaybackSpeed by viewModel.userPreferences.defaultPlaybackSpeed.collectAsState()
-    val rewindOnResumeSeconds by viewModel.userPreferences.rewindOnResumeSeconds.collectAsState()
-    val defaultSleepTimerMinutes by viewModel.userPreferences.defaultSleepTimerMinutes.collectAsState()
-    val bufferSizeSeconds by viewModel.userPreferences.bufferSizeSeconds.collectAsState()
-    val showChapterProgress by viewModel.userPreferences.showChapterProgress.collectAsState()
+    val skipForwardSeconds by viewModel.userPreferences.skipForwardSeconds.collectAsStateWithLifecycle()
+    val skipBackwardSeconds by viewModel.userPreferences.skipBackwardSeconds.collectAsStateWithLifecycle()
+    val defaultPlaybackSpeed by viewModel.userPreferences.defaultPlaybackSpeed.collectAsStateWithLifecycle()
+    val rewindOnResumeSeconds by viewModel.userPreferences.rewindOnResumeSeconds.collectAsStateWithLifecycle()
+    val defaultSleepTimerMinutes by viewModel.userPreferences.defaultSleepTimerMinutes.collectAsStateWithLifecycle()
+    val bufferSizeSeconds by viewModel.userPreferences.bufferSizeSeconds.collectAsStateWithLifecycle()
+    val showChapterProgress by viewModel.userPreferences.showChapterProgress.collectAsStateWithLifecycle()
 
     // Handle system back button
     BackHandler { onBackClick() }

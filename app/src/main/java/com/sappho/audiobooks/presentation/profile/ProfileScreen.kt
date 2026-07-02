@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
@@ -51,15 +52,15 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val user by viewModel.user.collectAsState()
-    val stats by viewModel.stats.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isSaving by viewModel.isSaving.collectAsState()
-    val saveMessage by viewModel.saveMessage.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
-    val avatarUri by viewModel.avatarUri.collectAsState()
-    val serverVersion by viewModel.serverVersion.collectAsState()
-    val avatarUpdated by viewModel.avatarUpdated.collectAsState()
+    val user by viewModel.user.collectAsStateWithLifecycle()
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
+    val saveMessage by viewModel.saveMessage.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
+    val avatarUri by viewModel.avatarUri.collectAsStateWithLifecycle()
+    val serverVersion by viewModel.serverVersion.collectAsStateWithLifecycle()
+    val avatarUpdated by viewModel.avatarUpdated.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }

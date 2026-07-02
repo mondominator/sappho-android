@@ -12,6 +12,7 @@ import com.sappho.audiobooks.cast.targets.KodiCastTarget
 import com.sappho.audiobooks.cast.targets.RokuCastTarget
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -170,6 +171,8 @@ class CastManager @Inject constructor(
                             addDiscoveredDevice(kodiDevice)
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Kodi discovery error", e)
                 }
@@ -189,6 +192,8 @@ class CastManager @Inject constructor(
                         )
                         addDiscoveredDevice(airPlayDevice)
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "AirPlay discovery error", e)
                 }
@@ -407,6 +412,8 @@ class CastManager @Inject constructor(
             val isKodi = body.contains("pong")
             Log.d(TAG, "Kodi verification for $host:$port = $isKodi")
             isKodi
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.v(TAG, "Not a Kodi device at $host:$port: ${e.message}")
             false
@@ -421,6 +428,8 @@ class CastManager @Inject constructor(
                 acquire()
             }
             Log.d(TAG, "Multicast lock acquired")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to acquire multicast lock", e)
         }
@@ -435,6 +444,8 @@ class CastManager @Inject constructor(
                 }
             }
             multicastLock = null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error releasing multicast lock", e)
         }

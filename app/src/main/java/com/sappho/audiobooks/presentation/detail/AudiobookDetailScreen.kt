@@ -1,5 +1,6 @@
 package com.sappho.audiobooks.presentation.detail
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.domain.model.Progress
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
@@ -91,36 +92,36 @@ fun AudiobookDetailScreen(
     isAdmin: Boolean = false,
     viewModel: AudiobookDetailViewModel = hiltViewModel()
 ) {
-    val audiobook by viewModel.audiobook.collectAsState()
-    val progress by viewModel.progress.collectAsState()
-    val isProgressLoading by viewModel.isProgressLoading.collectAsState()
-    val chapters by viewModel.chapters.collectAsState()
-    val files by viewModel.files.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
-    val coverVersion by viewModel.coverVersion.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isOffline by viewModel.isOffline.collectAsState()
-    val isFavorite by viewModel.isFavorite.collectAsState()
-    val isTogglingFavorite by viewModel.isTogglingFavorite.collectAsState()
-    val userRating by viewModel.userRating.collectAsState()
-    val averageRating by viewModel.averageRating.collectAsState()
-    val isUpdatingRating by viewModel.isUpdatingRating.collectAsState()
-    val reviews by viewModel.reviews.collectAsState()
-    val userReviewText by viewModel.userReviewText.collectAsState()
-    val currentUserId by viewModel.currentUserId.collectAsState()
-    val isSavingMetadata by viewModel.isSavingMetadata.collectAsState()
-    val metadataSaveResult by viewModel.metadataSaveResult.collectAsState()
-    val isSearchingMetadata by viewModel.isSearchingMetadata.collectAsState()
-    val metadataSearchResults by viewModel.metadataSearchResults.collectAsState()
-    val metadataSearchError by viewModel.metadataSearchError.collectAsState()
-    val isEmbeddingMetadata by viewModel.isEmbeddingMetadata.collectAsState()
-    val embedMetadataResult by viewModel.embedMetadataResult.collectAsState()
-    val isSavingChapters by viewModel.isSavingChapters.collectAsState()
-    val chapterSaveResult by viewModel.chapterSaveResult.collectAsState()
-    val isFetchingChapters by viewModel.isFetchingChapters.collectAsState()
-    val fetchChaptersResult by viewModel.fetchChaptersResult.collectAsState()
-    val isDeletingFile by viewModel.isDeletingFile.collectAsState()
-    val deleteFileError by viewModel.deleteFileError.collectAsState()
+    val audiobook by viewModel.audiobook.collectAsStateWithLifecycle()
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
+    val isProgressLoading by viewModel.isProgressLoading.collectAsStateWithLifecycle()
+    val chapters by viewModel.chapters.collectAsStateWithLifecycle()
+    val files by viewModel.files.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
+    val coverVersion by viewModel.coverVersion.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
+    val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
+    val isTogglingFavorite by viewModel.isTogglingFavorite.collectAsStateWithLifecycle()
+    val userRating by viewModel.userRating.collectAsStateWithLifecycle()
+    val averageRating by viewModel.averageRating.collectAsStateWithLifecycle()
+    val isUpdatingRating by viewModel.isUpdatingRating.collectAsStateWithLifecycle()
+    val reviews by viewModel.reviews.collectAsStateWithLifecycle()
+    val userReviewText by viewModel.userReviewText.collectAsStateWithLifecycle()
+    val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
+    val isSavingMetadata by viewModel.isSavingMetadata.collectAsStateWithLifecycle()
+    val metadataSaveResult by viewModel.metadataSaveResult.collectAsStateWithLifecycle()
+    val isSearchingMetadata by viewModel.isSearchingMetadata.collectAsStateWithLifecycle()
+    val metadataSearchResults by viewModel.metadataSearchResults.collectAsStateWithLifecycle()
+    val metadataSearchError by viewModel.metadataSearchError.collectAsStateWithLifecycle()
+    val isEmbeddingMetadata by viewModel.isEmbeddingMetadata.collectAsStateWithLifecycle()
+    val embedMetadataResult by viewModel.embedMetadataResult.collectAsStateWithLifecycle()
+    val isSavingChapters by viewModel.isSavingChapters.collectAsStateWithLifecycle()
+    val chapterSaveResult by viewModel.chapterSaveResult.collectAsStateWithLifecycle()
+    val isFetchingChapters by viewModel.isFetchingChapters.collectAsStateWithLifecycle()
+    val fetchChaptersResult by viewModel.fetchChaptersResult.collectAsStateWithLifecycle()
+    val isDeletingFile by viewModel.isDeletingFile.collectAsStateWithLifecycle()
+    val deleteFileError by viewModel.deleteFileError.collectAsStateWithLifecycle()
     var showChaptersDialog by remember { mutableStateOf(false) }
     var fileToDelete by remember { mutableStateOf<com.sappho.audiobooks.domain.model.DirectoryFile?>(null) }
     var showEditMetadataDialog by remember { mutableStateOf(false) }
@@ -128,38 +129,38 @@ fun AudiobookDetailScreen(
     var showDeleteBookDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showRemoveDownloadConfirm by remember { mutableStateOf(false) }
-    val isRefreshingMetadata by viewModel.isRefreshingMetadata.collectAsState()
-    val refreshMetadataResult by viewModel.refreshMetadataResult.collectAsState()
-    val isConverting by viewModel.isConverting.collectAsState()
-    val convertResult by viewModel.convertResult.collectAsState()
-    val conversionProgress by viewModel.conversionProgress.collectAsState()
+    val isRefreshingMetadata by viewModel.isRefreshingMetadata.collectAsStateWithLifecycle()
+    val refreshMetadataResult by viewModel.refreshMetadataResult.collectAsStateWithLifecycle()
+    val isConverting by viewModel.isConverting.collectAsStateWithLifecycle()
+    val convertResult by viewModel.convertResult.collectAsStateWithLifecycle()
+    val conversionProgress by viewModel.conversionProgress.collectAsStateWithLifecycle()
 
-    val collections by viewModel.collections.collectAsState()
-    val bookCollections by viewModel.bookCollections.collectAsState()
-    val isLoadingCollections by viewModel.isLoadingCollections.collectAsState()
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val bookCollections by viewModel.bookCollections.collectAsStateWithLifecycle()
+    val isLoadingCollections by viewModel.isLoadingCollections.collectAsStateWithLifecycle()
 
     // AI Recap (Catch Up)
-    val isAiConfigured by viewModel.isAiConfigured.collectAsState()
-    val recap by viewModel.recap.collectAsState()
-    val isLoadingRecap by viewModel.isLoadingRecap.collectAsState()
-    val recapError by viewModel.recapError.collectAsState()
-    val previousBookCompleted by viewModel.previousBookCompleted.collectAsState()
+    val isAiConfigured by viewModel.isAiConfigured.collectAsStateWithLifecycle()
+    val recap by viewModel.recap.collectAsStateWithLifecycle()
+    val isLoadingRecap by viewModel.isLoadingRecap.collectAsStateWithLifecycle()
+    val recapError by viewModel.recapError.collectAsStateWithLifecycle()
+    val previousBookCompleted by viewModel.previousBookCompleted.collectAsStateWithLifecycle()
     var showRecapDialog by remember { mutableStateOf(false) }
     var isDescriptionExpanded by remember { mutableStateOf(false) }
     var showRatingPicker by remember { mutableStateOf(false) }
     var showReviewsDropdown by remember { mutableStateOf(false) }
 
     // Check if this audiobook is currently playing or loaded
-    val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
-    val isPlaying by viewModel.playerState.isPlaying.collectAsState()
-    val currentPosition by viewModel.playerState.currentPosition.collectAsState()
+    val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.playerState.isPlaying.collectAsStateWithLifecycle()
+    val currentPosition by viewModel.playerState.currentPosition.collectAsStateWithLifecycle()
     val isThisBookLoaded = currentAudiobook?.id == audiobookId
     val isThisBookPlaying = isThisBookLoaded && isPlaying
 
     // Download state
-    val downloadStates by viewModel.downloadManager.downloadStates.collectAsState()
+    val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val downloadState = downloadStates[audiobookId]
-    val isDownloaded = viewModel.downloadManager.isDownloaded(audiobookId)
+    val isDownloaded = viewModel.isDownloaded(audiobookId)
     val isDownloading = downloadState?.isDownloading == true
     val downloadProgress = downloadState?.progress ?: 0f
     val downloadError = downloadState?.error

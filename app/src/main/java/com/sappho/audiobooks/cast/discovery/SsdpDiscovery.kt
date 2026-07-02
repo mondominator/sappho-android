@@ -1,6 +1,7 @@
 package com.sappho.audiobooks.cast.discovery
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -77,6 +78,8 @@ class SsdpDiscovery {
                     break
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "SSDP discovery error", e)
         } finally {
@@ -124,6 +127,8 @@ class SsdpDiscovery {
             val java_url = java.net.URL(url)
             val port = if (java_url.port == -1) java_url.defaultPort else java_url.port
             Pair(java_url.host, port)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             null
         }

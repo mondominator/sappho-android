@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.presentation.theme.SapphoAnimatedVisibility
 import com.sappho.audiobooks.presentation.theme.bouncyClickable
 import com.sappho.audiobooks.presentation.theme.accessibleCard
@@ -70,21 +71,21 @@ fun HomeScreen(
     onAudiobookClick: (Int) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val inProgress by viewModel.inProgress.collectAsState()
-    val upNext by viewModel.upNext.collectAsState()
-    val recentlyAdded by viewModel.recentlyAdded.collectAsState()
-    val finished by viewModel.finished.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
-    val isOffline by viewModel.isOffline.collectAsState()
-    val downloadedBooks by viewModel.downloadedBooks.collectAsState()
-    val downloadStates by viewModel.downloadStates.collectAsState()
-    val syncStatus by viewModel.syncStatus.collectAsState()
+    val inProgress by viewModel.inProgress.collectAsStateWithLifecycle()
+    val upNext by viewModel.upNext.collectAsStateWithLifecycle()
+    val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
+    val finished by viewModel.finished.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
+    val isOffline by viewModel.isOffline.collectAsStateWithLifecycle()
+    val downloadedBooks by viewModel.downloadedBooks.collectAsStateWithLifecycle()
+    val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
 
     // Collections state
-    val collections by viewModel.collections.collectAsState()
-    val bookCollections by viewModel.bookCollections.collectAsState()
-    val isLoadingCollections by viewModel.isLoadingCollections.collectAsState()
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val bookCollections by viewModel.bookCollections.collectAsStateWithLifecycle()
+    val isLoadingCollections by viewModel.isLoadingCollections.collectAsStateWithLifecycle()
 
     // Dialog state
     var showCollectionDialog by remember { mutableStateOf(false) }

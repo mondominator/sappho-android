@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.presentation.theme.*
 import com.sappho.audiobooks.presentation.theme.IconSize
 import com.sappho.audiobooks.presentation.theme.Spacing
@@ -39,10 +40,10 @@ fun SearchScreen(
     onAuthorClick: (String) -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel()
 ) {
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val results by viewModel.results.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val results by viewModel.results.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
 
     val focusRequester = remember { FocusRequester() }
 

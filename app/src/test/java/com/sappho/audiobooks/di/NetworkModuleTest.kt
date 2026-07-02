@@ -1,6 +1,7 @@
 package com.sappho.audiobooks.di
 
 import com.google.common.truth.Truth.assertThat
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Test
 
 class NetworkModuleTest {
@@ -100,5 +101,94 @@ class NetworkModuleTest {
         val result = NetworkModule.sanitizeBaseUrl("https://example.com:8443/a/b/c?x=1")
 
         assertThat(result).isEqualTo("https://example.com:8443/")
+    }
+
+    // --- rewriteUrlForServer (subpath deployments must not double-append the path) ---
+
+    @Test
+    fun `should rewrite retrofit-relative request onto subpath server url`() {
+        // Given: Retrofit's baseUrl is sanitized to scheme+host, so its request
+        // paths never include the subpath
+        val original = "https://example.com/api/audiobooks/meta/recent".toHttpUrl()
+
+        // When
+        val result = NetworkModule.rewriteUrlForServer(original, "https://example.com/sappho")
+
+        // Then
+        assertThat(result.toString())
+            .isEqualTo("https://example.com/sappho/api/audiobooks/meta/recent")
+    }
+
+    @Test
+    fun `should not double-append subpath for absolute url already containing it`() {
+        // Given: cover URLs are built as "$serverUrl/api/audiobooks/{id}/cover",
+        // so with a subpath deployment the path already starts with the subpath
+        val original = "https://example.com/sappho/api/audiobooks/5/cover".toHttpUrl()
+
+        // When
+        val result = NetworkModule.rewriteUrlForServer(original, "https://example.com/sappho")
+
+        // Then: previously produced ".../sappho/sappho/api/..."
+        assertThat(result.toString())
+            .isEqualTo("https://example.com/sappho/api/audiobooks/5/cover")
+    }
+
+    @Test
+    fun `should not strip path segment that merely shares the subpath as a text prefix`() {
+        // Given: "/sapphoapi" is not the "/sappho" subpath even though it starts
+        // with the same characters
+        val original = "https://example.com/sapphoapi/covers/5".toHttpUrl()
+
+        // When
+        val result = NetworkModule.rewriteUrlForServer(original, "https://example.com/sappho")
+
+        // Then
+        assertThat(result.toString())
+            .isEqualTo("https://example.com/sappho/sapphoapi/covers/5")
+    }
+
+    @Test
+    fun `should rewrite host and preserve query parameters`() {
+        // Given: a request built against an old host with a query string
+        val original = "http://192.168.1.100:3002/api/audiobooks/5/stream?token=abc".toHttpUrl()
+
+        // When
+        val result = NetworkModule.rewriteUrlForServer(original, "https://example.com")
+
+        // Then
+        assertThat(result.toString())
+            .isEqualTo("https://example.com/api/audiobooks/5/stream?token=abc")
+    }
+
+    @Test
+    fun `should append full path when hosts differ even with matching prefix`() {
+        // Given: prefix-stripping only applies to requests targeting the server
+        // host — other hosts keep their full path
+        val original = "http://192.168.1.100:3002/sappho/api/audiobooks/5/cover".toHttpUrl()
+
+        // When
+        val result = NetworkModule.rewriteUrlForServer(original, "https://example.com/sappho")
+
+        // Then
+        assertThat(result.toString())
+            .isEqualTo("https://example.com/sappho/sappho/api/audiobooks/5/cover")
+    }
+
+    @Test
+    fun `should return null for unparseable server url`() {
+        val original = "https://example.com/api/audiobooks/5/cover".toHttpUrl()
+
+        val result = NetworkModule.rewriteUrlForServer(original, "not a url")
+
+        assertThat(result).isNull()
+    }
+
+    @Test
+    fun `should rewrite unchanged for server url without subpath`() {
+        val original = "https://example.com/api/audiobooks/5/cover".toHttpUrl()
+
+        val result = NetworkModule.rewriteUrlForServer(original, "https://example.com")
+
+        assertThat(result.toString()).isEqualTo("https://example.com/api/audiobooks/5/cover")
     }
 }
