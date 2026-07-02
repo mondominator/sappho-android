@@ -279,6 +279,9 @@ class DownloadService : Service() {
                     } else {
                         emptyList()
                     }
+                } catch (e: CancellationException) {
+                    // Never swallow cancellation — the outer handler cleans up.
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to fetch chapters", e)
                     emptyList()

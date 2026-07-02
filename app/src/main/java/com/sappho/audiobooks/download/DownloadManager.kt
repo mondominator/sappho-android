@@ -5,9 +5,11 @@ import android.util.Log
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -72,6 +74,12 @@ class DownloadManager @Inject constructor(
     private val _pendingProgress = MutableStateFlow<Map<Int, PendingProgress>>(emptyMap())
     val pendingProgress: StateFlow<Map<Int, PendingProgress>> = _pendingProgress
 
+    // Serialize JSON metadata file writes: DownloadService and this class can
+    // both trigger saves concurrently, and unsynchronized writes could leave
+    // the file with stale (or interleaved) content.
+    private val metadataFileLock = Any()
+    private val pendingProgressFileLock = Any()
+
     init {
         loadDownloadedBooks()
         loadPendingProgress()
@@ -125,20 +133,26 @@ class DownloadManager @Inject constructor(
     )
 
     private fun saveDownloadedBooks() {
-        try {
-            val gson = com.google.gson.Gson()
-            val jsonBooks = _downloadedBooks.value.map { book ->
-                DownloadedBookJson(
-                    audiobook = book.audiobook,
-                    filePath = book.filePath,
-                    fileSize = book.fileSize,
-                    downloadedAt = book.downloadedAt,
-                    chapters = book.chapters
-                )
+        // The lock serializes file writes; the snapshot is read INSIDE it so a
+        // later write always persists state at least as fresh as any earlier
+        // one. A mutation landing mid-write is fine — every mutation calls
+        // save() itself, so the file converges to the latest state.
+        synchronized(metadataFileLock) {
+            try {
+                val gson = com.google.gson.Gson()
+                val jsonBooks = _downloadedBooks.value.map { book ->
+                    DownloadedBookJson(
+                        audiobook = book.audiobook,
+                        filePath = book.filePath,
+                        fileSize = book.fileSize,
+                        downloadedAt = book.downloadedAt,
+                        chapters = book.chapters
+                    )
+                }
+                metadataFile.writeText(gson.toJson(jsonBooks))
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving downloaded books", e)
             }
-            metadataFile.writeText(gson.toJson(jsonBooks))
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving downloaded books", e)
         }
     }
 
@@ -196,6 +210,10 @@ class DownloadManager @Inject constructor(
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
                         var totalBytesRead = 0L
+                        // Throttle progress emissions to whole-percent steps:
+                        // emitting per 8KB chunk floods the StateFlow with tens of
+                        // thousands of updates and forces needless recompositions.
+                        var lastReportedPercent = -1
 
                         while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                             outputStream.write(buffer, 0, bytesRead)
@@ -207,12 +225,16 @@ class DownloadManager @Inject constructor(
                                 0f
                             }
 
-                            updateDownloadState(audiobookId, DownloadState(
-                                audiobookId = audiobookId,
-                                progress = progress,
-                                isDownloading = true,
-                                isCompleted = false
-                            ))
+                            val percent = (progress * 100).toInt()
+                            if (percent != lastReportedPercent) {
+                                lastReportedPercent = percent
+                                updateDownloadState(audiobookId, DownloadState(
+                                    audiobookId = audiobookId,
+                                    progress = progress,
+                                    isDownloading = true,
+                                    isCompleted = false
+                                ))
+                            }
                         }
                     }
                 }
@@ -225,6 +247,10 @@ class DownloadManager @Inject constructor(
                     } else {
                         emptyList()
                     }
+                } catch (e: CancellationException) {
+                    // Never swallow cancellation - it must propagate so the
+                    // coroutine actually stops.
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to fetch chapters for download", e)
                     emptyList()
@@ -239,7 +265,7 @@ class DownloadManager @Inject constructor(
                     chapters = chapters
                 )
 
-                _downloadedBooks.value = _downloadedBooks.value + downloadedBook
+                _downloadedBooks.update { it + downloadedBook }
                 saveDownloadedBooks()
 
                 // Update state to completed
@@ -252,6 +278,15 @@ class DownloadManager @Inject constructor(
 
                 Log.d(TAG, "Download complete: ${file.absolutePath}")
                 true
+            } catch (e: CancellationException) {
+                // Reset UI state, then rethrow so cancellation propagates.
+                updateDownloadState(audiobookId, DownloadState(
+                    audiobookId = audiobookId,
+                    progress = 0f,
+                    isDownloading = false,
+                    isCompleted = false
+                ))
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Download failed", e)
                 updateDownloadState(audiobookId, DownloadState(
@@ -275,13 +310,11 @@ class DownloadManager @Inject constructor(
                 file.delete()
             }
 
-            _downloadedBooks.value = _downloadedBooks.value.filter { it.audiobook.id != audiobookId }
+            _downloadedBooks.update { books -> books.filter { it.audiobook.id != audiobookId } }
             saveDownloadedBooks()
 
             // Clear download state
-            val currentStates = _downloadStates.value.toMutableMap()
-            currentStates.remove(audiobookId)
-            _downloadStates.value = currentStates
+            _downloadStates.update { it - audiobookId }
 
             true
         } catch (e: Exception) {
@@ -291,9 +324,10 @@ class DownloadManager @Inject constructor(
     }
 
     private fun updateDownloadState(audiobookId: Int, state: DownloadState) {
-        val currentStates = _downloadStates.value.toMutableMap()
-        currentStates[audiobookId] = state
-        _downloadStates.value = currentStates
+        // update {} makes the read-modify-write atomic: concurrent downloads
+        // (or DownloadService callbacks) would otherwise lose entries when two
+        // threads snapshot the same map.
+        _downloadStates.update { it + (audiobookId to state) }
     }
 
     // Called by DownloadService to update state
@@ -315,33 +349,31 @@ class DownloadManager @Inject constructor(
             downloadedAt = System.currentTimeMillis(),
             chapters = chapters
         )
-        _downloadedBooks.value = _downloadedBooks.value + downloadedBook
+        _downloadedBooks.update { it + downloadedBook }
         saveDownloadedBooks()
     }
 
     fun clearDownloadError(audiobookId: Int) {
-        val currentStates = _downloadStates.value.toMutableMap()
-        val currentState = currentStates[audiobookId]
-        if (currentState?.error != null) {
-            // Clear the error but keep other state if still relevant
-            currentStates[audiobookId] = currentState.copy(error = null)
-            _downloadStates.value = currentStates
+        _downloadStates.update { states ->
+            val currentState = states[audiobookId]
+            if (currentState?.error != null) {
+                // Clear the error but keep other state if still relevant
+                states + (audiobookId to currentState.copy(error = null))
+            } else {
+                states
+            }
         }
     }
 
     fun clearAllDownloadErrors() {
-        val currentStates = _downloadStates.value.toMutableMap()
-        val hasChanges = currentStates.values.any { !it.error.isNullOrBlank() }
-        
-        if (hasChanges) {
-            currentStates.replaceAll { _, state ->
-                if (!state.error.isNullOrBlank()) {
-                    state.copy(error = null)
-                } else {
-                    state
+        _downloadStates.update { states ->
+            if (states.values.any { !it.error.isNullOrBlank() }) {
+                states.mapValues { (_, state) ->
+                    if (!state.error.isNullOrBlank()) state.copy(error = null) else state
                 }
+            } else {
+                states
             }
-            _downloadStates.value = currentStates
         }
     }
 
@@ -361,12 +393,14 @@ class DownloadManager @Inject constructor(
     }
 
     private fun savePendingProgress() {
-        try {
-            val gson = com.google.gson.Gson()
-            val progressList = _pendingProgress.value.values.toList()
-            pendingProgressFile.writeText(gson.toJson(progressList))
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving pending progress", e)
+        synchronized(pendingProgressFileLock) {
+            try {
+                val gson = com.google.gson.Gson()
+                val progressList = _pendingProgress.value.values.toList()
+                pendingProgressFile.writeText(gson.toJson(progressList))
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving pending progress", e)
+            }
         }
     }
 
@@ -377,9 +411,7 @@ class DownloadManager @Inject constructor(
             position = position,
             timestamp = System.currentTimeMillis()
         )
-        val current = _pendingProgress.value.toMutableMap()
-        current[audiobookId] = pending
-        _pendingProgress.value = current
+        _pendingProgress.update { it + (audiobookId to pending) }
         savePendingProgress()
 
         // Also update the audiobook's progress in the downloaded book metadata
@@ -395,9 +427,7 @@ class DownloadManager @Inject constructor(
 
     fun clearPendingProgress(audiobookId: Int) {
         Log.d(TAG, "Clearing pending progress for book $audiobookId")
-        val current = _pendingProgress.value.toMutableMap()
-        current.remove(audiobookId)
-        _pendingProgress.value = current
+        _pendingProgress.update { it - audiobookId }
         savePendingProgress()
     }
 
@@ -426,19 +456,21 @@ class DownloadManager @Inject constructor(
     }
 
     private fun updateDownloadedBookProgress(audiobookId: Int, position: Int) {
-        val currentBooks = _downloadedBooks.value.toMutableList()
-        val index = currentBooks.indexOfFirst { it.audiobook.id == audiobookId }
-        if (index >= 0) {
-            val book = currentBooks[index]
-            val updatedProgress = book.audiobook.progress?.copy(position = position)
-                ?: com.sappho.audiobooks.domain.model.Progress(
-                    position = position,
-                    completed = 0
-                )
-            val updatedAudiobook = book.audiobook.copy(progress = updatedProgress)
-            currentBooks[index] = book.copy(audiobook = updatedAudiobook)
-            _downloadedBooks.value = currentBooks
-            saveDownloadedBooks()
+        if (_downloadedBooks.value.none { it.audiobook.id == audiobookId }) return
+        _downloadedBooks.update { books ->
+            books.map { book ->
+                if (book.audiobook.id == audiobookId) {
+                    val updatedProgress = book.audiobook.progress?.copy(position = position)
+                        ?: com.sappho.audiobooks.domain.model.Progress(
+                            position = position,
+                            completed = 0
+                        )
+                    book.copy(audiobook = book.audiobook.copy(progress = updatedProgress))
+                } else {
+                    book
+                }
+            }
         }
+        saveDownloadedBooks()
     }
 }

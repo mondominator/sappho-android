@@ -7,6 +7,7 @@ import com.sappho.audiobooks.data.remote.MfaVerifyRequest
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -85,6 +86,8 @@ class LoginViewModel @Inject constructor(
                     }
                     _uiState.value = LoginUiState.Error(errorMessage)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val errorMessage = when (e) {
                     is java.net.UnknownHostException -> "Cannot reach server. Please check your server URL and network connection"
@@ -135,6 +138,8 @@ class LoginViewModel @Inject constructor(
                         _uiState.value = LoginUiState.MfaError(mfaToken, errorMessage)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = LoginUiState.MfaError(mfaToken, "Network error: ${e.message}")
             }

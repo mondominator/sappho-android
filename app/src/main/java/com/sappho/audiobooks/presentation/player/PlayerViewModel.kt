@@ -15,6 +15,7 @@ import com.sappho.audiobooks.service.PlayerState
 import com.sappho.audiobooks.cast.CastHelper
 import com.sappho.audiobooks.cast.CastManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -69,6 +70,8 @@ class PlayerViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     book = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
             }
 
@@ -93,6 +96,8 @@ class PlayerViewModel @Inject constructor(
                             actualStartPosition = progress.position
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                 }
             }
@@ -151,6 +156,8 @@ class PlayerViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     book = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
             }
 
@@ -204,6 +211,8 @@ class PlayerViewModel @Inject constructor(
                 if (kotlin.math.abs(serverPosition - localPosition) > 2) {
                     service.seekTo(serverPosition)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Network failure — keep showing current state
             }
@@ -245,6 +254,8 @@ class PlayerViewModel @Inject constructor(
                         bestPosition = progress.position
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Network failed — use local position
             }
@@ -269,6 +280,9 @@ class PlayerViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _listeningSessions.value = response.body()?.sessions ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                _historyLoading.value = false
+                throw e
             } catch (_: Exception) { }
             _historyLoading.value = false
         }
@@ -281,6 +295,8 @@ class PlayerViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _chapters.value = response.body() ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Offline - try to load chapters from downloaded data
                 val downloadedBook = downloadManager.getDownloadedBook(audiobookId)

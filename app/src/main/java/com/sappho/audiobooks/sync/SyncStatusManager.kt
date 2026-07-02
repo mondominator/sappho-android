@@ -22,7 +22,7 @@ import javax.inject.Singleton
 
 data class SyncStatus(
     val pendingCount: Int = 0,
-    val issyncing: Boolean = false,
+    val isSyncing: Boolean = false,
     val lastSyncTime: Long? = null,
     val lastSyncSuccess: Boolean = true,
     val errorMessage: String? = null,
@@ -150,7 +150,7 @@ class SyncStatusManager @Inject constructor(
 
         _syncStatus.value = current.copy(
             pendingCount = pendingCount,
-            issyncing = _isSyncing.value,
+            isSyncing = _isSyncing.value,
             lastSyncTime = _lastSyncTime.value ?: current.lastSyncTime,
             lastSyncSuccess = lastSyncSuccess ?: current.lastSyncSuccess,
             errorMessage = resolvedError,

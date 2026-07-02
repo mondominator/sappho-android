@@ -31,6 +31,41 @@ object NetworkModule {
 
     private const val DEFAULT_BASE_URL = "http://192.168.1.100:3002"
 
+    /**
+     * True for hosts on a private/local network where the dynamic-URL rewrite
+     * and auth header should apply. Covers loopback plus all three RFC-1918
+     * blocks — including 172.16.0.0/12 (second octet 16-31), which is common
+     * for Docker and corporate networks.
+     */
+    internal fun isPrivateNetworkHost(host: String): Boolean {
+        if (host == "localhost" || host == "127.0.0.1") return true
+        if (host.startsWith("192.168.") || host.startsWith("10.")) return true
+        if (host.startsWith("172.")) {
+            val secondOctet = host.split(".").getOrNull(1)?.toIntOrNull()
+            return secondOctet != null && secondOctet in 16..31
+        }
+        return false
+    }
+
+    /**
+     * Sanitizes a stored server URL to scheme+host+port for use as Retrofit's
+     * static baseUrl. Retrofit throws IllegalArgumentException at DI-graph
+     * creation for base URLs with a path that doesn't end in "/" (e.g.
+     * "https://host/sappho" as stored, since AuthRepository trims the trailing
+     * slash) — which would crash the app at startup with no recovery path.
+     * Dropping the path is safe because the serverUrlInterceptor rewrites every
+     * request URL from the stored value anyway.
+     */
+    internal fun sanitizeBaseUrl(url: String?): String {
+        val httpUrl = url?.toHttpUrlOrNull() ?: return "$DEFAULT_BASE_URL/"
+        return okhttp3.HttpUrl.Builder()
+            .scheme(httpUrl.scheme)
+            .host(httpUrl.host)
+            .port(httpUrl.port)
+            .build()
+            .toString()
+    }
+
     @Provides
     @Singleton
     fun provideGson(): Gson {
@@ -98,10 +133,7 @@ object NetworkModule {
         // External URLs should be passed through unchanged without auth headers
         val isExternalUrl = serverHost != null &&
             originalHost != serverHost &&
-            originalHost != "localhost" &&
-            !originalHost.startsWith("192.168.") &&
-            !originalHost.startsWith("10.") &&
-            originalHost != "127.0.0.1"
+            !isPrivateNetworkHost(originalHost)
 
         if (isExternalUrl) {
             // External URL - pass through unchanged (no auth, no URL rewriting)
@@ -206,9 +238,8 @@ object NetworkModule {
         gson: Gson,
         authRepository: AuthRepository
     ): SapphoApi {
-        val baseUrl = authRepository.getServerUrlSync() ?: DEFAULT_BASE_URL
         return Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(sanitizeBaseUrl(authRepository.getServerUrlSync()))
             .client(client)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
@@ -233,11 +264,10 @@ object NetworkModule {
         @ApplicationContext context: Context,
         authRepository: AuthRepository
     ): Retrofit {
-        // Get base URL from auth repository (where server URL is stored)
-        val baseUrl = authRepository.getServerUrlSync() ?: DEFAULT_BASE_URL
-
+        // Base URL is only a Retrofit constructor requirement — the
+        // serverUrlInterceptor rewrites every request to the stored server URL.
         return Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(sanitizeBaseUrl(authRepository.getServerUrlSync()))
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()

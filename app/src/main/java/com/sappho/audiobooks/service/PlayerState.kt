@@ -38,6 +38,11 @@ class PlayerState @Inject constructor() {
     private val _lastActiveTimestamp = MutableStateFlow(0L)
     val lastActiveTimestamp: StateFlow<Long> = _lastActiveTimestamp
 
+    // Playback errors are surfaced here (instead of a Toast from the service)
+    // so the player UI can show a dismissible dialog the user can acknowledge.
+    private val _playbackError = MutableStateFlow<String?>(null)
+    val playbackError: StateFlow<String?> = _playbackError
+
     fun updateLastActiveTimestamp() {
         _lastActiveTimestamp.value = System.currentTimeMillis()
     }
@@ -78,6 +83,14 @@ class PlayerState @Inject constructor() {
         _bufferedPosition.value = position
     }
 
+    fun updatePlaybackError(message: String) {
+        _playbackError.value = message
+    }
+
+    fun clearPlaybackError() {
+        _playbackError.value = null
+    }
+
     /**
      * Mark playback as inactive while preserving position, duration, and audiobook
      * for UI display. Called when the service times out or is destroyed — the player
@@ -103,5 +116,6 @@ class PlayerState @Inject constructor() {
         _sleepAtEndOfChapter.value = false
         _bufferedPosition.value = 0L
         _lastActiveTimestamp.value = 0L
+        _playbackError.value = null
     }
 }

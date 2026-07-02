@@ -203,16 +203,36 @@ class AuthRepository @Inject constructor(
     }
 
     private fun createEncryptedPrefs(): SharedPreferences {
-        return try {
-            EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (e: Exception) {
-            Log.e("AuthRepository", "Failed to decrypt preferences, clearing corrupted data", e)
+        // Android Keystore is known to throw transient errors (e.g. right after
+        // device unlock or an OS update). Retry before falling back to the
+        // destructive wipe below — wiping on a transient failure permanently
+        // destroys valid tokens and forces a re-login. Retries are immediate
+        // (no sleep): this runs during Hilt singleton construction on the main
+        // thread, so any delay here is startup jank, and transient Keystore
+        // errors usually clear on the very next attempt.
+        var lastError: Exception? = null
+        repeat(CREATE_PREFS_MAX_ATTEMPTS) { attempt ->
+            try {
+                return EncryptedSharedPreferences.create(
+                    context,
+                    PREFS_NAME,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (e: Exception) {
+                lastError = e
+                Log.w(
+                    "AuthRepository",
+                    "EncryptedSharedPreferences creation failed (attempt ${attempt + 1}/$CREATE_PREFS_MAX_ATTEMPTS)",
+                    e
+                )
+            }
+        }
+
+        // Repeated failures — treat as true corruption and recreate from scratch.
+        Log.e("AuthRepository", "Failed to open encrypted preferences after retries, clearing corrupted data", lastError)
+        return run {
             clearCorruptedData()
             // Create new master key and prefs after clearing
             val newMasterKey = MasterKey.Builder(context)
@@ -264,6 +284,7 @@ class AuthRepository @Inject constructor(
 
     companion object {
         private const val PREFS_NAME = "secure_prefs"
+        private const val CREATE_PREFS_MAX_ATTEMPTS = 3
         private const val KEY_TOKEN = "auth_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_SERVER_URL = "server_url"

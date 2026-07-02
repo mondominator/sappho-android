@@ -16,6 +16,7 @@ import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.presentation.MainActivity
 import com.sappho.audiobooks.util.ProgressRequestBody
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -278,6 +279,10 @@ class UploadService : Service() {
                         }
 
                         cumulativeBytesUploaded += tempFile.length()
+                    } catch (e: CancellationException) {
+                        // Upload was cancelled — propagate so the loop stops
+                        // instead of counting it as a per-file failure.
+                        throw e
                     } catch (e: Exception) {
                         failCount++
                         Log.e(TAG, "Upload error for $fileName", e)
@@ -300,6 +305,10 @@ class UploadService : Service() {
 
                 showCompletedNotification(success, message)
 
+            } catch (e: CancellationException) {
+                // Cancellation is user-initiated (cancelCurrentUpload sets its
+                // own state) — rethrow; the finally block still cleans up.
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Upload error", e)
                 val message = "Upload failed: ${e.message}"
@@ -394,6 +403,10 @@ class UploadService : Service() {
                     showCompletedNotification(false, message)
                 }
 
+            } catch (e: CancellationException) {
+                // Cancellation is user-initiated (cancelCurrentUpload sets its
+                // own state) — rethrow; the finally block still cleans up.
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Upload error", e)
                 val message = "Upload failed: ${e.message}"

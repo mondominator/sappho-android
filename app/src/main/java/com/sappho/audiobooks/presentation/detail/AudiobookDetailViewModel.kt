@@ -32,6 +32,7 @@ import com.sappho.audiobooks.util.NetworkMonitor
 import com.sappho.audiobooks.domain.model.ConversionJob
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -244,6 +245,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         _userReviewText.value = userRatingData?.review ?: ""
                         _currentUserId.value = userRatingData?.userId
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     // Rating is optional, don't show error to user
                     Log.e(TAG, "Failed to load rating", e)
@@ -255,6 +258,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     if (avgResponse.isSuccessful) {
                         _averageRating.value = avgResponse.body()
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to load average rating", e)
                 }
@@ -268,6 +273,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     if (progressResponse.isSuccessful) {
                         _progress.value = progressResponse.body()
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     // If progress endpoint fails, check for pending progress
                     val pendingProgress = downloadManager.pendingProgress.value[id]
@@ -287,6 +294,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     if (chaptersResponse.isSuccessful) {
                         _chapters.value = chaptersResponse.body() ?: emptyList()
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to load chapters", e)
                 }
@@ -297,9 +306,13 @@ class AudiobookDetailViewModel @Inject constructor(
                     if (filesResponse.isSuccessful) {
                         _files.value = filesResponse.body() ?: emptyList()
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to load files", e)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Network error - fall back to the downloaded data seeded above
                 // (if any), refreshing pending progress in case it changed.
@@ -331,6 +344,8 @@ class AudiobookDetailViewModel @Inject constructor(
                 try {
                     api.markFinished(book.id, com.sappho.audiobooks.data.remote.ProgressUpdateRequest(0, 1, "stopped"))
                     loadAudiobook(book.id) // Reload to get updated progress
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to mark book as finished", e)
                 }
@@ -344,6 +359,8 @@ class AudiobookDetailViewModel @Inject constructor(
                 try {
                     api.clearProgress(book.id)
                     loadAudiobook(book.id) // Reload to get updated progress
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to clear progress", e)
                 }
@@ -359,6 +376,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     if (response.isSuccessful) {
                         onDeleted()
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to delete audiobook", e)
                 }
@@ -390,6 +409,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     } else {
                         _refreshMetadataResult.value = "Failed to refresh metadata"
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _refreshMetadataResult.value = e.message ?: "Error refreshing metadata"
                 } finally {
@@ -453,6 +474,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         _convertResult.value = "Failed to convert: ${errorMessage ?: "Unknown error"}"
                         _isConverting.value = false
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _convertResult.value = e.message ?: "Error converting to M4B"
                     _isConverting.value = false
@@ -486,6 +509,8 @@ class AudiobookDetailViewModel @Inject constructor(
                             break
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     // Network error during poll — keep trying
                     Log.w(TAG, "Conversion poll failed: ${e.message}")
@@ -521,6 +546,8 @@ class AudiobookDetailViewModel @Inject constructor(
             try {
                 api.cancelConversionJob(jobId)
                 // Polling will pick up the cancelled status
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _convertResult.value = "Failed to cancel: ${e.message}"
             }
@@ -546,6 +573,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         startConversionPolling(audiobookId)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Not critical — just means we won't show existing progress
             }
@@ -582,6 +611,8 @@ class AudiobookDetailViewModel @Inject constructor(
                             _isFavorite.value = result.isFavorite
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to toggle favorite", e)
                 } finally {
@@ -608,12 +639,16 @@ class AudiobookDetailViewModel @Inject constructor(
                             if (avgResponse.isSuccessful) {
                                 _averageRating.value = avgResponse.body()
                             }
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to refresh average rating", e)
                         }
                         // Refresh reviews list
                         loadReviews(book.id)
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to set rating", e)
                 } finally {
@@ -633,6 +668,8 @@ class AudiobookDetailViewModel @Inject constructor(
             if (response.isSuccessful) {
                 _reviews.value = response.body() ?: emptyList()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load reviews", e)
         }
@@ -653,10 +690,14 @@ class AudiobookDetailViewModel @Inject constructor(
                             if (avgResponse.isSuccessful) {
                                 _averageRating.value = avgResponse.body()
                             }
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to refresh average rating after clear", e)
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to clear rating", e)
                 } finally {
@@ -684,6 +725,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     } else {
                         _metadataSaveResult.value = "Failed to save metadata: ${response.code()}"
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _metadataSaveResult.value = "Error: ${e.message}"
                 } finally {
@@ -719,6 +762,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     } else {
                         _metadataSearchError.value = "Search failed: ${response.code()}"
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _metadataSearchError.value = "Error: ${e.message}"
                 } finally {
@@ -764,6 +809,8 @@ class AudiobookDetailViewModel @Inject constructor(
                             else -> "Failed to embed: ${response.code()} ${errorMessage ?: ""}"
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _embedMetadataResult.value = "Error: ${e.message}"
                 } finally {
@@ -793,6 +840,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     } else {
                         _chapterSaveResult.value = "Failed to update chapters: ${response.code()}"
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _chapterSaveResult.value = "Error: ${e.message}"
                 } finally {
@@ -822,6 +871,8 @@ class AudiobookDetailViewModel @Inject constructor(
                             else -> "Failed to fetch chapters: ${response.code()}"
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _fetchChaptersResult.value = "Error: ${e.message}"
                 } finally {
@@ -856,6 +907,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         .map { it.id }
                         .toSet()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load collections for book", e)
             } finally {
@@ -879,6 +932,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         _bookCollections.value = _bookCollections.value + collectionId
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to toggle book in collection", e)
             }
@@ -900,6 +955,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create collection and add book", e)
             }
@@ -926,6 +983,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         if (filesResponse.isSuccessful) {
                             _files.value = filesResponse.body() ?: emptyList()
                         }
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         // File was deleted, but refresh failed - still ok
                     }
@@ -939,6 +998,8 @@ class AudiobookDetailViewModel @Inject constructor(
                     }
                     _deleteFileError.value = errorMessage ?: "Failed to delete file"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _deleteFileError.value = e.message ?: "Error deleting file"
             } finally {
@@ -958,6 +1019,8 @@ class AudiobookDetailViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _isAiConfigured.value = response.body()?.configured ?: false
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _isAiConfigured.value = false
             }
@@ -984,6 +1047,8 @@ class AudiobookDetailViewModel @Inject constructor(
                         }
                         _recapError.value = errorMessage ?: "Failed to load recap"
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     _recapError.value = e.message ?: "Error loading recap"
                 } finally {
@@ -999,6 +1064,8 @@ class AudiobookDetailViewModel @Inject constructor(
                 try {
                     api.clearAudiobookRecap(book.id)
                     _recap.value = null
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to clear recap", e)
                 }
@@ -1018,6 +1085,8 @@ class AudiobookDetailViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _previousBookCompleted.value = response.body()?.previousBookCompleted ?: false
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _previousBookCompleted.value = false
             }
