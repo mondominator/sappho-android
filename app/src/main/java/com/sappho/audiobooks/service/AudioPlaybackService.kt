@@ -47,6 +47,7 @@ import com.sappho.audiobooks.presentation.theme.Timing
 import com.sappho.audiobooks.sync.ProgressSyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -79,6 +80,10 @@ class AudioPlaybackService : MediaLibraryService() {
     lateinit var userPreferences: UserPreferencesRepository
 
     private var player: ExoPlayer? = null
+    // @Volatile: written from a background coroutine (cover fetch) and read on
+    // the main thread when building notifications — without it the main thread
+    // may never observe the loaded bitmap.
+    @Volatile
     private var currentCoverBitmap: android.graphics.Bitmap? = null
     private var mediaLibrarySession: MediaLibrarySession? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -133,6 +138,15 @@ class AudioPlaybackService : MediaLibraryService() {
         @Volatile
         var instance: AudioPlaybackService? = null
             private set
+
+        /**
+         * Clamps a skip-forward target to the book duration. When the duration
+         * is not yet known (<= 0, e.g. still buffering), the raw target is
+         * returned unclamped — clamping against 0 would seek back to the start.
+         */
+        internal fun clampSkipForwardPosition(targetSeconds: Long, durationSeconds: Long): Long {
+            return if (durationSeconds > 0) targetSeconds.coerceAtMost(durationSeconds) else targetSeconds
+        }
     }
 
     // Cache for audiobooks to avoid re-fetching
@@ -421,12 +435,12 @@ class AudioPlaybackService : MediaLibraryService() {
                     android.util.Log.e("AudioPlaybackService", "Player error: ${error.message}", error)
                     playerState.updateLoadingState(false)
                     playerState.updatePlayingState(false)
-                    // Show a toast to the user
-                    android.widget.Toast.makeText(
-                        this@AudioPlaybackService,
-                        "Playback error: ${error.message ?: "Unknown error"}",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
+                    // Surface the error through PlayerState so the UI can show a
+                    // dismissible dialog — a Toast from a service is easy to miss
+                    // and gives the user no way to acknowledge the failure.
+                    playerState.updatePlaybackError(
+                        "Playback error: ${error.message ?: "Unknown error"}"
+                    )
                 }
             })
         }
@@ -695,6 +709,11 @@ class AudioPlaybackService : MediaLibraryService() {
                         } else {
                             future.set(mutableListOf())
                         }
+                    } catch (e: CancellationException) {
+                        // Resolve the future before rethrowing so the Media3
+                        // controller waiting on it does not hang forever.
+                        future.set(mutableListOf())
+                        throw e
                     } catch (e: Exception) {
                         android.util.Log.e("AutoService", "Voice search error", e)
                         future.set(mutableListOf())
@@ -730,6 +749,9 @@ class AudioPlaybackService : MediaLibraryService() {
                             } else {
                                 future.set(mutableListOf())
                             }
+                        } catch (e: CancellationException) {
+                            future.set(mutableListOf())
+                            throw e
                         } catch (e: Exception) {
                             android.util.Log.e("AudioPlaybackService", "Error loading chapter", e)
                             future.set(mutableListOf())
@@ -763,6 +785,9 @@ class AudioPlaybackService : MediaLibraryService() {
                             } else {
                                 future.set(mutableListOf())
                             }
+                        } catch (e: CancellationException) {
+                            future.set(mutableListOf())
+                            throw e
                         } catch (e: Exception) {
                             android.util.Log.e("AudioPlaybackService", "Error loading audiobook for playback", e)
                             future.set(mutableListOf())
@@ -851,6 +876,11 @@ class AudioPlaybackService : MediaLibraryService() {
                     } else {
                         future.setException(Exception("Failed to load audiobooks"))
                     }
+                } catch (e: CancellationException) {
+                    // Resolve the future before rethrowing so the controller
+                    // waiting on it does not hang forever.
+                    future.setException(e)
+                    throw e
                 } catch (e: Exception) {
                     android.util.Log.e("AutoService", "Error in playback resumption", e)
                     future.setException(e)
@@ -895,6 +925,8 @@ class AudioPlaybackService : MediaLibraryService() {
                 android.util.Log.e("AutoService", "Search failed: ${response.code()}")
                 lastSearchResults = emptyList()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("AutoService", "Exception during search", e)
             lastSearchResults = emptyList()
@@ -924,6 +956,8 @@ class AudioPlaybackService : MediaLibraryService() {
                         android.util.Log.w("AutoService", "Voice search - no results for: $query")
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AutoService", "Voice search error", e)
             }
@@ -1009,6 +1043,9 @@ class AudioPlaybackService : MediaLibraryService() {
                 } else {
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
+            } catch (e: CancellationException) {
+                future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AudioPlaybackService", "Error loading chapters", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
@@ -1067,6 +1104,9 @@ class AudioPlaybackService : MediaLibraryService() {
                     android.util.Log.e("AutoService", "Failed to load in-progress books: ${response.code()}")
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
+            } catch (e: CancellationException) {
+                future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AutoService", "Exception loading in-progress books", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
@@ -1105,6 +1145,9 @@ class AudioPlaybackService : MediaLibraryService() {
                     android.util.Log.e("AutoService", "Failed to load recent books: ${response.code()}")
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
+            } catch (e: CancellationException) {
+                future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AutoService", "Exception loading recent books", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
@@ -1142,6 +1185,9 @@ class AudioPlaybackService : MediaLibraryService() {
                     android.util.Log.e("AutoService", "Failed to load all books: ${response.code()}")
                     future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
                 }
+            } catch (e: CancellationException) {
+                future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AutoService", "Exception loading all books", e)
                 future.set(LibraryResult.ofItemList(ImmutableList.of(), params))
@@ -1168,6 +1214,9 @@ class AudioPlaybackService : MediaLibraryService() {
                 } else {
                     future.set(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
                 }
+            } catch (e: CancellationException) {
+                future.set(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
+                throw e
             } catch (e: Exception) {
                 future.set(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
             }
@@ -1405,7 +1454,10 @@ class AudioPlaybackService : MediaLibraryService() {
     fun skipForward() {
         player?.let {
             val skipSeconds = userPreferences.skipForwardSeconds.value.toLong()
-            val newPosition = (it.currentPosition / 1000 + skipSeconds).coerceAtMost(playerState.duration.value)
+            val newPosition = clampSkipForwardPosition(
+                targetSeconds = it.currentPosition / 1000 + skipSeconds,
+                durationSeconds = playerState.duration.value
+            )
             seekTo(newPosition)
         }
     }
@@ -1566,6 +1618,8 @@ class AudioPlaybackService : MediaLibraryService() {
                     )
                     // Successfully synced - clear any pending progress for this book
                     downloadManager.clearPendingProgress(book.id)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     if (!respectDelayGuard || isPlayingLocalFile) {
                         // Pause/stop event or offline — save locally for later sync
@@ -1593,6 +1647,8 @@ class AudioPlaybackService : MediaLibraryService() {
                         )
                     )
                     downloadManager.clearPendingProgress(pending.audiobookId)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                     // Continue trying remaining items
                 }
@@ -1606,6 +1662,8 @@ class AudioPlaybackService : MediaLibraryService() {
                 playerState.currentAudiobook.value?.let { book ->
                     api.markFinished(book.id, ProgressUpdateRequest(0, 1, "stopped"))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AudioPlaybackService", "Failed to mark audiobook as finished", e)
             }
@@ -1710,6 +1768,8 @@ class AudioPlaybackService : MediaLibraryService() {
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AudioPlaybackService", "Failed to load cover bitmap", e)
             }

@@ -17,6 +17,7 @@ import com.sappho.audiobooks.download.DownloadManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 
 @HiltWorker
 class ProgressSyncWorker @AssistedInject constructor(
@@ -99,6 +100,10 @@ class ProgressSyncWorker @AssistedInject constructor(
                         failureCount++
                         Log.w(TAG, "Failed to sync progress for book ${pending.audiobookId}: ${response.code()}")
                     }
+                } catch (e: CancellationException) {
+                    // WorkManager cancelled the worker — propagate instead of
+                    // counting it as a per-item failure.
+                    throw e
                 } catch (e: Exception) {
                     failureCount++
                     Log.e(TAG, "Exception syncing progress for book ${pending.audiobookId}", e)
@@ -116,6 +121,8 @@ class ProgressSyncWorker @AssistedInject constructor(
                 // All failed
                 Result.failure()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Progress sync worker failed", e)
             Result.retry()

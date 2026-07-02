@@ -3,6 +3,7 @@ package com.sappho.audiobooks.presentation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,6 +31,14 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var inAppUpdateManager: InAppUpdateManager
+
+    // ActivityResult launcher for the Play in-app update flow. Replaces the
+    // deprecated request-code overload, whose result was silently dropped.
+    private val updateResultLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        inAppUpdateManager.onUpdateFlowResult(result.resultCode)
+    }
 
     override fun onResume() {
         super.onResume()
@@ -69,7 +78,7 @@ class MainActivity : ComponentActivity() {
                         is UpdateState.Available -> {
                             UpdateAvailableDialog(
                                 onUpdateClick = {
-                                    inAppUpdateManager.startUpdate(this@MainActivity)
+                                    inAppUpdateManager.startUpdate(updateResultLauncher)
                                 },
                                 onDismiss = {
                                     inAppUpdateManager.dismissUpdate()
@@ -94,7 +103,7 @@ class MainActivity : ComponentActivity() {
                                 message = state.message,
                                 onRetryClick = {
                                     inAppUpdateManager.clearError()
-                                    inAppUpdateManager.startUpdate(this@MainActivity)
+                                    inAppUpdateManager.startUpdate(updateResultLauncher)
                                 },
                                 onDismiss = {
                                     inAppUpdateManager.clearError()

@@ -3,6 +3,8 @@ package com.sappho.audiobooks.data.update
 import android.app.Activity
 import android.content.Context
 import android.util.Log
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
 import com.google.android.play.core.appupdate.AppUpdateInfo
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
@@ -117,7 +119,13 @@ class InAppUpdateManager @Inject constructor(
         }
     }
 
-    fun startUpdate(activity: Activity) {
+    /**
+     * Launches the Play update flow via the ActivityResult API. The old
+     * request-code overload of startUpdateFlowForResult is deprecated and its
+     * result was never delivered anywhere (MainActivity has no
+     * onActivityResult), so declined updates left the state stuck on Downloading.
+     */
+    fun startUpdate(launcher: ActivityResultLauncher<IntentSenderRequest>) {
         val info = appUpdateInfo ?: run {
             Log.w(TAG, "No update info available")
             return
@@ -146,13 +154,24 @@ class InAppUpdateManager @Inject constructor(
 
             appUpdateManager.startUpdateFlowForResult(
                 info,
-                activity,
-                AppUpdateOptions.defaultOptions(updateType),
-                UPDATE_REQUEST_CODE
+                launcher,
+                AppUpdateOptions.defaultOptions(updateType)
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start update flow", e)
             _updateState.value = UpdateState.Failed("Failed to start update: ${e.message}")
+        }
+    }
+
+    /**
+     * Called with the result of the update-flow dialog. Anything other than
+     * RESULT_OK means the user declined or the flow failed — reset the state so
+     * the UI is not stuck on a Downloading dialog.
+     */
+    fun onUpdateFlowResult(resultCode: Int) {
+        if (resultCode != Activity.RESULT_OK) {
+            Log.d(TAG, "Update flow not accepted (resultCode=$resultCode)")
+            _updateState.value = UpdateState.None
         }
     }
 
@@ -173,6 +192,5 @@ class InAppUpdateManager @Inject constructor(
 
     companion object {
         private const val TAG = "InAppUpdateManager"
-        const val UPDATE_REQUEST_CODE = 1001
     }
 }
