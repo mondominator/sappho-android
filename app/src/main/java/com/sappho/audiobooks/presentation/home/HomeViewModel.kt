@@ -28,7 +28,7 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val api: SapphoApi,
     private val authRepository: AuthRepository,
-    val downloadManager: DownloadManager,  // Make public for HomeScreen access
+    private val downloadManager: DownloadManager,
     private val networkMonitor: NetworkMonitor,
     private val syncStatusManager: SyncStatusManager,
     private val performanceMonitor: PerformanceMonitor
@@ -63,6 +63,13 @@ class HomeViewModel @Inject constructor(
     
     // Expose sync status to UI
     val syncStatus: StateFlow<com.sappho.audiobooks.sync.SyncStatus> = syncStatusManager.syncStatus
+
+    // Expose only the download flows the UI needs, not the whole DownloadManager,
+    // so the view can't reach mutating APIs like deleteDownload directly.
+    val downloadedBooks: StateFlow<List<com.sappho.audiobooks.download.DownloadedBook>> =
+        downloadManager.downloadedBooks
+    val downloadStates: StateFlow<Map<Int, com.sappho.audiobooks.download.DownloadState>> =
+        downloadManager.downloadStates
 
     // Collections state
     private val _collections = MutableStateFlow<List<Collection>>(emptyList())
@@ -116,6 +123,8 @@ class HomeViewModel @Inject constructor(
                 // fall back to the offline UI (downloaded books).
                 val reachedServer = try {
                     withTimeoutOrNull(FEED_TIMEOUT_MS) { loadHomeFeed() } ?: false
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to load home data", e)
                     false
@@ -216,6 +225,8 @@ class HomeViewModel @Inject constructor(
                     updateFavoriteStatus(audiobookId, isFavorite)
                     onResult(isFavorite)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to toggle favorite", e)
             }
@@ -285,6 +296,8 @@ class HomeViewModel @Inject constructor(
                         .map { it.id }
                         .toSet()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load collections for book", e)
             } finally {
@@ -308,6 +321,8 @@ class HomeViewModel @Inject constructor(
                         _bookCollections.value = _bookCollections.value + collectionId
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to toggle book in collection", e)
             }
@@ -328,6 +343,8 @@ class HomeViewModel @Inject constructor(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create collection and add book", e)
             }

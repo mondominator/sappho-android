@@ -77,8 +77,8 @@ fun HomeScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val serverUrl by viewModel.serverUrl.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
-    val downloadedBooks by viewModel.downloadManager.downloadedBooks.collectAsState()
-    val downloadStates by viewModel.downloadManager.downloadStates.collectAsState()
+    val downloadedBooks by viewModel.downloadedBooks.collectAsState()
+    val downloadStates by viewModel.downloadStates.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
 
     // Collections state
@@ -595,13 +595,13 @@ fun SyncStatusBanner(
         Icon(
             imageVector = when {
                 syncStatus.errorMessage != null -> Icons.Default.SyncProblem
-                syncStatus.issyncing -> Icons.Default.Sync
+                syncStatus.isSyncing -> Icons.Default.Sync
                 syncStatus.pendingCount > 0 -> Icons.Default.Sync
                 else -> Icons.Default.CheckCircle
             },
             contentDescription = when {
                 syncStatus.errorMessage != null -> SapphoAccessibility.ContentDescriptions.SYNC_ERROR
-                syncStatus.issyncing -> SapphoAccessibility.ContentDescriptions.SYNC_IN_PROGRESS
+                syncStatus.isSyncing -> SapphoAccessibility.ContentDescriptions.SYNC_IN_PROGRESS
                 syncStatus.pendingCount > 0 -> SapphoAccessibility.ContentDescriptions.SYNC_PENDING
                 else -> SapphoAccessibility.ContentDescriptions.SYNC_COMPLETE
             },
@@ -626,7 +626,7 @@ fun SyncStatusBanner(
                         color = SapphoTextSecondary
                     )
                 }
-                syncStatus.issyncing -> {
+                syncStatus.isSyncing -> {
                     Text(
                         text = "Syncing progress...",
                         style = MaterialTheme.typography.bodyMedium,
@@ -672,7 +672,7 @@ fun SyncStatusBanner(
             Spacer(modifier = Modifier.width(Spacing.XS))
         }
         
-        if (!syncStatus.issyncing && syncStatus.pendingCount > 0) {
+        if (!syncStatus.isSyncing && syncStatus.pendingCount > 0) {
             val syncHaptic = HapticPatterns.buttonPress()
             TextButton(
                 onClick = { 

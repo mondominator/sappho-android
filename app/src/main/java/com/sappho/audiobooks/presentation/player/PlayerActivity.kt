@@ -186,6 +186,7 @@ fun PlayerScreen(
     val playbackSpeed = playerState?.playbackSpeed?.collectAsState()?.value ?: 1.0f
     val sleepTimerRemaining = playerState?.sleepTimerRemaining?.collectAsState()?.value
     val sleepAtEndOfChapter = playerState?.sleepAtEndOfChapter?.collectAsState()?.value ?: false
+    val playbackError = playerState?.playbackError?.collectAsState()?.value
 
     // When casting, poll the Cast position periodically
     var castPosition by remember { mutableLongStateOf(0L) }
@@ -350,6 +351,34 @@ fun PlayerScreen(
                         },
                         confirmButton = {
                             TextButton(onClick = { castManager.clearError() }) {
+                                Text("OK", color = SapphoInfo)
+                            }
+                        },
+                        containerColor = SapphoSurfaceLight,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                    )
+                }
+
+                // Playback error dialog — surfaced from AudioPlaybackService via
+                // PlayerState so the user can acknowledge the failure.
+                playbackError?.let { error ->
+                    AlertDialog(
+                        onDismissRequest = { playerState?.clearPlaybackError() },
+                        title = {
+                            Text(
+                                "Playback Error",
+                                color = Color.White,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        },
+                        text = {
+                            Text(
+                                error,
+                                color = SapphoIconDefault
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { playerState?.clearPlaybackError() }) {
                                 Text("OK", color = SapphoInfo)
                             }
                         },
