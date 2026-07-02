@@ -44,15 +44,16 @@ import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.presentation.theme.Timing
+import com.sappho.audiobooks.sync.ProgressSyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -88,6 +89,10 @@ class AudioPlaybackService : MediaLibraryService() {
 
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
+    // True when WE paused because of a transient focus loss (phone call,
+    // navigation prompt). On AUDIOFOCUS_GAIN we auto-resume only in that case —
+    // never after a user-initiated pause or a permanent focus loss.
+    private var pausedByTransientFocusLoss = false
     private var noisyReceiver: BecomingNoisyReceiver? = null
 
     // Track playback session start time for progress sync delay
@@ -303,11 +308,14 @@ class AudioPlaybackService : MediaLibraryService() {
             .setOnAudioFocusChangeListener { focusChange ->
                 when (focusChange) {
                     AudioManager.AUDIOFOCUS_LOSS -> {
-                        // Lost focus permanently - pause playback
+                        // Lost focus permanently - pause playback, no auto-resume
+                        pausedByTransientFocusLoss = false
                         player?.pause()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                        // Lost focus temporarily - pause playback
+                        // Lost focus temporarily (call, navigation prompt) - pause
+                        // and remember to resume when focus returns
+                        pausedByTransientFocusLoss = player?.isPlaying == true
                         player?.pause()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
@@ -315,8 +323,13 @@ class AudioPlaybackService : MediaLibraryService() {
                         player?.volume = 0.3f
                     }
                     AudioManager.AUDIOFOCUS_GAIN -> {
-                        // Regained focus - restore volume and resume if needed
+                        // Regained focus - restore volume, and resume playback if
+                        // WE paused it for a transient loss (standard audio-app UX)
                         player?.volume = 1.0f
+                        if (pausedByTransientFocusLoss) {
+                            pausedByTransientFocusLoss = false
+                            player?.play()
+                        }
                     }
                 }
             }
@@ -1283,7 +1296,8 @@ class AudioPlaybackService : MediaLibraryService() {
                 }
                 mediaUri = Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream?token=$token")
                 isPlayingLocalFile = false
-                android.util.Log.d("AudioPlaybackService", "Streaming from: $mediaUri")
+                // SECURITY: never log mediaUri — it carries the auth token as a query param
+                android.util.Log.d("AudioPlaybackService", "Streaming audiobook ${audiobook.id} from server")
             }
 
             // Build cover art URI for notification
@@ -1747,24 +1761,15 @@ class AudioPlaybackService : MediaLibraryService() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         val isPlaying = player?.isPlaying == true
 
-        // Sync progress synchronously
+        // Persist progress without blocking: save locally, then let WorkManager
+        // push it. runBlocking { api.updateProgress(...) } here ran on the main
+        // thread and could ANR the process while OkHttp waited out its timeouts.
         val book = playerState.currentAudiobook.value
         val position = playerState.currentPosition.value.toInt()
         val duration = playerState.duration.value.toInt()
         if (book != null && position > 0 && (duration == 0 || (duration - position) >= 30)) {
-            // Always save locally first as a safety net
             downloadManager.saveOfflineProgress(book.id, position)
-            runBlocking {
-                try {
-                    api.updateProgress(
-                        book.id,
-                        ProgressUpdateRequest(position = position, completed = 0, state = if (isPlaying) "playing" else "paused")
-                    )
-                    downloadManager.clearPendingProgress(book.id)
-                } catch (_: Exception) {
-                    // Saved locally above — ProgressSyncWorker will retry
-                }
-            }
+            ProgressSyncWorker.enqueue(this)
         }
 
         if (isPlaying) {
@@ -1791,31 +1796,20 @@ class AudioPlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         instance = null
-        // Sync progress synchronously — the coroutine-based syncProgress() won't complete
-        // because serviceScope is about to be cancelled
+        // Persist progress without blocking the main thread (see onTaskRemoved):
+        // save locally, then hand off to WorkManager — it survives service death.
         val book = playerState.currentAudiobook.value
         val position = playerState.currentPosition.value.toInt()
         val duration = playerState.duration.value.toInt()
         if (book != null && position > 0 && (duration == 0 || (duration - position) >= 30)) {
-            // Always save locally first as a safety net
             downloadManager.saveOfflineProgress(book.id, position)
-            runBlocking {
-                try {
-                    api.updateProgress(
-                        book.id,
-                        ProgressUpdateRequest(position = position, completed = 0, state = "stopped")
-                    )
-                    downloadManager.clearPendingProgress(book.id)
-                } catch (_: Exception) {
-                    // Saved locally above — ProgressSyncWorker will retry
-                }
-            }
+            ProgressSyncWorker.enqueue(this)
         }
         player?.release()
         mediaLibrarySession?.release()
-        progressSyncJob?.cancel()
-        positionUpdateJob?.cancel()
-        pauseTimeoutJob?.cancel()
+        // Cancel the whole scope — individual job cancels missed sleepTimerJob
+        // and the onTaskRemoved fallback-timeout coroutine, which leaked.
+        serviceScope.cancel()
         abandonAudioFocus()
         unregisterNoisyReceiver()
         unregisterNotificationActionReceiver()

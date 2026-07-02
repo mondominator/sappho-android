@@ -2,6 +2,7 @@ package com.sappho.audiobooks.data.remote
 
 import android.util.Log
 import com.sappho.audiobooks.data.repository.AuthRepository
+import java.io.IOException
 import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
@@ -61,15 +62,27 @@ class TokenAuthenticator(
                 response.request.newBuilder()
                     .header("Authorization", "Bearer $newToken")
                     .build()
-            } else {
-                Log.d(TAG, "Token refresh failed (code=${refreshResponse.code()}); clearing tokens")
+            } else if (refreshResponse.code() == 401 || refreshResponse.code() == 403) {
+                // Definitive rejection: the refresh token itself is invalid/revoked.
+                // Clearing tokens (and letting the final 401 drive logout) is correct.
+                Log.d(TAG, "Refresh token rejected (code=${refreshResponse.code()}); clearing tokens")
                 authRepository.clearToken()
                 null
+            } else {
+                // Transient server failure (5xx, restart, proxy error). Do NOT destroy
+                // valid credentials — fail this call as a network error so the final
+                // 401 never reaches the logout-trigger interceptor, and a later
+                // request can retry the refresh.
+                Log.w(TAG, "Token refresh failed transiently (code=${refreshResponse.code()}); keeping tokens")
+                throw IOException("Token refresh failed transiently (HTTP ${refreshResponse.code()})")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Token refresh threw; clearing tokens", e)
-            authRepository.clearToken()
-            null
+        } catch (e: IOException) {
+            // Network blip / timeout / server briefly down. Keep tokens and propagate
+            // as a call failure — the request errors out, but credentials survive and
+            // the next request retries the refresh. (Returning null here would surface
+            // the original 401 and log the user out via the auth-error interceptor.)
+            Log.w(TAG, "Token refresh network failure; keeping tokens for retry", e)
+            throw e
         }
     }
 
