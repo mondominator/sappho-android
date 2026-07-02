@@ -6,11 +6,14 @@ import com.sappho.audiobooks.data.repository.AuthRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.io.IOException
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import retrofit2.Retrofit
@@ -116,6 +119,67 @@ class TokenAuthenticatorTest {
         assertThat(response.code).isEqualTo(401)
         verify { authRepository.clearToken() }
         verify(exactly = 0) { authRepository.saveTokens(any(), any()) }
+
+        response.close()
+    }
+
+    @Test
+    fun `keeps tokens and fails call when refresh returns transient 5xx`() {
+        // Given
+        every { authRepository.getTokenSync() } returns "stale-access"
+        every { authRepository.getRefreshTokenSync() } returns "stored-refresh"
+
+        // 401 for the protected call, 500 from the refresh endpoint (server restarting)
+        mockWebServer.enqueue(MockResponse().setResponseCode(401))
+        mockWebServer.enqueue(MockResponse().setResponseCode(500))
+
+        // When - the authenticator throws IOException so the call fails as a network error
+        val thrown = assertThrows(IOException::class.java) {
+            client.newCall(protectedRequest()).execute()
+        }
+
+        // Then - credentials survive for a later retry; no 401 surfaced to trigger logout
+        assertThat(thrown.message).contains("transiently")
+        verify(exactly = 0) { authRepository.clearToken() }
+        verify(exactly = 0) { authRepository.saveTokens(any(), any()) }
+    }
+
+    @Test
+    fun `keeps tokens and fails call when refresh request fails on the network`() {
+        // Given
+        every { authRepository.getTokenSync() } returns "stale-access"
+        every { authRepository.getRefreshTokenSync() } returns "stored-refresh"
+
+        // 401 for the protected call, then the server drops the refresh connection
+        mockWebServer.enqueue(MockResponse().setResponseCode(401))
+        mockWebServer.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
+
+        // When
+        assertThrows(IOException::class.java) {
+            client.newCall(protectedRequest()).execute()
+        }
+
+        // Then - a network blip during refresh must never destroy valid credentials
+        verify(exactly = 0) { authRepository.clearToken() }
+        verify(exactly = 0) { authRepository.saveTokens(any(), any()) }
+    }
+
+    @Test
+    fun `clears tokens when refresh is rejected with 403`() {
+        // Given
+        every { authRepository.getTokenSync() } returns "stale-access"
+        every { authRepository.getRefreshTokenSync() } returns "stored-refresh"
+
+        // 401 for the protected call, 403 from the refresh endpoint (token revoked)
+        mockWebServer.enqueue(MockResponse().setResponseCode(401))
+        mockWebServer.enqueue(MockResponse().setResponseCode(403))
+
+        // When
+        val response = client.newCall(protectedRequest()).execute()
+
+        // Then - definitive rejection clears tokens and lets the 401 drive logout
+        assertThat(response.code).isEqualTo(401)
+        verify { authRepository.clearToken() }
 
         response.close()
     }

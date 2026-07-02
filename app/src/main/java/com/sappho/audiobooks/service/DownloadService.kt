@@ -19,10 +19,14 @@ import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.download.DownloadState
 import com.sappho.audiobooks.presentation.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -47,6 +51,10 @@ class DownloadService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var downloadJob: Job? = null
+    // The in-flight OkHttp call. Cancelling the coroutine Job alone does NOT
+    // interrupt the blocking InputStream.read loop — the call itself must be
+    // cancelled so the socket read aborts immediately.
+    private var downloadCall: okhttp3.Call? = null
     private var currentDownloadId: Int? = null
 
     private val downloadClient = OkHttpClient.Builder()
@@ -171,6 +179,10 @@ class DownloadService : Service() {
     }
 
     private fun startDownload(audiobookId: Int, title: String, author: String) {
+        // Cancel any in-flight download first — otherwise a second START_DOWNLOAD
+        // intent leaves two loops writing DownloadManager state concurrently.
+        downloadJob?.cancel()
+        downloadCall?.cancel()
         currentDownloadId = audiobookId
 
         // Update DownloadManager state
@@ -194,7 +206,9 @@ class DownloadService : Service() {
                     .addHeader("Authorization", "Bearer $token")
                     .build()
 
-                val response = downloadClient.newCall(request).execute()
+                val call = downloadClient.newCall(request)
+                downloadCall = call
+                val response = call.execute()
 
                 if (!response.isSuccessful) {
                     throw Exception("Download failed: ${response.code}")
@@ -203,54 +217,56 @@ class DownloadService : Service() {
                 val body = response.body ?: throw Exception("Empty response body")
                 val contentLength = body.contentLength()
 
-                val downloadsDir = File(filesDir, "audiobooks").also { 
+                val downloadsDir = File(filesDir, "audiobooks").also {
                     if (!it.exists() && !it.mkdirs()) {
                         throw IOException("Failed to create download directory")
                     }
                 }
                 val file = File(downloadsDir, "audiobook_$audiobookId.m4b")
-                
+
                 // Check available storage space
                 val freeSpace = downloadsDir.freeSpace
                 if (contentLength > 0 && freeSpace < contentLength * 1.1) { // 10% buffer
                     throw IOException("Insufficient storage space. Need ${contentLength / 1024 / 1024}MB, but only ${freeSpace / 1024 / 1024}MB available")
                 }
-                
-                val outputStream = FileOutputStream(file)
-                val inputStream = body.byteStream()
 
-                val buffer = ByteArray(8192)
-                var bytesRead: Int
-                var totalBytesRead = 0L
-                var lastProgress = 0
+                // use{} guarantees both streams close on every path (they used to
+                // leak whenever the loop threw).
+                FileOutputStream(file).use { outputStream ->
+                    body.byteStream().use { inputStream ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        var totalBytesRead = 0L
+                        var lastProgress = 0
 
-                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                    outputStream.write(buffer, 0, bytesRead)
-                    totalBytesRead += bytesRead
+                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                            // Surface coroutine cancellation between chunks
+                            ensureActive()
+                            outputStream.write(buffer, 0, bytesRead)
+                            totalBytesRead += bytesRead
 
-                    val progress = if (contentLength > 0) {
-                        ((totalBytesRead.toFloat() / contentLength.toFloat()) * 100).toInt()
-                    } else {
-                        0
-                    }
+                            val progress = if (contentLength > 0) {
+                                ((totalBytesRead.toFloat() / contentLength.toFloat()) * 100).toInt()
+                            } else {
+                                0
+                            }
 
-                    // Update notification every 1%
-                    if (progress != lastProgress) {
-                        lastProgress = progress
-                        updateNotification(title, author, progress)
+                            // Update notification every 1%
+                            if (progress != lastProgress) {
+                                lastProgress = progress
+                                updateNotification(title, author, progress)
 
-                        // Update DownloadManager state
-                        downloadManager.updateDownloadStateExternal(audiobookId, DownloadState(
-                            audiobookId = audiobookId,
-                            progress = progress / 100f,
-                            isDownloading = true,
-                            isCompleted = false
-                        ))
+                                // Update DownloadManager state
+                                downloadManager.updateDownloadStateExternal(audiobookId, DownloadState(
+                                    audiobookId = audiobookId,
+                                    progress = progress / 100f,
+                                    isDownloading = true,
+                                    isCompleted = false
+                                ))
+                            }
+                        }
                     }
                 }
-
-                outputStream.close()
-                inputStream.close()
 
                 // Fetch audiobook details and chapters
                 val audiobookResponse = api.getAudiobook(audiobookId)
@@ -289,45 +305,61 @@ class DownloadService : Service() {
                     notificationManager.notify(NOTIFICATION_ID + 1, createCompletedNotification(title, true))
                 }
 
+            } catch (e: CancellationException) {
+                // User-initiated cancel or service teardown: clean up quietly,
+                // no "Download Failed" notification, and rethrow so the coroutine
+                // machinery sees the cancellation.
+                Log.d(TAG, "Download cancelled")
+                cleanUpPartialFile(audiobookId)
+                throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Download failed", e)
+                // OkHttp surfaces call.cancel() as IOException("Canceled") from the
+                // blocking read — that is a cancel, not a failure.
+                if (downloadCall?.isCanceled() == true || !isActive) {
+                    Log.d(TAG, "Download cancelled (call aborted)")
+                    cleanUpPartialFile(audiobookId)
+                } else {
+                    Log.e(TAG, "Download failed", e)
+                    cleanUpPartialFile(audiobookId)
 
-                // Clean up partial download
-                try {
-                    val downloadsDir = File(filesDir, "audiobooks")
-                    val file = File(downloadsDir, "audiobook_$audiobookId.m4b")
-                    if (file.exists()) {
-                        file.delete()
+                    val errorMessage = when (e) {
+                        is IOException -> e.message ?: "Download failed"
+                        is SecurityException -> "Permission denied"
+                        else -> "Download failed: ${e.message}"
                     }
-                } catch (deleteError: Exception) {
-                    Log.e(TAG, "Failed to clean up partial download", deleteError)
-                }
 
-                val errorMessage = when (e) {
-                    is IOException -> e.message ?: "Download failed"
-                    is SecurityException -> "Permission denied"
-                    is OutOfMemoryError -> "Out of memory"
-                    else -> "Download failed: ${e.message}"
-                }
+                    downloadManager.updateDownloadStateExternal(audiobookId, DownloadState(
+                        audiobookId = audiobookId,
+                        progress = 0f,
+                        isDownloading = false,
+                        isCompleted = false,
+                        error = errorMessage
+                    ))
 
-                downloadManager.updateDownloadStateExternal(audiobookId, DownloadState(
-                    audiobookId = audiobookId,
-                    progress = 0f,
-                    isDownloading = false,
-                    isCompleted = false,
-                    error = errorMessage
-                ))
-
-                // Show failure notification with specific error
-                withContext(Dispatchers.Main) {
-                    val notificationManager = getSystemService(NotificationManager::class.java)
-                    notificationManager.notify(NOTIFICATION_ID + 1, createCompletedNotification(title, false, errorMessage))
+                    // Show failure notification with specific error
+                    withContext(Dispatchers.Main) {
+                        val notificationManager = getSystemService(NotificationManager::class.java)
+                        notificationManager.notify(NOTIFICATION_ID + 1, createCompletedNotification(title, false, errorMessage))
+                    }
                 }
             } finally {
+                downloadCall = null
                 currentDownloadId = null
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
+        }
+    }
+
+    private fun cleanUpPartialFile(audiobookId: Int) {
+        try {
+            val downloadsDir = File(filesDir, "audiobooks")
+            val file = File(downloadsDir, "audiobook_$audiobookId.m4b")
+            if (file.exists()) {
+                file.delete()
+            }
+        } catch (deleteError: Exception) {
+            Log.e(TAG, "Failed to clean up partial download", deleteError)
         }
     }
 
@@ -338,6 +370,9 @@ class DownloadService : Service() {
 
     private fun cancelCurrentDownload() {
         downloadJob?.cancel()
+        // Abort the socket read — cancelling the Job alone leaves the blocking
+        // read loop running (and the file growing) until the transfer finishes.
+        downloadCall?.cancel()
         currentDownloadId?.let { id ->
             downloadManager.updateDownloadStateExternal(id, DownloadState(
                 audiobookId = id,
@@ -352,7 +387,10 @@ class DownloadService : Service() {
     }
 
     override fun onDestroy() {
-        downloadJob?.cancel()
+        downloadCall?.cancel()
+        // Cancel the whole scope, not just the active job — otherwise coroutines
+        // launched here outlive the service.
+        serviceScope.cancel()
         super.onDestroy()
     }
 }
