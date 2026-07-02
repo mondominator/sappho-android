@@ -9,10 +9,7 @@ import com.sappho.audiobooks.data.remote.AudiobookUpdateRequest
 import com.sappho.audiobooks.data.remote.AverageRating
 import com.sappho.audiobooks.data.remote.ChapterUpdate
 import com.sappho.audiobooks.data.remote.ChapterUpdateRequest
-import com.sappho.audiobooks.data.remote.AddToCollectionRequest
 import com.sappho.audiobooks.data.remote.Collection
-import com.sappho.audiobooks.data.remote.CollectionForBook
-import com.sappho.audiobooks.data.remote.CreateCollectionRequest
 import com.sappho.audiobooks.data.remote.FetchChaptersRequest
 import com.sappho.audiobooks.data.remote.MetadataSearchResult
 import com.sappho.audiobooks.data.remote.RatingRequest
@@ -29,6 +26,7 @@ import com.sappho.audiobooks.service.DownloadService
 import com.sappho.audiobooks.service.PlayerState
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.util.NetworkMonitor
+import com.sappho.audiobooks.util.parseApiErrorMessage
 import com.sappho.audiobooks.domain.model.ConversionJob
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -47,13 +45,19 @@ class AudiobookDetailViewModel @Inject constructor(
     private val api: SapphoApi,
     private val authRepository: AuthRepository,
     val playerState: PlayerState,
-    val downloadManager: DownloadManager,
+    private val downloadManager: DownloadManager,
     private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     companion object {
         private const val TAG = "AudiobookDetailVM"
     }
+
+    // Expose only the download state the UI needs — not the manager itself
+    val downloadStates: StateFlow<Map<Int, com.sappho.audiobooks.download.DownloadState>> =
+        downloadManager.downloadStates
+
+    fun isDownloaded(audiobookId: Int): Boolean = downloadManager.isDownloaded(audiobookId)
 
     private val _audiobook = MutableStateFlow<Audiobook?>(null)
     val audiobook: StateFlow<Audiobook?> = _audiobook
@@ -144,14 +148,21 @@ class AudiobookDetailViewModel @Inject constructor(
     private val _fetchChaptersResult = MutableStateFlow<String?>(null)
     val fetchChaptersResult: StateFlow<String?> = _fetchChaptersResult
 
-    private val _collections = MutableStateFlow<List<Collection>>(emptyList())
-    val collections: StateFlow<List<Collection>> = _collections
+    // Collection picker state and actions shared with other screens (L3 dedup)
+    private val bookCollectionsController =
+        com.sappho.audiobooks.presentation.components.BookCollectionsController(api, viewModelScope, TAG)
+    val collections: StateFlow<List<Collection>> = bookCollectionsController.collections
+    val bookCollections: StateFlow<Set<Int>> = bookCollectionsController.bookCollections
+    val isLoadingCollections: StateFlow<Boolean> = bookCollectionsController.isLoadingCollections
 
-    private val _bookCollections = MutableStateFlow<Set<Int>>(emptySet())
-    val bookCollections: StateFlow<Set<Int>> = _bookCollections
+    fun loadCollectionsForBook(bookId: Int) =
+        bookCollectionsController.loadCollectionsForBook(bookId)
 
-    private val _isLoadingCollections = MutableStateFlow(false)
-    val isLoadingCollections: StateFlow<Boolean> = _isLoadingCollections
+    fun toggleBookInCollection(collectionId: Int, bookId: Int) =
+        bookCollectionsController.toggleBookInCollection(collectionId, bookId)
+
+    fun createCollectionAndAddBook(name: String, bookId: Int, isPublic: Boolean = false) =
+        bookCollectionsController.createCollectionAndAddBook(name, bookId, isPublic)
 
     // AI Recap (Catch Up)
     private val _isAiConfigured = MutableStateFlow(false)
@@ -466,11 +477,7 @@ class AudiobookDetailViewModel @Inject constructor(
                             _isConverting.value = false
                         }
                     } else {
-                        val errorBody = response.errorBody()?.string()
-                        val errorMessage = try {
-                            val jsonError = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
-                            jsonError.get("error")?.asString
-                        } catch (e: Exception) { null }
+                        val errorMessage = parseApiErrorMessage(response)
                         _convertResult.value = "Failed to convert: ${errorMessage ?: "Unknown error"}"
                         _isConverting.value = false
                     }
@@ -793,15 +800,7 @@ class AudiobookDetailViewModel @Inject constructor(
                         // Reload audiobook to refresh any updated data
                         loadAudiobook(book.id)
                     } else {
-                        // Try to parse error message from server response
-                        val errorBody = response.errorBody()?.string()
-                        val errorMessage = try {
-                            // Server may return JSON with error field
-                            val jsonError = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
-                            jsonError.get("error")?.asString ?: jsonError.get("message")?.asString
-                        } catch (e: Exception) {
-                            null
-                        }
+                        val errorMessage = parseApiErrorMessage(response)
 
                         _embedMetadataResult.value = when {
                             response.code() == 500 && errorMessage != null -> "Server error: $errorMessage"
@@ -865,7 +864,6 @@ class AudiobookDetailViewModel @Inject constructor(
                         loadAudiobook(book.id)
                         onSuccess()
                     } else {
-                        val errorBody = response.errorBody()?.string()
                         _fetchChaptersResult.value = when (response.code()) {
                             404 -> "No chapters found for this ASIN"
                             else -> "Failed to fetch chapters: ${response.code()}"
@@ -888,79 +886,6 @@ class AudiobookDetailViewModel @Inject constructor(
 
     fun clearFetchChaptersResult() {
         _fetchChaptersResult.value = null
-    }
-
-    fun loadCollectionsForBook(bookId: Int) {
-        viewModelScope.launch {
-            _isLoadingCollections.value = true
-            try {
-                // Load all collections and which ones contain this book in parallel
-                val collectionsResponse = api.getCollections()
-                val bookCollectionsResponse = api.getCollectionsForBook(bookId)
-
-                if (collectionsResponse.isSuccessful) {
-                    _collections.value = collectionsResponse.body() ?: emptyList()
-                }
-                if (bookCollectionsResponse.isSuccessful) {
-                    _bookCollections.value = (bookCollectionsResponse.body() ?: emptyList())
-                        .filter { it.containsBook == 1 }
-                        .map { it.id }
-                        .toSet()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load collections for book", e)
-            } finally {
-                _isLoadingCollections.value = false
-            }
-        }
-    }
-
-    fun toggleBookInCollection(collectionId: Int, bookId: Int) {
-        viewModelScope.launch {
-            val isInCollection = _bookCollections.value.contains(collectionId)
-            try {
-                if (isInCollection) {
-                    val response = api.removeFromCollection(collectionId, bookId)
-                    if (response.isSuccessful) {
-                        _bookCollections.value = _bookCollections.value - collectionId
-                    }
-                } else {
-                    val response = api.addToCollection(collectionId, AddToCollectionRequest(bookId))
-                    if (response.isSuccessful) {
-                        _bookCollections.value = _bookCollections.value + collectionId
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to toggle book in collection", e)
-            }
-        }
-    }
-
-    fun createCollectionAndAddBook(name: String, bookId: Int, isPublic: Boolean = false) {
-        viewModelScope.launch {
-            try {
-                val createResponse = api.createCollection(CreateCollectionRequest(name, null, isPublic))
-                if (createResponse.isSuccessful) {
-                    val newCollection = createResponse.body()
-                    if (newCollection != null) {
-                        // Add book to the new collection
-                        val addResponse = api.addToCollection(newCollection.id, AddToCollectionRequest(bookId))
-                        if (addResponse.isSuccessful) {
-                            _collections.value = listOf(newCollection) + _collections.value
-                            _bookCollections.value = _bookCollections.value + newCollection.id
-                        }
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to create collection and add book", e)
-            }
-        }
     }
 
     private val _isDeletingFile = MutableStateFlow(false)
@@ -989,13 +914,7 @@ class AudiobookDetailViewModel @Inject constructor(
                         // File was deleted, but refresh failed - still ok
                     }
                 } else {
-                    val errorBody = response.errorBody()?.string()
-                    val errorMessage = try {
-                        val jsonError = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
-                        jsonError.get("error")?.asString
-                    } catch (e: Exception) {
-                        null
-                    }
+                    val errorMessage = parseApiErrorMessage(response)
                     _deleteFileError.value = errorMessage ?: "Failed to delete file"
                 }
             } catch (e: CancellationException) {
@@ -1038,13 +957,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     if (response.isSuccessful) {
                         _recap.value = response.body()
                     } else {
-                        val errorBody = response.errorBody()?.string()
-                        val errorMessage = try {
-                            val jsonError = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
-                            jsonError.get("error")?.asString ?: jsonError.get("message")?.asString
-                        } catch (e: Exception) {
-                            null
-                        }
+                        val errorMessage = parseApiErrorMessage(response)
                         _recapError.value = errorMessage ?: "Failed to load recap"
                     }
                 } catch (e: CancellationException) {

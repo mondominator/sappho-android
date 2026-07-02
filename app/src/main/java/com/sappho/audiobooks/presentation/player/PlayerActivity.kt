@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -136,10 +137,10 @@ fun PlayerScreen(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val audiobook by viewModel.audiobook.collectAsState()
-    val chapters by viewModel.chapters.collectAsState()
-    val playerState by viewModel.playerState.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
+    val audiobook by viewModel.audiobook.collectAsStateWithLifecycle()
+    val chapters by viewModel.chapters.collectAsStateWithLifecycle()
+    val playerState by viewModel.playerState.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
     var showChapters by remember { mutableStateOf(false) }
     var showPlaybackSpeed by remember { mutableStateOf(false) }
     var showSleepTimer by remember { mutableStateOf(false) }
@@ -171,22 +172,22 @@ fun PlayerScreen(
     }
 
     // Determine playing state based on whether we're casting or using local playback
-    val localIsPlaying = playerState?.isPlaying?.collectAsState()?.value ?: false
-    val castIsPlaying = castManager.isPlaying.collectAsState().value
-    val isCastConnected = castManager.isConnected.collectAsState().value
-    val castError by castManager.castError.collectAsState()
+    val localIsPlaying = playerState?.isPlaying?.collectAsStateWithLifecycle()?.value ?: false
+    val castIsPlaying = castManager.isPlaying.collectAsStateWithLifecycle().value
+    val isCastConnected = castManager.isConnected.collectAsStateWithLifecycle().value
+    val castError by castManager.castError.collectAsStateWithLifecycle()
     val isPlaying = if (isCastConnected) {
         castIsPlaying
     } else {
         localIsPlaying
     }
-    val localPosition = playerState?.currentPosition?.collectAsState()?.value ?: 0L
-    val duration = playerState?.duration?.collectAsState()?.value ?: 0L
-    val isLoading = playerState?.isLoading?.collectAsState()?.value ?: false
-    val playbackSpeed = playerState?.playbackSpeed?.collectAsState()?.value ?: 1.0f
-    val sleepTimerRemaining = playerState?.sleepTimerRemaining?.collectAsState()?.value
-    val sleepAtEndOfChapter = playerState?.sleepAtEndOfChapter?.collectAsState()?.value ?: false
-    val playbackError = playerState?.playbackError?.collectAsState()?.value
+    val localPosition = playerState?.currentPosition?.collectAsStateWithLifecycle()?.value ?: 0L
+    val duration = playerState?.duration?.collectAsStateWithLifecycle()?.value ?: 0L
+    val isLoading = playerState?.isLoading?.collectAsStateWithLifecycle()?.value ?: false
+    val playbackSpeed = playerState?.playbackSpeed?.collectAsStateWithLifecycle()?.value ?: 1.0f
+    val sleepTimerRemaining = playerState?.sleepTimerRemaining?.collectAsStateWithLifecycle()?.value
+    val sleepAtEndOfChapter = playerState?.sleepAtEndOfChapter?.collectAsStateWithLifecycle()?.value ?: false
+    val playbackError = playerState?.playbackError?.collectAsStateWithLifecycle()?.value
 
     // When casting, poll the Cast position periodically
     var castPosition by remember { mutableLongStateOf(0L) }
@@ -1333,8 +1334,8 @@ fun PlayerScreen(
 
         // History dialog
         if (showHistory) {
-            val listeningSessions by viewModel.listeningSessions.collectAsState()
-            val historyLoading by viewModel.historyLoading.collectAsState()
+            val listeningSessions by viewModel.listeningSessions.collectAsStateWithLifecycle()
+            val historyLoading by viewModel.historyLoading.collectAsStateWithLifecycle()
 
             AlertDialog(
                 onDismissRequest = { showHistory = false },

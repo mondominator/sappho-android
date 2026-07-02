@@ -4,6 +4,7 @@ import android.util.Log
 import com.sappho.audiobooks.cast.CastDevice
 import com.sappho.audiobooks.cast.CastProtocol
 import com.sappho.audiobooks.cast.CastTarget
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,6 +73,8 @@ class KodiCastTarget(
                 } else {
                     Log.e(TAG, "Failed to ping Kodi at $baseUrl")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error connecting to Kodi", e)
             }
@@ -148,6 +151,8 @@ class KodiCastTarget(
                             "The media URL may be unreachable from the Kodi device."
                     _isPlaying.value = false
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading media on Kodi", e)
                 _lastError.value = "Failed to cast to Kodi: ${e.message}"
@@ -166,6 +171,8 @@ class KodiCastTarget(
                 put("playerid", playerId)
             }
             sendJsonRpc(baseUrl, "Player.PlayPause", params)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error toggling play/pause on Kodi", e)
         }
@@ -198,6 +205,8 @@ class KodiCastTarget(
             }
             sendJsonRpc(baseUrl, "Player.Seek", params)
             _currentPosition.value = positionSeconds
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error seeking on Kodi", e)
         }
@@ -215,6 +224,8 @@ class KodiCastTarget(
             sendJsonRpc(baseUrl, "Player.Stop", params)
             _isPlaying.value = false
             activePlayerId = null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping Kodi playback", e)
         }
@@ -238,6 +249,8 @@ class KodiCastTarget(
             val body = response.body?.string()
             response.close()
             body?.let { JSONObject(it) }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "JSON-RPC error for $method", e)
             null
@@ -304,6 +317,8 @@ class KodiCastTarget(
                     _currentPosition.value = hours * 3600 + minutes * 60 + seconds
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.v(TAG, "Polling error: ${e.message}")
         }

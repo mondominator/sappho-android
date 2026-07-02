@@ -4,6 +4,7 @@ import android.util.Log
 import com.sappho.audiobooks.cast.CastDevice
 import com.sappho.audiobooks.cast.CastProtocol
 import com.sappho.audiobooks.cast.CastTarget
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -162,6 +163,8 @@ class RokuCastTarget(
                 Log.e(TAG, "Cannot reach Roku device", e)
                 _lastError.value = "Cannot reach Roku device. Make sure it's powered on."
                 _isPlaying.value = false
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading media on Roku", e)
                 _lastError.value = "Failed to cast to Roku: ${e.message}"
@@ -180,6 +183,8 @@ class RokuCastTarget(
             val body = response.body?.string()
             response.close()
             body
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error querying media player state", e)
             null
@@ -210,6 +215,8 @@ class RokuCastTarget(
                 .build()
             httpClient.newCall(request).execute().close()
             _isPlaying.value = false
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping Roku playback", e)
         }
@@ -225,6 +232,8 @@ class RokuCastTarget(
                     .post("".toRequestBody("text/plain".toMediaType()))
                     .build()
                 httpClient.newCall(request).execute().close()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error sending keypress '$key'", e)
             }
@@ -268,6 +277,8 @@ class RokuCastTarget(
 
             _isPlaying.value = state == "play"
             _currentPosition.value = positionMs / 1000
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // Polling failure is expected when device goes offline
             Log.v(TAG, "Polling error: ${e.message}")

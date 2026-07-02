@@ -14,6 +14,7 @@ import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
@@ -83,6 +84,8 @@ class InAppUpdateManager @Inject constructor(
     private fun unregisterListener() {
         try {
             appUpdateManager.unregisterListener(installStateListener)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to unregister listener", e)
         }
@@ -113,6 +116,8 @@ class InAppUpdateManager @Inject constructor(
             } else {
                 _updateState.value = UpdateState.None
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to check for update", e)
             _updateState.value = UpdateState.None
@@ -135,6 +140,8 @@ class InAppUpdateManager @Inject constructor(
             // Re-register listener in case it was unregistered
             try {
                 appUpdateManager.registerListener(installStateListener)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Already registered
             }
@@ -157,6 +164,8 @@ class InAppUpdateManager @Inject constructor(
                 launcher,
                 AppUpdateOptions.defaultOptions(updateType)
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start update flow", e)
             _updateState.value = UpdateState.Failed("Failed to start update: ${e.message}")

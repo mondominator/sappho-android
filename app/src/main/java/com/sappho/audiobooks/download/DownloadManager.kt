@@ -2,20 +2,12 @@ package com.sappho.audiobooks.download
 
 import android.content.Context
 import android.util.Log
-import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
-import java.io.FileOutputStream
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,27 +35,15 @@ data class PendingProgress(
 
 @Singleton
 class DownloadManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val authRepository: AuthRepository,
-    private val api: com.sappho.audiobooks.data.remote.SapphoApi
+    @ApplicationContext private val context: Context
 ) {
     private val TAG = "DownloadManager"
-
-    // Create a dedicated OkHttpClient for downloads with long timeouts
-    private val downloadClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.MINUTES)  // Long timeout for large files
-        .writeTimeout(10, TimeUnit.MINUTES)
-        .build()
 
     private val _downloadStates = MutableStateFlow<Map<Int, DownloadState>>(emptyMap())
     val downloadStates: StateFlow<Map<Int, DownloadState>> = _downloadStates
 
     private val _downloadedBooks = MutableStateFlow<List<DownloadedBook>>(emptyList())
     val downloadedBooks: StateFlow<List<DownloadedBook>> = _downloadedBooks
-
-    private val downloadsDir: File
-        get() = File(context.filesDir, "audiobooks").also { it.mkdirs() }
 
     private val metadataFile: File
         get() = File(context.filesDir, "downloads_metadata.json")
@@ -166,139 +146,6 @@ class DownloadManager @Inject constructor(
 
     fun getLocalFilePath(audiobookId: Int): String? {
         return getDownloadedBook(audiobookId)?.filePath
-    }
-
-    suspend fun downloadAudiobook(audiobook: Audiobook): Boolean {
-        val audiobookId = audiobook.id
-
-        // Update state to downloading
-        updateDownloadState(audiobookId, DownloadState(
-            audiobookId = audiobookId,
-            progress = 0f,
-            isDownloading = true,
-            isCompleted = false
-        ))
-
-        return withContext(Dispatchers.IO) {
-            try {
-                val serverUrl = authRepository.getServerUrlSync() ?: throw Exception("No server URL")
-                val token = authRepository.getTokenSync() ?: throw Exception("No auth token")
-
-                val downloadUrl = "$serverUrl/api/audiobooks/$audiobookId/stream"
-                Log.d(TAG, "Downloading from: $downloadUrl")
-
-                val request = Request.Builder()
-                    .url(downloadUrl)
-                    .addHeader("Authorization", "Bearer $token")
-                    .build()
-
-                Log.d(TAG, "Starting download request...")
-                val response = downloadClient.newCall(request).execute()
-                Log.d(TAG, "Response received: ${response.code}")
-
-                if (!response.isSuccessful) {
-                    throw Exception("Download failed: ${response.code}")
-                }
-
-                val body = response.body ?: throw Exception("Empty response body")
-                val contentLength = body.contentLength()
-
-                val file = File(downloadsDir, "audiobook_$audiobookId.m4b")
-
-                body.byteStream().use { inputStream ->
-                    FileOutputStream(file).use { outputStream ->
-                        val buffer = ByteArray(8192)
-                        var bytesRead: Int
-                        var totalBytesRead = 0L
-                        // Throttle progress emissions to whole-percent steps:
-                        // emitting per 8KB chunk floods the StateFlow with tens of
-                        // thousands of updates and forces needless recompositions.
-                        var lastReportedPercent = -1
-
-                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
-                            totalBytesRead += bytesRead
-
-                            val progress = if (contentLength > 0) {
-                                totalBytesRead.toFloat() / contentLength.toFloat()
-                            } else {
-                                0f
-                            }
-
-                            val percent = (progress * 100).toInt()
-                            if (percent != lastReportedPercent) {
-                                lastReportedPercent = percent
-                                updateDownloadState(audiobookId, DownloadState(
-                                    audiobookId = audiobookId,
-                                    progress = progress,
-                                    isDownloading = true,
-                                    isCompleted = false
-                                ))
-                            }
-                        }
-                    }
-                }
-
-                // Fetch chapters for offline use
-                val chapters = try {
-                    val chaptersResponse = api.getChapters(audiobookId)
-                    if (chaptersResponse.isSuccessful) {
-                        chaptersResponse.body() ?: emptyList()
-                    } else {
-                        emptyList()
-                    }
-                } catch (e: CancellationException) {
-                    // Never swallow cancellation - it must propagate so the
-                    // coroutine actually stops.
-                    throw e
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to fetch chapters for download", e)
-                    emptyList()
-                }
-
-                // Add to downloaded books
-                val downloadedBook = DownloadedBook(
-                    audiobook = audiobook,
-                    filePath = file.absolutePath,
-                    fileSize = file.length(),
-                    downloadedAt = System.currentTimeMillis(),
-                    chapters = chapters
-                )
-
-                _downloadedBooks.update { it + downloadedBook }
-                saveDownloadedBooks()
-
-                // Update state to completed
-                updateDownloadState(audiobookId, DownloadState(
-                    audiobookId = audiobookId,
-                    progress = 1f,
-                    isDownloading = false,
-                    isCompleted = true
-                ))
-
-                Log.d(TAG, "Download complete: ${file.absolutePath}")
-                true
-            } catch (e: CancellationException) {
-                // Reset UI state, then rethrow so cancellation propagates.
-                updateDownloadState(audiobookId, DownloadState(
-                    audiobookId = audiobookId,
-                    progress = 0f,
-                    isDownloading = false,
-                    isCompleted = false
-                ))
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Download failed", e)
-                updateDownloadState(audiobookId, DownloadState(
-                    audiobookId = audiobookId,
-                    progress = 0f,
-                    isDownloading = false,
-                    isCompleted = false,
-                    error = e.message
-                ))
-                false
-            }
-        }
     }
 
     fun deleteDownload(audiobookId: Int): Boolean {

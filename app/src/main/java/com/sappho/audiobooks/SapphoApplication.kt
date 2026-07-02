@@ -4,6 +4,7 @@ import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.util.DebugLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import com.google.android.gms.cast.framework.CastContext
 import com.sappho.audiobooks.cast.CastHelper
@@ -43,6 +44,8 @@ class SapphoApplication : Application(), ImageLoaderFactory {
                 CastContext.getSharedInstance(this@SapphoApplication)
                 castHelper.initialize(this@SapphoApplication)
                 android.util.Log.d("SapphoApplication", "Cast initialized successfully")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("SapphoApplication", "Error initializing Cast", e)
             }

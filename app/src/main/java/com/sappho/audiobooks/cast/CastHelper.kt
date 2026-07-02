@@ -17,6 +17,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.google.android.gms.common.images.WebImage
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -154,6 +155,8 @@ class CastHelper @Inject constructor(
                 // Stop any playing media first
                 try {
                     existingSession.remoteMediaClient?.stop()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                 }
                 // End the session with stopCasting=true to also stop on the receiver
@@ -164,6 +167,8 @@ class CastHelper @Inject constructor(
             _isPlaying.value = false
             _currentPosition.value = 0L
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error initializing Cast", e)
         }
@@ -260,6 +265,8 @@ class CastHelper @Inject constructor(
             // Update routes immediately
             updateAvailableRoutes(context)
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error starting discovery", e)
         }
@@ -274,6 +281,8 @@ class CastHelper @Inject constructor(
                 mediaRouter?.removeCallback(it)
                 mediaRouterCallback = null
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error stopping discovery", e)
         }
@@ -322,6 +331,8 @@ class CastHelper @Inject constructor(
                 // Stop any media first
                 try {
                     existingSession.remoteMediaClient?.stop()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     android.util.Log.w("CastHelper", "selectRoute: Error stopping media: ${e.message}")
                 }
@@ -337,6 +348,8 @@ class CastHelper @Inject constructor(
                 performRouteSelection(context, route)
             }
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error selecting route", e)
             android.widget.Toast.makeText(context, "Failed to connect: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
@@ -358,6 +371,8 @@ class CastHelper @Inject constructor(
             route.select()
 
             android.util.Log.d("CastHelper", "performRouteSelection: route.select() called, waiting for session callback...")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error in performRouteSelection", e)
             android.widget.Toast.makeText(context, "Failed to connect: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
@@ -383,6 +398,8 @@ class CastHelper @Inject constructor(
                 android.util.Log.e("CastHelper", "selectRouteById: Route not found for id $routeId")
                 android.widget.Toast.makeText(context, "Device not found, please try again", android.widget.Toast.LENGTH_SHORT).show()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error selecting route by id", e)
             android.widget.Toast.makeText(context, "Failed to connect: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
@@ -406,6 +423,8 @@ class CastHelper @Inject constructor(
                 button.routeSelector = selector
             } else {
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error setting up MediaRouteButton", e)
         }
@@ -414,6 +433,8 @@ class CastHelper @Inject constructor(
     fun disconnectCast() {
         try {
             castContext?.sessionManager?.endCurrentSession(true)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error disconnecting", e)
         }
@@ -524,6 +545,8 @@ class CastHelper @Inject constructor(
                 }
             }
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error casting audiobook", e)
         }
@@ -537,6 +560,8 @@ class CastHelper @Inject constructor(
         try {
             getCastSession()?.remoteMediaClient?.play()
             // Don't set state here - let the callback handle it based on actual Cast receiver state
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error sending play command", e)
         }
@@ -546,6 +571,8 @@ class CastHelper @Inject constructor(
         try {
             getCastSession()?.remoteMediaClient?.pause()
             // Don't set state here - let the callback handle it based on actual Cast receiver state
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error sending pause command", e)
         }
@@ -554,6 +581,8 @@ class CastHelper @Inject constructor(
     fun seek(positionSeconds: Long) {
         try {
             getCastSession()?.remoteMediaClient?.seek(positionSeconds * 1000)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("CastHelper", "Error sending seek command", e)
         }

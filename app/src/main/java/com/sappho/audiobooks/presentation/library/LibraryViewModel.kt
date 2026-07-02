@@ -11,6 +11,7 @@ import com.sappho.audiobooks.domain.model.GenreInfo
 import com.sappho.audiobooks.domain.model.GenreMetadata
 import com.sappho.audiobooks.domain.model.SeriesInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -144,6 +145,8 @@ class LibraryViewModel @Inject constructor(
                     _aiConfigured.value = response.body()?.configured ?: false
                     Log.d("LibraryViewModel", "AI configured: ${_aiConfigured.value}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error checking AI status", e)
                 _aiConfigured.value = false
@@ -163,6 +166,8 @@ class LibraryViewModel @Inject constructor(
                 val errorBody = response.errorBody()?.string()
                 Result.failure(Exception(errorBody ?: "Failed to get recap"))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("LibraryViewModel", "Error getting series recap", e)
             Result.failure(e)
@@ -179,6 +184,8 @@ class LibraryViewModel @Inject constructor(
             } else {
                 Result.failure(Exception("Failed to clear recap cache"))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("LibraryViewModel", "Error clearing series recap", e)
             Result.failure(e)
@@ -200,6 +207,8 @@ class LibraryViewModel @Inject constructor(
                     _readingList.value = response.body() ?: emptyList()
                     Log.d("LibraryViewModel", "Loaded ${_readingList.value.size} reading list items")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error loading reading list", e)
             }
@@ -215,6 +224,8 @@ class LibraryViewModel @Inject constructor(
                     _collections.value = response.body() ?: emptyList()
                     Log.d("LibraryViewModel", "Loaded ${_collections.value.size} collections")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error loading collections", e)
             }
@@ -228,6 +239,8 @@ class LibraryViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _selectedCollection.value = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error loading collection detail", e)
             }
@@ -248,6 +261,8 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to create collection")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error creating collection", e)
                 onResult(false, e.message ?: "Error creating collection")
@@ -266,6 +281,8 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to update collection")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error updating collection", e)
                 onResult(false, e.message ?: "Error updating collection")
@@ -286,6 +303,8 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to delete collection")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error deleting collection", e)
                 onResult(false, e.message ?: "Error deleting collection")
@@ -312,6 +331,8 @@ class LibraryViewModel @Inject constructor(
                     }
                     onResult(false, errorMessage)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error adding to collection", e)
                 onResult(false, e.message ?: "Error adding to collection")
@@ -330,6 +351,8 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to remove from collection")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error removing from collection", e)
                 onResult(false, e.message ?: "Error removing from collection")
@@ -344,6 +367,8 @@ class LibraryViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _collectionsForBook.value = response.body() ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error loading collections for book", e)
             }
@@ -398,6 +423,8 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to mark books as finished")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch mark finished", e)
                 onResult(false, e.message ?: "Error marking books finished")
@@ -418,6 +445,8 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to clear progress")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch clear progress", e)
                 onResult(false, e.message ?: "Error clearing progress")
@@ -438,6 +467,8 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to add to reading list")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch add to reading list", e)
                 onResult(false, e.message ?: "Error adding to reading list")
@@ -474,6 +505,8 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     onResult(true, "Deleted $totalDeleted books (${errors.size} batch(es) failed)")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch delete", e)
                 onResult(false, e.message ?: "Error deleting books")
@@ -516,6 +549,8 @@ class LibraryViewModel @Inject constructor(
                         onResult(false, "Failed to add to collection")
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error in batch add to collection", e)
                 onResult(false, e.message ?: "Error adding to collection")
@@ -571,11 +606,15 @@ class LibraryViewModel @Inject constructor(
                     } else {
                         Log.e("LibraryViewModel", "Audiobooks request failed: ${audiobooksResponse.code()} - ${audiobooksResponse.errorBody()?.string()}")
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e("LibraryViewModel", "Error loading audiobooks", e)
                 }
 
                 _uiState.value = LibraryUiState.Success
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error loading categories", e)
                 _uiState.value = LibraryUiState.Error(e.message ?: "Unknown error")

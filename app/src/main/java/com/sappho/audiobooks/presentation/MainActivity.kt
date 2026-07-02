@@ -10,9 +10,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.sappho.audiobooks.data.update.InAppUpdateManager
 import com.sappho.audiobooks.data.update.UpdateState
@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
 
             CompositionLocalProvider(LocalWindowSizeClass provides windowSizeClass) {
                 SapphoTheme {
-                    val updateState by inAppUpdateManager.updateState.collectAsState()
+                    val updateState by inAppUpdateManager.updateState.collectAsStateWithLifecycle()
 
                     Surface(
                     modifier = Modifier.fillMaxSize(),

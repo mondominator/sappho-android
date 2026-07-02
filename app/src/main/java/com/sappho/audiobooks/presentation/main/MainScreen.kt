@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -140,11 +141,11 @@ fun MainScreen(
         }
     }
     var showUserMenu by remember { mutableStateOf(false) }
-    val user by viewModel.user.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
-    val serverVersion by viewModel.serverVersion.collectAsState()
-    val cachedAvatarFile by viewModel.cachedAvatarFile.collectAsState()
-    val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsState()
+    val user by viewModel.user.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
+    val serverVersion by viewModel.serverVersion.collectAsStateWithLifecycle()
+    val cachedAvatarFile by viewModel.cachedAvatarFile.collectAsStateWithLifecycle()
+    val currentAudiobook by viewModel.playerState.currentAudiobook.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     var showCastDialog by remember { mutableStateOf(false) }
@@ -152,13 +153,12 @@ fun MainScreen(
     var showUploadDialog by remember { mutableStateOf(false) }
     var downloadToDelete by remember { mutableStateOf<Int?>(null) }
     val castHelper = viewModel.castHelper
-    val downloadManager = viewModel.downloadManager
-    val downloadedBooks by downloadManager.downloadedBooks.collectAsState()
+    val downloadedBooks by viewModel.downloadedBooks.collectAsStateWithLifecycle()
 
     // Notification state
     var showNotificationPanel by remember { mutableStateOf(false) }
-    val unreadNotificationCount by viewModel.unreadNotificationCount.collectAsState()
-    val notifications by viewModel.notifications.collectAsState()
+    val unreadNotificationCount by viewModel.unreadNotificationCount.collectAsStateWithLifecycle()
+    val notifications by viewModel.notifications.collectAsStateWithLifecycle()
 
     // Check if we should show navigation rail (tablets/landscape)
     val useNavigationRail = shouldShowNavigationRail()
@@ -465,7 +465,7 @@ fun MainScreen(
         // Cast Dialog
         if (showCastDialog) {
             val isCasting = castHelper.isCasting()
-            val availableRoutes by castHelper.availableRoutes.collectAsState()
+            val availableRoutes by castHelper.availableRoutes.collectAsStateWithLifecycle()
             var isScanning by remember { mutableStateOf(true) }
 
             // Start discovery and clean up when dialog closes
@@ -792,7 +792,7 @@ fun MainScreen(
                     TextButton(
                         onClick = {
                             downloadToDelete?.let { id ->
-                                downloadManager.deleteDownload(id)
+                                viewModel.deleteDownload(id)
                             }
                             downloadToDelete = null
                         }
@@ -826,9 +826,9 @@ private fun UploadDialog(
     onDismiss: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val uploadState by viewModel.uploadState.collectAsState()
-    val uploadProgress by viewModel.uploadProgress.collectAsState()
-    val uploadResult by viewModel.uploadResult.collectAsState()
+    val uploadState by viewModel.uploadState.collectAsStateWithLifecycle()
+    val uploadProgress by viewModel.uploadProgress.collectAsStateWithLifecycle()
+    val uploadResult by viewModel.uploadResult.collectAsStateWithLifecycle()
 
     var selectedFiles by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var title by remember { mutableStateOf("") }

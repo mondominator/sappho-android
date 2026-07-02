@@ -120,9 +120,6 @@ class AudioPlaybackService : MediaLibraryService() {
         private const val CONTINUE_LISTENING_ID = "__CONTINUE_LISTENING__"
         private const val CHAPTERS_PREFIX = "__CHAPTERS__"
 
-        // Skip duration in seconds (hardcoded to 10 seconds)
-        const val SKIP_SECONDS = 10L
-
         // Minimum time (in seconds) before first progress sync
         // This prevents recording progress for accidental plays or quick skips
         private const val INITIAL_PROGRESS_DELAY_SECONDS = 20
@@ -930,37 +927,6 @@ class AudioPlaybackService : MediaLibraryService() {
         } catch (e: Exception) {
             android.util.Log.e("AutoService", "Exception during search", e)
             lastSearchResults = emptyList()
-        }
-    }
-
-    /**
-     * Search and auto-play the best matching audiobook.
-     * Used by voice search ("Hey Google, play X on Sappho").
-     */
-    private fun searchAndPlayAudiobook(query: String) {
-        if (query.isBlank()) return
-
-        serviceScope.launch {
-            try {
-                android.util.Log.d("AutoService", "Voice search - searching for: $query")
-                val response = api.getAudiobooks(search = query, limit = 5)
-                if (response.isSuccessful) {
-                    val audiobooks = response.body()?.audiobooks ?: emptyList()
-                    if (audiobooks.isNotEmpty()) {
-                        // Play the best match (first result)
-                        val audiobook = audiobooks.first()
-                        android.util.Log.d("AutoService", "Voice search - playing: ${audiobook.title}")
-                        val startPosition = audiobook.progress?.position ?: 0
-                        loadAndPlay(audiobook, startPosition)
-                    } else {
-                        android.util.Log.w("AutoService", "Voice search - no results for: $query")
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AutoService", "Voice search error", e)
-            }
         }
     }
 

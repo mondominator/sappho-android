@@ -31,6 +31,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.presentation.theme.*
 import com.sappho.audiobooks.presentation.theme.Timing
 import androidx.compose.ui.graphics.graphicsLayer
@@ -55,15 +56,15 @@ fun MinimizedPlayerBar(
     onExpand: () -> Unit,
     onRestartPlayback: (audiobookId: Int, position: Int) -> Unit = { _, _ -> }
 ) {
-    val audiobook by playerState.currentAudiobook.collectAsState()
-    val localIsPlaying by playerState.isPlaying.collectAsState()
-    val localPosition by playerState.currentPosition.collectAsState()
-    val duration by playerState.duration.collectAsState()
-    val bufferedPosition by playerState.bufferedPosition.collectAsState()
+    val audiobook by playerState.currentAudiobook.collectAsStateWithLifecycle()
+    val localIsPlaying by playerState.isPlaying.collectAsStateWithLifecycle()
+    val localPosition by playerState.currentPosition.collectAsStateWithLifecycle()
+    val duration by playerState.duration.collectAsStateWithLifecycle()
+    val bufferedPosition by playerState.bufferedPosition.collectAsStateWithLifecycle()
 
     // Check cast state - use reactive StateFlow
-    val isCastConnected by castHelper.isConnected.collectAsState()
-    val castIsPlaying by castHelper.isPlayingFlow.collectAsState()
+    val isCastConnected by castHelper.isConnected.collectAsStateWithLifecycle()
+    val castIsPlaying by castHelper.isPlayingFlow.collectAsStateWithLifecycle()
     val isPlaying = if (isCastConnected) castIsPlaying else localIsPlaying
 
     // Poll Cast position when connected for smooth time updates

@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.animation.core.Spring
@@ -153,13 +154,13 @@ fun LibraryScreen(
     initialSeries: String? = null,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val series by viewModel.series.collectAsState()
-    val authors by viewModel.authors.collectAsState()
-    val genres by viewModel.genres.collectAsState()
-    val allBooks by viewModel.allAudiobooks.collectAsState()
-    val collections by viewModel.collections.collectAsState()
-    val readingList by viewModel.readingList.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val series by viewModel.series.collectAsStateWithLifecycle()
+    val authors by viewModel.authors.collectAsStateWithLifecycle()
+    val genres by viewModel.genres.collectAsStateWithLifecycle()
+    val allBooks by viewModel.allAudiobooks.collectAsStateWithLifecycle()
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val readingList by viewModel.readingList.collectAsStateWithLifecycle()
 
     // Refresh data when screen is loaded to get latest progress
     LaunchedEffect(Unit) {
@@ -223,7 +224,7 @@ fun LibraryScreen(
                 SeriesListView(
                     series = series,
                     allBooks = allBooks,
-                    serverUrl = viewModel.serverUrl.collectAsState().value,
+                    serverUrl = viewModel.serverUrl.collectAsStateWithLifecycle().value,
                     onBackClick = { currentViewName = LibraryView.CATEGORIES.name },
                     onSeriesClick = { seriesName ->
                         selectedSeries = seriesName
@@ -242,8 +243,8 @@ fun LibraryScreen(
                         books = seriesBooks,
                         totalDuration = totalDuration,
                         authors = bookAuthors,
-                        serverUrl = viewModel.serverUrl.collectAsState().value,
-                        aiConfigured = viewModel.aiConfigured.collectAsState().value,
+                        serverUrl = viewModel.serverUrl.collectAsStateWithLifecycle().value,
+                        aiConfigured = viewModel.aiConfigured.collectAsStateWithLifecycle().value,
                         viewModel = viewModel,
                         onBackClick = { currentViewName = LibraryView.SERIES.name },
                         onBookClick = onAudiobookClick
@@ -254,7 +255,7 @@ fun LibraryScreen(
                 AuthorsListView(
                     authors = authors,
                     allBooks = allBooks,
-                    serverUrl = viewModel.serverUrl.collectAsState().value,
+                    serverUrl = viewModel.serverUrl.collectAsStateWithLifecycle().value,
                     onBackClick = { currentViewName = LibraryView.CATEGORIES.name },
                     onAuthorClick = { author ->
                         selectedAuthor = author
@@ -269,7 +270,7 @@ fun LibraryScreen(
                     AuthorBooksView(
                         authorName = authorName,
                         books = authorBooks,
-                        serverUrl = viewModel.serverUrl.collectAsState().value,
+                        serverUrl = viewModel.serverUrl.collectAsStateWithLifecycle().value,
                         onBackClick = { currentViewName = LibraryView.AUTHORS.name },
                         onBookClick = onAudiobookClick
                     )
@@ -279,7 +280,7 @@ fun LibraryScreen(
                 GenresListView(
                     genres = genres.map { it.genre },
                     allBooks = allBooks,
-                    serverUrl = viewModel.serverUrl.collectAsState().value,
+                    serverUrl = viewModel.serverUrl.collectAsStateWithLifecycle().value,
                     onBackClick = { currentViewName = LibraryView.CATEGORIES.name },
                     onGenreClick = { genre ->
                         selectedGenre = genre
@@ -295,7 +296,7 @@ fun LibraryScreen(
                     GenreBooksView(
                         genreName = genreName,
                         books = genreBooks,
-                        serverUrl = viewModel.serverUrl.collectAsState().value,
+                        serverUrl = viewModel.serverUrl.collectAsStateWithLifecycle().value,
                         onBackClick = { currentViewName = LibraryView.GENRES.name },
                         onBookClick = onAudiobookClick
                     )
@@ -3102,14 +3103,14 @@ fun AllBooksView(
     onAudiobookClick: (Int) -> Unit = {},
     isAdmin: Boolean = false
 ) {
-    val allBooks by viewModel.allAudiobooks.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
-    val sortOption by viewModel.userPreferences.librarySortOption.collectAsState()
-    val sortAscending by viewModel.userPreferences.librarySortAscending.collectAsState()
-    val filterOption by viewModel.userPreferences.libraryFilterOption.collectAsState()
-    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
-    val selectedBookIds by viewModel.selectedBookIds.collectAsState()
-    val collections by viewModel.collections.collectAsState()
+    val allBooks by viewModel.allAudiobooks.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
+    val sortOption by viewModel.userPreferences.librarySortOption.collectAsStateWithLifecycle()
+    val sortAscending by viewModel.userPreferences.librarySortAscending.collectAsStateWithLifecycle()
+    val filterOption by viewModel.userPreferences.libraryFilterOption.collectAsStateWithLifecycle()
+    val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedBookIds by viewModel.selectedBookIds.collectAsStateWithLifecycle()
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
 
     var showBatchCollectionDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }

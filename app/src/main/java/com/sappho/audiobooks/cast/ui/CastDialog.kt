@@ -36,7 +36,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sappho.audiobooks.cast.CastDevice
 import com.sappho.audiobooks.cast.CastDeviceType
 import com.sappho.audiobooks.cast.CastManager
@@ -81,10 +81,10 @@ fun CastDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val discoveredDevices by castManager.discoveredDevices.collectAsState()
-    val isCastConnected by castManager.isConnected.collectAsState()
-    val connectedDeviceName by castManager.connectedDeviceName.collectAsState()
-    val activeProtocol by castManager.activeProtocol.collectAsState()
+    val discoveredDevices by castManager.discoveredDevices.collectAsStateWithLifecycle()
+    val isCastConnected by castManager.isConnected.collectAsStateWithLifecycle()
+    val connectedDeviceName by castManager.connectedDeviceName.collectAsStateWithLifecycle()
+    val activeProtocol by castManager.activeProtocol.collectAsStateWithLifecycle()
 
     var isScanning by remember { mutableStateOf(true) }
 

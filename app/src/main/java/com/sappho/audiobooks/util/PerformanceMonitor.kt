@@ -2,13 +2,7 @@ package com.sappho.audiobooks.util
 
 import android.os.Debug
 import android.util.Log
-import androidx.compose.runtime.*
 import com.sappho.audiobooks.BuildConfig
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,32 +14,12 @@ class PerformanceMonitor @Inject constructor() {
         val isEnabled = BuildConfig.DEBUG
     }
 
-    private val monitorScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var memoryMonitorJob: Job? = null
-
     /**
      * Measure execution time of a suspend function
      */
     suspend inline fun <T> measureTime(
         operation: String,
         crossinline block: suspend () -> T
-    ): T {
-        if (!isEnabled) return block()
-
-        val startTime = System.currentTimeMillis()
-        val result = block()
-        val endTime = System.currentTimeMillis()
-
-        Log.d(TAG, "$operation took ${endTime - startTime}ms")
-        return result
-    }
-
-    /**
-     * Measure execution time of a regular function
-     */
-    inline fun <T> measureTimeSync(
-        operation: String,
-        crossinline block: () -> T
     ): T {
         if (!isEnabled) return block()
 
@@ -69,54 +43,5 @@ class PerformanceMonitor @Inject constructor() {
         val nativeHeap = Debug.getNativeHeapAllocatedSize() / (1024 * 1024)
 
         Log.d(TAG, "$context - Memory: ${usedMemory}MB / ${maxMemory}MB, Native: ${nativeHeap}MB")
-    }
-
-    /**
-     * Start monitoring memory usage in background.
-     * Uses a stored scope with SupervisorJob for proper cancellation.
-     */
-    fun startMemoryMonitoring() {
-        if (!isEnabled) return
-
-        memoryMonitorJob?.cancel()
-        memoryMonitorJob = monitorScope.launch {
-            while (true) {
-                logMemoryUsage("Background Monitor")
-                kotlinx.coroutines.delay(30_000) // Log every 30 seconds
-            }
-        }
-    }
-
-    /**
-     * Stop the background memory monitoring.
-     */
-    fun stopMemoryMonitoring() {
-        memoryMonitorJob?.cancel()
-        memoryMonitorJob = null
-    }
-}
-
-/**
- * Composable for monitoring composition performance
- */
-@Composable
-fun PerformanceTracker(name: String) {
-    if (!BuildConfig.DEBUG) return
-
-    val recompositionCount = remember { mutableIntStateOf(0) }
-    val startTime = remember { System.currentTimeMillis() }
-
-    LaunchedEffect(Unit) {
-        Log.d("CompositionPerf", "$name: Initial composition")
-    }
-
-    SideEffect {
-        recompositionCount.intValue++
-        val currentTime = System.currentTimeMillis()
-        val timeSinceStart = currentTime - startTime
-
-        if (recompositionCount.intValue > 1) {
-            Log.d("CompositionPerf", "$name: Recomposition #${recompositionCount.intValue} at ${timeSinceStart}ms")
-        }
     }
 }

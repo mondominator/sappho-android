@@ -10,6 +10,7 @@ import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.User
 import com.sappho.audiobooks.domain.model.UserStats
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -86,6 +87,8 @@ class ProfileViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _user.value = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load profile", e)
             } finally {
@@ -101,6 +104,8 @@ class ProfileViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _stats.value = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load stats", e)
             }
@@ -114,6 +119,8 @@ class ProfileViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _serverVersion.value = response.body()?.version
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load server version", e)
             }
@@ -132,6 +139,8 @@ class ProfileViewModel @Inject constructor(
                 } else {
                     _saveMessage.value = "Failed to update profile"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
@@ -181,6 +190,8 @@ class ProfileViewModel @Inject constructor(
                     val errorBody = response.errorBody()?.string()
                     _saveMessage.value = errorBody ?: "Failed to update profile"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
@@ -207,6 +218,8 @@ class ProfileViewModel @Inject constructor(
                 } else {
                     _saveMessage.value = "Failed to remove avatar"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
@@ -230,6 +243,8 @@ class ProfileViewModel @Inject constructor(
                         else -> errorBody ?: "Failed to update password"
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _saveMessage.value = "Error: ${e.message}"
             } finally {
@@ -259,6 +274,8 @@ class ProfileViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _users.value = response.body() ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load users", e)
             }
@@ -272,6 +289,8 @@ class ProfileViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _aiSettings.value = response.body()?.settings
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load AI settings", e)
             }
@@ -288,6 +307,8 @@ class ProfileViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to update AI settings")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResult(false, e.message ?: "Error updating settings")
             }
@@ -305,6 +326,8 @@ class ProfileViewModel @Inject constructor(
                     val errorBody = response.errorBody()?.string()
                     onResult(false, errorBody ?: "Connection failed")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResult(false, e.message ?: "Connection failed")
             }
@@ -324,6 +347,8 @@ class ProfileViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _scanResult.value = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to scan library", e)
             } finally {
@@ -343,6 +368,8 @@ class ProfileViewModel @Inject constructor(
                     val errorBody = response.errorBody()?.string()
                     onResult(false, errorBody ?: "Failed to create user")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResult(false, e.message ?: "Error creating user")
             }
@@ -360,6 +387,8 @@ class ProfileViewModel @Inject constructor(
                     val errorBody = response.errorBody()?.string()
                     onResult(false, errorBody ?: "Failed to delete user")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResult(false, e.message ?: "Error deleting user")
             }

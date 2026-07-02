@@ -4,6 +4,7 @@ import android.util.Log
 import com.sappho.audiobooks.cast.CastDevice
 import com.sappho.audiobooks.cast.CastProtocol
 import com.sappho.audiobooks.cast.CastTarget
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -73,6 +74,8 @@ class AirPlayCastTarget(
                     .post("".toRequestBody("text/plain".toMediaType()))
                     .build()
                 httpClient.newCall(request).execute().close()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error sending stop on disconnect", e)
             }
@@ -155,6 +158,8 @@ class AirPlayCastTarget(
                 _lastError.value = "Cannot reach AirPlay device. " +
                         "It may require AirPlay 2 (encrypted) which is not yet supported."
                 _isPlaying.value = false
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading media on AirPlay", e)
                 _lastError.value = "Failed to cast via AirPlay: ${e.message}"
@@ -173,6 +178,8 @@ class AirPlayCastTarget(
             val body = response.body?.string()
             response.close()
             if (response.code == 200 && body?.contains("duration") == true) body else null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             null
         }
@@ -186,6 +193,8 @@ class AirPlayCastTarget(
                 .post("".toRequestBody("text/plain".toMediaType()))
                 .build()
             httpClient.newCall(request).execute().close()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error sending play", e)
         }
@@ -199,6 +208,8 @@ class AirPlayCastTarget(
                 .post("".toRequestBody("text/plain".toMediaType()))
                 .build()
             httpClient.newCall(request).execute().close()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error sending pause", e)
         }
@@ -213,6 +224,8 @@ class AirPlayCastTarget(
                 .build()
             httpClient.newCall(request).execute().close()
             _currentPosition.value = positionSeconds
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error seeking on AirPlay", e)
         }
@@ -227,6 +240,8 @@ class AirPlayCastTarget(
                 .build()
             httpClient.newCall(request).execute().close()
             _isPlaying.value = false
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping AirPlay", e)
         }
@@ -272,6 +287,8 @@ class AirPlayCastTarget(
                 _currentPosition.value = position.toLong()
                 _isPlaying.value = true
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // Expected when no media is playing
             Log.v(TAG, "Polling error: ${e.message}")

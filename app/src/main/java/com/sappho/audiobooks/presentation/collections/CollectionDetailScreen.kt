@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.presentation.theme.*
@@ -51,11 +52,11 @@ fun CollectionDetailScreen(
     onBackClick: () -> Unit = {},
     viewModel: CollectionDetailViewModel = hiltViewModel()
 ) {
-    val collection by viewModel.collection.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
-    val error by viewModel.error.collectAsState()
-    val isSaving by viewModel.isSaving.collectAsState()
+    val collection by viewModel.collection.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
+    val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
 
     var showEditDialog by remember { mutableStateOf(false) }
     var isEditMode by remember { mutableStateOf(false) }

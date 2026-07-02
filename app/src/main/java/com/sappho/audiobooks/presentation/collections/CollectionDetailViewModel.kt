@@ -7,6 +7,7 @@ import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.remote.UpdateCollectionRequest
 import com.sappho.audiobooks.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -48,6 +49,8 @@ class CollectionDetailViewModel @Inject constructor(
                 } else {
                     _error.value = "Failed to load collection"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = e.message ?: "Network error"
             } finally {
@@ -76,6 +79,8 @@ class CollectionDetailViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to update collection")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResult(false, e.message ?: "Error updating collection")
             } finally {
@@ -94,6 +99,8 @@ class CollectionDetailViewModel @Inject constructor(
                 } else {
                     onResult(false, "Failed to remove book")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResult(false, e.message ?: "Error removing book")
             }

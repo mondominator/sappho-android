@@ -2,15 +2,11 @@ package com.sappho.audiobooks.download
 
 import android.content.Context
 import com.google.common.truth.Truth.assertThat
-import com.sappho.audiobooks.data.remote.SapphoApi
-import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.domain.model.Chapter
 import com.sappho.audiobooks.domain.model.Progress
-import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
@@ -21,8 +17,6 @@ class DownloadManagerTest {
 
     private lateinit var downloadManager: DownloadManager
     private val context = mockk<Context>(relaxed = true)
-    private val authRepository = mockk<AuthRepository>()
-    private val api = mockk<SapphoApi>()
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -34,7 +28,7 @@ class DownloadManagerTest {
         }
         every { context.filesDir } returns filesDir
 
-        downloadManager = DownloadManager(context, authRepository, api)
+        downloadManager = DownloadManager(context)
     }
 
     @Test

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.remote.*
 import com.sappho.audiobooks.domain.model.UploadState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -121,6 +122,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Server settings error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Server settings exception", e)
                 _message.value = "Failed to load server settings"
@@ -138,6 +141,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _serverSettings.value = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to load server settings"
             } finally {
@@ -157,6 +162,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to update settings"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -179,6 +186,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "AI settings error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "AI settings exception", e)
                 _message.value = "Failed to load AI settings"
@@ -196,6 +205,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _aiSettings.value = response.body()?.settings
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to load AI settings"
             } finally {
@@ -215,6 +226,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to update AI settings"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -233,6 +246,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "AI test failed"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -255,6 +270,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Users error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Users exception", e)
                 _message.value = "Failed to load users"
@@ -272,6 +289,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _users.value = response.body() ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to load users"
             } finally {
@@ -292,6 +311,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to create user"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -312,6 +333,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to update user"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -331,6 +354,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to delete user"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -354,6 +379,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to update user status"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -376,6 +403,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Backups error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Backups exception", e)
                 _message.value = "Failed to load backups"
@@ -398,6 +427,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Backup retention failed: ${response.code()} - ${response.message()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Backup retention exception", e)
             }
@@ -412,6 +443,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _backups.value = response.body()?.backups ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to load backups"
             } finally {
@@ -431,6 +464,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to create backup"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -450,6 +485,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to delete backup"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -468,6 +505,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to restore backup"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -487,6 +526,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to update retention"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -509,6 +550,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Logs error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Logs exception", e)
                 _message.value = "Failed to load logs"
@@ -526,6 +569,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _logs.value = response.body()?.logs ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to load logs"
             } finally {
@@ -545,6 +590,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to clear logs"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -566,6 +613,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Statistics error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Statistics exception", e)
                 _message.value = "Failed to load statistics"
@@ -583,6 +632,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _statistics.value = response.body()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Statistics refresh exception", e)
             } finally {
@@ -610,6 +661,8 @@ class AdminViewModel @Inject constructor(
                     }
                     _formatBooks.value = allBooks.take(50) // Limit to 50 for performance
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Load format books exception", e)
             } finally {
@@ -650,6 +703,8 @@ class AdminViewModel @Inject constructor(
                 if (orphansResponse.isSuccessful) {
                     _orphanDirectories.value = orphansResponse.body()?.orphanDirectories ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Library tab refresh exception", e)
             } finally {
@@ -671,6 +726,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Duplicates error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Duplicates exception", e)
                 _message.value = "Failed to load duplicates"
@@ -688,6 +745,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _duplicates.value = response.body()?.duplicateGroups ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to load duplicates"
             } finally {
@@ -707,6 +766,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to merge duplicates"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -730,6 +791,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Jobs error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Jobs exception", e)
                 _message.value = "Failed to load jobs"
@@ -748,6 +811,8 @@ class AdminViewModel @Inject constructor(
                     val jobsMap = response.body()?.jobs ?: emptyMap()
                     _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to refresh jobs"
             } finally {
@@ -767,6 +832,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to trigger job"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -789,6 +856,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Orphans error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Orphans exception", e)
                 _message.value = "Failed to load orphan directories"
@@ -806,6 +875,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _orphanDirectories.value = response.body()?.orphanDirectories ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to refresh orphan directories"
             } finally {
@@ -826,6 +897,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to delete orphan directories"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -845,6 +918,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "Organize preview error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Organize preview exception", e)
                 _message.value = "Failed to load organization preview"
@@ -866,6 +941,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to organize library"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -885,6 +962,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to scan library"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -904,6 +983,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to rescan library"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -924,6 +1005,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to clear library"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -946,6 +1029,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     android.util.Log.e("AdminViewModel", "API keys error: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "API keys exception", e)
                 _message.value = "Failed to load API keys"
@@ -963,6 +1048,8 @@ class AdminViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _apiKeys.value = response.body() ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Failed to load API keys"
             } finally {
@@ -986,6 +1073,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to create API key"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -1007,6 +1096,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to update API key"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -1026,6 +1117,8 @@ class AdminViewModel @Inject constructor(
                 } else {
                     _message.value = "Failed to delete API key"
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
             } finally {
@@ -1088,6 +1181,8 @@ class AdminViewModel @Inject constructor(
                             failCount++
                             android.util.Log.e("AdminViewModel", "Upload failed: ${response.code()}")
                         }
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         failCount++
                         android.util.Log.e("AdminViewModel", "Upload error for file", e)
@@ -1107,6 +1202,8 @@ class AdminViewModel @Inject constructor(
                     }
                 )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("AdminViewModel", "Upload error", e)
                 _uploadState.value = UploadState.ERROR

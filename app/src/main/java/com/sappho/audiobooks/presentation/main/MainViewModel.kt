@@ -12,6 +12,7 @@ import com.sappho.audiobooks.service.UploadService
 import com.sappho.audiobooks.service.UploadServiceState
 import com.sappho.audiobooks.service.UploadStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,8 +39,12 @@ class MainViewModel @Inject constructor(
     private val okHttpClient: OkHttpClient,
     val playerState: com.sappho.audiobooks.service.PlayerState,
     val castHelper: com.sappho.audiobooks.cast.CastHelper,
-    val downloadManager: com.sappho.audiobooks.download.DownloadManager
+    private val downloadManager: com.sappho.audiobooks.download.DownloadManager
 ) : ViewModel() {
+
+    // Expose only the download state the UI needs — not the manager itself
+    val downloadedBooks: StateFlow<List<com.sappho.audiobooks.download.DownloadedBook>> =
+        downloadManager.downloadedBooks
 
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user
@@ -144,6 +149,8 @@ class MainViewModel @Inject constructor(
                     }
                 } else {
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Offline - keep using cached user
 
@@ -178,6 +185,8 @@ class MainViewModel @Inject constructor(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("MainViewModel", "Error caching avatar", e)
             }
@@ -191,6 +200,8 @@ class MainViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _serverVersion.value = response.body()?.version
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Ignore errors - version is optional
             }
@@ -216,6 +227,10 @@ class MainViewModel @Inject constructor(
             kotlinx.coroutines.delay(1500)
             loadUser()
         }
+    }
+
+    fun deleteDownload(audiobookId: Int) {
+        downloadManager.deleteDownload(audiobookId)
     }
 
     fun clearUploadResult() {
@@ -263,6 +278,8 @@ class MainViewModel @Inject constructor(
                     if (response.isSuccessful) {
                         _unreadNotificationCount.value = response.body()?.count ?: 0
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
                     // Ignore errors - notification count is non-critical
                 }
@@ -278,6 +295,8 @@ class MainViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _notifications.value = response.body() ?: emptyList()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Ignore errors
             }
@@ -296,6 +315,8 @@ class MainViewModel @Inject constructor(
                     _unreadNotificationCount.value =
                         (_unreadNotificationCount.value - 1).coerceAtLeast(0)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Ignore errors
             }
@@ -312,6 +333,8 @@ class MainViewModel @Inject constructor(
                     }
                     _unreadNotificationCount.value = 0
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Ignore errors
             }
