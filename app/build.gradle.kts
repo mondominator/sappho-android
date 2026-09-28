@@ -9,14 +9,14 @@ plugins {
 
 android {
     namespace = "com.sappho.audiobooks"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.sappho.audiobooks"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 104
-        versionName = "0.9.86"
+        targetSdk = 36
+        versionCode = 105
+        versionName = "0.9.87"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
