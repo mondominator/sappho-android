@@ -8,10 +8,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import android.net.Uri
 import android.os.Bundle
@@ -44,6 +40,8 @@ import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.download.DownloadManager
 import com.sappho.audiobooks.presentation.theme.Timing
+import com.sappho.audiobooks.sync.PendingProgressReplayer
+import com.sappho.audiobooks.sync.ProgressPolicy
 import com.sappho.audiobooks.sync.ProgressSyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
@@ -51,6 +49,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -59,7 +58,7 @@ import javax.inject.Inject
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @AndroidEntryPoint
-class AudioPlaybackService : MediaLibraryService() {
+class AudioPlaybackService : MediaLibraryService(), LocalPlayback {
 
     @Inject
     lateinit var api: SapphoApi
@@ -79,6 +78,12 @@ class AudioPlaybackService : MediaLibraryService() {
     @Inject
     lateinit var userPreferences: UserPreferencesRepository
 
+    @Inject
+    lateinit var pendingProgressReplayer: PendingProgressReplayer
+
+    @Inject
+    lateinit var castManager: com.sappho.audiobooks.cast.CastManager
+
     private var player: ExoPlayer? = null
     // @Volatile: written from a background coroutine (cover fetch) and read on
     // the main thread when building notifications — without it the main thread
@@ -86,19 +91,13 @@ class AudioPlaybackService : MediaLibraryService() {
     @Volatile
     private var currentCoverBitmap: android.graphics.Bitmap? = null
     private var mediaLibrarySession: MediaLibrarySession? = null
-    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    // SupervisorJob: one failing child (a sync, a cover fetch) must not cancel
+    // every other loop for the rest of the service's life.
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var progressSyncJob: Job? = null
     private var positionUpdateJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var pauseTimeoutJob: Job? = null
-
-    private var audioManager: AudioManager? = null
-    private var audioFocusRequest: AudioFocusRequest? = null
-    // True when WE paused because of a transient focus loss (phone call,
-    // navigation prompt). On AUDIOFOCUS_GAIN we auto-resume only in that case —
-    // never after a user-initiated pause or a permanent focus loss.
-    private var pausedByTransientFocusLoss = false
-    private var noisyReceiver: BecomingNoisyReceiver? = null
 
     // Track playback session start time for progress sync delay
     private var playbackSessionStartTime: Long = 0L
@@ -132,6 +131,14 @@ class AudioPlaybackService : MediaLibraryService() {
         const val ACTION_SKIP_BACKWARD = "com.sappho.audiobooks.SKIP_BACKWARD"
         const val ACTION_PLAY_PAUSE = "com.sappho.audiobooks.PLAY_PAUSE"
 
+        /**
+         * Intent action used when the app starts this service with
+         * startForegroundService(). onStartCommand promotes the service to the
+         * foreground immediately, before any work that could return early, so
+         * the platform's 10 s startForeground() deadline is always met.
+         */
+        const val ACTION_PREPARE_PLAYBACK = "com.sappho.audiobooks.PREPARE_PLAYBACK"
+
         @Volatile
         var instance: AudioPlaybackService? = null
             private set
@@ -149,18 +156,13 @@ class AudioPlaybackService : MediaLibraryService() {
     // Cache for audiobooks to avoid re-fetching
     private val audiobookCache = mutableMapOf<Int, Audiobook>()
 
-    // Search state for Android Auto search
-    private var lastSearchQuery: String = ""
+    // Search results for Android Auto search
     private var lastSearchResults: List<MediaItem> = emptyList()
 
-    private inner class BecomingNoisyReceiver : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                // Pause playback when headphones are disconnected
-                player?.pause()
-            }
-        }
-    }
+    // Books resolved for a session controller (Android Auto, Assistant,
+    // headset resumption) whose item Media3 is about to load. When the item
+    // becomes current, adoptSessionPlayback() wires up state and syncing.
+    private val pendingSessionBooks = mutableMapOf<String, Audiobook>()
 
     private inner class NotificationActionReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -197,6 +199,25 @@ class AudioPlaybackService : MediaLibraryService() {
             }
         }
 
+        // Play/pause from a headset, the lock screen or Android Auto while a
+        // cast session is active controls the receiver; the phone must not
+        // start a second copy of the audio.
+        override fun play() {
+            if (castManager.isCasting()) {
+                serviceScope.launch { castManager.play() }
+            } else {
+                super.play()
+            }
+        }
+
+        override fun pause() {
+            if (castManager.isCasting()) {
+                serviceScope.launch { castManager.pause() }
+            } else {
+                super.pause()
+            }
+        }
+
         override fun seekToPrevious() {
             // Instead of going to previous track, seek back 15 seconds
             seekBack()
@@ -221,7 +242,6 @@ class AudioPlaybackService : MediaLibraryService() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         createNotificationChannel()
 
         // Use Media3's default notification provider for proper system media controls
@@ -233,8 +253,17 @@ class AudioPlaybackService : MediaLibraryService() {
         )
 
         initializePlayer()
-        registerNoisyReceiver()
         registerNotificationActionReceiver()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_PREPARE_PLAYBACK) {
+            // Satisfy startForegroundService() right away. loadAndPlay() can
+            // bail (no token, nothing to play); doing this first means it can
+            // never leave the service past its foreground deadline.
+            startForeground(NOTIFICATION_ID, createNotification())
+        }
+        return super.onStartCommand(intent, flags, startId)
     }
 
     private fun registerNotificationActionReceiver() {
@@ -276,86 +305,6 @@ class AudioPlaybackService : MediaLibraryService() {
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun registerNoisyReceiver() {
-        try {
-            noisyReceiver = BecomingNoisyReceiver()
-            val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                registerReceiver(noisyReceiver, filter)
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("AudioPlaybackService", "Failed to register noisy receiver", e)
-            noisyReceiver = null
-        }
-    }
-
-    private fun unregisterNoisyReceiver() {
-        noisyReceiver?.let {
-            try {
-                unregisterReceiver(it)
-            } catch (e: Exception) {
-                // Receiver may not be registered
-            }
-        }
-        noisyReceiver = null
-    }
-
-    private fun requestAudioFocus(): Boolean {
-        val am = audioManager ?: return false
-
-        // Abandon any previous audio focus request to avoid conflicting listeners
-        audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
-
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-            .build()
-
-        val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(audioAttributes)
-            .setAcceptsDelayedFocusGain(true)
-            .setOnAudioFocusChangeListener { focusChange ->
-                when (focusChange) {
-                    AudioManager.AUDIOFOCUS_LOSS -> {
-                        // Lost focus permanently - pause playback, no auto-resume
-                        pausedByTransientFocusLoss = false
-                        player?.pause()
-                    }
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                        // Lost focus temporarily (call, navigation prompt) - pause
-                        // and remember to resume when focus returns
-                        pausedByTransientFocusLoss = player?.isPlaying == true
-                        player?.pause()
-                    }
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                        // Lost focus temporarily but can duck - lower volume
-                        player?.volume = 0.3f
-                    }
-                    AudioManager.AUDIOFOCUS_GAIN -> {
-                        // Regained focus - restore volume, and resume playback if
-                        // WE paused it for a transient loss (standard audio-app UX)
-                        player?.volume = 1.0f
-                        if (pausedByTransientFocusLoss) {
-                            pausedByTransientFocusLoss = false
-                            player?.play()
-                        }
-                    }
-                }
-            }
-            .build()
-
-        audioFocusRequest = focusRequest
-        return am.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-    }
-
-    private fun abandonAudioFocus() {
-        audioManager?.let { am ->
-            audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
-        }
-    }
-
     private fun initializePlayer() {
         val skipBackMs = userPreferences.skipBackwardSeconds.value * 1000L
         val skipForwardMs = userPreferences.skipForwardSeconds.value * 1000L
@@ -371,10 +320,29 @@ class AudioPlaybackService : MediaLibraryService() {
             )
             .build()
 
+        // Speech content: Media3 requests audio focus on play (from ANY
+        // controller: app, Bluetooth, lock screen, Android Auto), pauses on
+        // transient loss and for "can duck" (speech shouldn't be talked over),
+        // resumes on regain, and pauses when headphones disconnect.
+        val media3AudioAttributes = Media3AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+            .build()
+
         player = ExoPlayer.Builder(this)
             .setSeekBackIncrementMs(skipBackMs)
             .setSeekForwardIncrementMs(skipForwardMs)
             .setLoadControl(loadControl)
+            .setAudioAttributes(media3AudioAttributes, /* handleAudioFocus= */ true)
+            .setHandleAudioBecomingNoisy(true)
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                    androidx.media3.datasource.DefaultDataSource.Factory(
+                        this,
+                        androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(okHttpClient)
+                    )
+                )
+            )
             .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -397,7 +365,7 @@ class AudioPlaybackService : MediaLibraryService() {
                         }
                         Player.STATE_ENDED -> {
                             playerState.updatePlayingState(false)
-                            markFinished()
+                            handlePlaybackEnded(currentPosition / 1000)
                         }
                         Player.STATE_IDLE -> {
                             playerState.updateLoadingState(false)
@@ -428,6 +396,12 @@ class AudioPlaybackService : MediaLibraryService() {
                     updateNotification()
                 }
 
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    val id = mediaItem?.mediaId ?: return
+                    val book = pendingSessionBooks.remove(id) ?: return
+                    adoptSessionPlayback(book)
+                }
+
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     android.util.Log.e("AudioPlaybackService", "Player error: ${error.message}", error)
                     playerState.updateLoadingState(false)
@@ -441,15 +415,6 @@ class AudioPlaybackService : MediaLibraryService() {
                 }
             })
         }
-
-        // Set audio attributes on ExoPlayer for proper Bluetooth/audio routing
-        // This tells the system what type of audio we're playing (speech media)
-        val media3AudioAttributes = Media3AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
-            .build()
-        // handleAudioFocus=false because we manage audio focus manually via requestAudioFocus()
-        player?.setAudioAttributes(media3AudioAttributes, false)
 
         // Create command buttons for notification using standard player commands
         // This helps the notification provider recognize them as seek buttons
@@ -488,17 +453,7 @@ class AudioPlaybackService : MediaLibraryService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo
         ): MediaSession.ConnectionResult {
-            val packageName = controller.packageName
-            android.util.Log.d("AutoService", "Connection from: $packageName")
-            
-            // Check if this is an Android Auto connection
-            val isAndroidAuto = packageName.contains("android.projection") || 
-                               packageName.contains("com.google.android.projection.gearhead") ||
-                               packageName == "com.google.android.gms"
-            
-            if (isAndroidAuto) {
-                android.util.Log.i("AutoService", "Android Auto connection detected")
-            }
+            android.util.Log.d("AutoService", "Connection from: ${controller.packageName}")
 
             // Add custom commands for skip forward/backward
             val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
@@ -506,22 +461,16 @@ class AudioPlaybackService : MediaLibraryService() {
                 .add(SessionCommand(ACTION_SKIP_BACKWARD, Bundle.EMPTY))
                 .build()
 
-            // Enable player commands including SEEK_TO_PREVIOUS/NEXT for system media controls
-            // The ForwardingPlayer intercepts these and performs 10-second skips
-            val playerCommands = Player.Commands.Builder()
+            // Start from Media3's defaults (which include PREPARE, GET_METADATA and
+            // CHANGE_MEDIA_ITEMS — needed for Android Auto / Assistant to load and
+            // show a book) and make sure the skip commands are present. The
+            // ForwardingPlayer turns previous/next into skips.
+            val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
                 .addAll(
-                    Player.COMMAND_PLAY_PAUSE,
                     Player.COMMAND_SEEK_BACK,
                     Player.COMMAND_SEEK_FORWARD,
                     Player.COMMAND_SEEK_TO_PREVIOUS,
-                    Player.COMMAND_SEEK_TO_NEXT,
-                    Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
-                    Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
-                    Player.COMMAND_GET_TIMELINE,
-                    Player.COMMAND_SET_MEDIA_ITEM,
-                    Player.COMMAND_STOP,
-                    Player.COMMAND_SET_SPEED_AND_PITCH,
-                    Player.COMMAND_GET_AUDIO_ATTRIBUTES
+                    Player.COMMAND_SEEK_TO_NEXT
                 )
                 .build()
 
@@ -666,135 +615,75 @@ class AudioPlaybackService : MediaLibraryService() {
             return loadAudiobookMediaItem(audiobookId)
         }
 
+        /**
+         * A controller (Android Auto, Assistant, Bluetooth) asked to play a
+         * media id or search query. Resolve it to a playable item and hand it
+         * back WITH its resume position, and let Media3 load it.
+         *
+         * We must not also call loadAndPlay() here: Media3 applies the returned
+         * items after this future completes and would replace whatever
+         * loadAndPlay prepared, resetting the position to 0:00.
+         */
+        override fun onSetMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: MutableList<MediaItem>,
+            startIndex: Int,
+            startPositionMs: Long
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            val future = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
+            val requested = mediaItems.firstOrNull()
+            if (requested == null) {
+                future.setException(IllegalArgumentException("No media item requested"))
+                return future
+            }
+            serviceScope.launch {
+                try {
+                    val resolved = resolveRequestedItem(requested)
+                    if (resolved == null) {
+                        future.setException(IllegalStateException("Could not resolve ${requested.mediaId}"))
+                    } else {
+                        future.set(toItemsWithStartPosition(resolved))
+                    }
+                } catch (e: CancellationException) {
+                    future.setException(e)
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.e("AutoService", "Error resolving media item", e)
+                    future.setException(e)
+                }
+            }
+            return future
+        }
+
         override fun onAddMediaItems(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
             mediaItems: MutableList<MediaItem>
         ): ListenableFuture<MutableList<MediaItem>> {
-            // This is called when Android Auto requests to play an item
             val future = SettableFuture.create<MutableList<MediaItem>>()
-
-            if (mediaItems.isEmpty()) {
+            val requested = mediaItems.firstOrNull()
+            if (requested == null) {
                 future.set(mutableListOf())
                 return future
             }
-
-            val mediaItem = mediaItems.first()
-            val mediaId = mediaItem.mediaId
-
-            // Check for voice search query in request metadata
-            // This handles "Hey Google, play X on Sappho" commands
-            val searchQuery = mediaItem.requestMetadata.searchQuery
-            if (!searchQuery.isNullOrBlank()) {
-                android.util.Log.d("AutoService", "Voice search detected: $searchQuery")
-                serviceScope.launch {
-                    try {
-                        val response = api.getAudiobooks(search = searchQuery, limit = 5)
-                        if (response.isSuccessful) {
-                            val audiobooks = response.body()?.audiobooks ?: emptyList()
-                            if (audiobooks.isNotEmpty()) {
-                                val audiobook = audiobooks.first()
-                                android.util.Log.d("AutoService", "Voice search - playing: ${audiobook.title}")
-                                val startPosition = audiobook.progress?.position ?: 0
-                                val playableItem = buildPlayableMediaItem(audiobook, startPosition)
-                                future.set(mutableListOf(playableItem))
-                                loadAndPlay(audiobook, startPosition)
-                            } else {
-                                android.util.Log.w("AutoService", "Voice search - no results for: $searchQuery")
-                                future.set(mutableListOf())
-                            }
-                        } else {
-                            future.set(mutableListOf())
-                        }
-                    } catch (e: CancellationException) {
-                        // Resolve the future before rethrowing so the Media3
-                        // controller waiting on it does not hang forever.
-                        future.set(mutableListOf())
-                        throw e
-                    } catch (e: Exception) {
-                        android.util.Log.e("AutoService", "Voice search error", e)
-                        future.set(mutableListOf())
-                    }
-                }
-                return future
-            }
-
-            // Check if it's a chapter request
-            if (mediaId.contains("_chapter_")) {
-                val parts = mediaId.split("_chapter_")
-                val audiobookId = parts[0].toIntOrNull()
-                val chapterIndex = parts.getOrNull(1)?.toIntOrNull() ?: 0
-
-                if (audiobookId != null) {
-                    serviceScope.launch {
-                        try {
-                            val audiobook = audiobookCache[audiobookId] ?: run {
-                                val response = api.getAudiobook(audiobookId)
-                                response.body()?.also { audiobookCache[audiobookId] = it }
-                            }
-
-                            if (audiobook != null) {
-                                val chapter = audiobook.chapters?.getOrNull(chapterIndex)
-                                val startPosition = chapter?.startTime?.toInt() ?: 0
-
-                                // Build the actual playable media item with URI
-                                val playableItem = buildPlayableMediaItem(audiobook, startPosition)
-                                future.set(mutableListOf(playableItem))
-
-                                // Start playback
-                                loadAndPlay(audiobook, startPosition)
-                            } else {
-                                future.set(mutableListOf())
-                            }
-                        } catch (e: CancellationException) {
-                            future.set(mutableListOf())
-                            throw e
-                        } catch (e: Exception) {
-                            android.util.Log.e("AudioPlaybackService", "Error loading chapter", e)
-                            future.set(mutableListOf())
-                        }
-                    }
-                } else {
+            serviceScope.launch {
+                try {
+                    val resolved = resolveRequestedItem(requested)
+                    future.set(
+                        if (resolved == null) mutableListOf()
+                        else mutableListOf(prepareSessionItem(resolved))
+                    )
+                } catch (e: CancellationException) {
+                    // Resolve the future before rethrowing so the Media3
+                    // controller waiting on it does not hang forever.
                     future.set(mutableListOf())
-                }
-            } else {
-                // Regular audiobook playback
-                val audiobookId = mediaId.toIntOrNull()
-
-                if (audiobookId != null) {
-                    serviceScope.launch {
-                        try {
-                            val audiobook = audiobookCache[audiobookId] ?: run {
-                                val response = api.getAudiobook(audiobookId)
-                                response.body()?.also { audiobookCache[audiobookId] = it }
-                            }
-
-                            if (audiobook != null) {
-                                // Resume from saved position if available
-                                val startPosition = audiobook.progress?.position ?: 0
-
-                                // Build the actual playable media item with URI
-                                val playableItem = buildPlayableMediaItem(audiobook, startPosition)
-                                future.set(mutableListOf(playableItem))
-
-                                // Start playback
-                                loadAndPlay(audiobook, startPosition)
-                            } else {
-                                future.set(mutableListOf())
-                            }
-                        } catch (e: CancellationException) {
-                            future.set(mutableListOf())
-                            throw e
-                        } catch (e: Exception) {
-                            android.util.Log.e("AudioPlaybackService", "Error loading audiobook for playback", e)
-                            future.set(mutableListOf())
-                        }
-                    }
-                } else {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.e("AutoService", "Error resolving media item", e)
                     future.set(mutableListOf())
                 }
             }
-
             return future
         }
 
@@ -805,9 +694,6 @@ class AudioPlaybackService : MediaLibraryService() {
             params: LibraryParams?
         ): ListenableFuture<LibraryResult<Void>> {
             android.util.Log.d("AutoService", "onSearch called with query: $query")
-
-            // Store the search query for later use in onGetSearchResult
-            lastSearchQuery = query
 
             // Perform search asynchronously and notify when results are ready
             serviceScope.launch {
@@ -841,6 +727,11 @@ class AudioPlaybackService : MediaLibraryService() {
             }
         }
 
+        /**
+         * Play pressed on a headset / the system resumption UI while the
+         * service wasn't running. Return the last in-progress book with its
+         * position; Media3 loads and plays it.
+         */
         override fun onPlaybackResumption(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo
@@ -850,28 +741,13 @@ class AudioPlaybackService : MediaLibraryService() {
 
             serviceScope.launch {
                 try {
-                    // Try to resume the last played audiobook
                     val response = api.getInProgress(limit = 1)
-                    if (response.isSuccessful) {
-                        val audiobooks: List<Audiobook> = response.body() ?: emptyList()
-                        if (audiobooks.isNotEmpty()) {
-                            val audiobook: Audiobook = audiobooks.first()
-                            val startPosition = audiobook.progress?.position ?: 0
-                            val playableItem = buildPlayableMediaItem(audiobook, startPosition)
-
-                            future.set(MediaSession.MediaItemsWithStartPosition(
-                                listOf(playableItem),
-                                0,
-                                startPosition.toLong() * 1000 // Convert to milliseconds
-                            ))
-
-                            // Trigger actual playback
-                            loadAndPlay(audiobook, startPosition)
-                        } else {
-                            future.setException(Exception("No audiobooks to resume"))
-                        }
+                    val audiobook = if (response.isSuccessful) response.body()?.firstOrNull() else null
+                    if (audiobook != null) {
+                        val resolved = ResolvedRequest(audiobook, audiobook.progress?.position ?: 0, applyRewind = true)
+                        future.set(toItemsWithStartPosition(resolved))
                     } else {
-                        future.setException(Exception("Failed to load audiobooks"))
+                        future.setException(IllegalStateException("No audiobook to resume"))
                     }
                 } catch (e: CancellationException) {
                     // Resolve the future before rethrowing so the controller
@@ -887,6 +763,90 @@ class AudioPlaybackService : MediaLibraryService() {
             return future
         }
 
+    }
+
+    /** A controller request resolved to a book and where to start it (seconds). */
+    private data class ResolvedRequest(
+        val audiobook: Audiobook,
+        val startSeconds: Int,
+        val applyRewind: Boolean
+    )
+
+    /**
+     * Turn a controller's request (voice search query, `<id>_chapter_<n>`, or a
+     * plain book id) into a book and start position. Null when nothing matches.
+     */
+    private suspend fun resolveRequestedItem(mediaItem: MediaItem): ResolvedRequest? {
+        val searchQuery = mediaItem.requestMetadata.searchQuery
+        if (!searchQuery.isNullOrBlank()) {
+            android.util.Log.d("AutoService", "Voice search detected: $searchQuery")
+            val response = api.getAudiobooks(search = searchQuery, limit = 5)
+            val book = if (response.isSuccessful) response.body()?.audiobooks?.firstOrNull() else null
+            return book?.let { ResolvedRequest(it, it.progress?.position ?: 0, applyRewind = true) }
+        }
+
+        val mediaId = mediaItem.mediaId
+        if (mediaId.contains("_chapter_")) {
+            val parts = mediaId.split("_chapter_")
+            val audiobookId = parts[0].toIntOrNull() ?: return null
+            val chapterIndex = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val book = fetchAudiobook(audiobookId) ?: return null
+            val chapterStart = book.chapters?.getOrNull(chapterIndex)?.startTime?.toInt() ?: 0
+            return ResolvedRequest(book, chapterStart, applyRewind = false)
+        }
+
+        val audiobookId = mediaId.toIntOrNull() ?: return null
+        val book = fetchAudiobook(audiobookId) ?: return null
+        return ResolvedRequest(book, book.progress?.position ?: 0, applyRewind = true)
+    }
+
+    private suspend fun fetchAudiobook(audiobookId: Int): Audiobook? {
+        audiobookCache[audiobookId]?.let { return it }
+        val fromServer = try {
+            api.getAudiobook(audiobookId).body()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("AutoService", "getAudiobook failed; trying downloaded copy", e)
+            null
+        }
+        val book = fromServer ?: downloadManager.getDownloadedBook(audiobookId)?.audiobook
+        book?.let { audiobookCache[audiobookId] = it }
+        return book
+    }
+
+    /** Build the playable item and remember the book so we adopt it once loaded. */
+    private fun prepareSessionItem(resolved: ResolvedRequest): MediaItem {
+        val item = buildPlayableMediaItem(resolved.audiobook)
+        pendingSessionBooks[item.mediaId] = resolved.audiobook
+        return item
+    }
+
+    private fun toItemsWithStartPosition(resolved: ResolvedRequest): MediaSession.MediaItemsWithStartPosition {
+        val item = prepareSessionItem(resolved)
+        val rewind = if (resolved.applyRewind && resolved.startSeconds > 0) {
+            userPreferences.rewindOnResumeSeconds.value
+        } else 0
+        val startSeconds = (resolved.startSeconds - rewind).coerceAtLeast(0)
+        playerState.updatePosition(startSeconds.toLong())
+        return MediaSession.MediaItemsWithStartPosition(listOf(item), 0, startSeconds * 1000L)
+    }
+
+    /**
+     * Media3 loaded a book requested by a session controller. Do the setup
+     * loadAndPlay() does for in-app playback: shared state, speed, cover,
+     * progress sync and the pending-queue replay.
+     */
+    private fun adoptSessionPlayback(audiobook: Audiobook) {
+        android.util.Log.d("AudioPlaybackService", "Adopting session playback of ${audiobook.id}")
+        playerState.updateAudiobook(audiobook)
+        audiobook.duration?.takeIf { it > 0 }?.let { playerState.updateDuration(it.toLong()) }
+        isPlayingLocalFile = downloadManager.getLocalFilePath(audiobook.id)?.let { File(it).exists() } == true
+        loadCoverBitmap(audiobook)
+        applySavedPlaybackSpeed()
+        playbackSessionStartTime = System.currentTimeMillis()
+        startProgressSync()
+        syncPendingProgress()
     }
 
     /**
@@ -930,23 +890,24 @@ class AudioPlaybackService : MediaLibraryService() {
         }
     }
 
-    private fun buildPlayableMediaItem(audiobook: Audiobook, startPosition: Int = 0): MediaItem {
+    /**
+     * Item ExoPlayer can play: the downloaded file when present, otherwise the
+     * stream. The stream URL carries no token; ExoPlayer fetches it through the
+     * app's OkHttpClient, which adds the Authorization header and refreshes an
+     * expired access token.
+     */
+    private fun buildPlayableMediaItem(audiobook: Audiobook): MediaItem {
         val serverUrl = authRepository.getServerUrlSync() ?: ""
-        val token = authRepository.getTokenSync() ?: ""
 
         // Check for downloaded file first
         val localFilePath = downloadManager.getLocalFilePath(audiobook.id)
         val mediaUri = if (localFilePath != null && File(localFilePath).exists()) {
             Uri.fromFile(File(localFilePath))
         } else {
-            Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream?token=$token")
+            Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream")
         }
 
-        val coverArtUri = if (audiobook.coverImage != null && serverUrl.isNotEmpty() && token.isNotEmpty()) {
-            Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token")
-        } else {
-            null
-        }
+        val coverArtUri = coverArtUriFor(audiobook)
 
         return MediaItem.Builder()
             .setMediaId(audiobook.id.toString())
@@ -965,6 +926,14 @@ class AudioPlaybackService : MediaLibraryService() {
             .build()
     }
 
+    /**
+     * Artwork for notification, lock screen and Android Auto. A content:// URI
+     * served by CoverArtProvider, so the access token never leaves the app in
+     * an artwork URL handed to other processes.
+     */
+    private fun coverArtUriFor(audiobook: Audiobook): Uri? =
+        if (audiobook.coverImage != null) CoverArtProvider.uriFor(this, audiobook.id) else null
+
     private fun loadChapters(audiobookId: Int, params: LibraryParams?): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
         val future = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
 
@@ -976,14 +945,7 @@ class AudioPlaybackService : MediaLibraryService() {
                 }
 
                 if (audiobook != null && !audiobook.chapters.isNullOrEmpty()) {
-                    val serverUrl = authRepository.getServerUrlSync() ?: ""
-                    val token = authRepository.getTokenSync() ?: ""
-
-                    val coverArtUri = if (audiobook.coverImage != null && serverUrl.isNotEmpty() && token.isNotEmpty()) {
-                        Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token")
-                    } else {
-                        null
-                    }
+                    val coverArtUri = coverArtUriFor(audiobook)
 
                     val chapterItems = audiobook.chapters.mapIndexed { index: Int, chapter: com.sappho.audiobooks.domain.model.Chapter ->
                         val endTime = chapter.endTime ?: chapter.startTime
@@ -1192,25 +1154,10 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     private fun createPlayableMediaItem(audiobook: Audiobook): MediaItem {
-        val serverUrl = authRepository.getServerUrlSync() ?: ""
-        val token = authRepository.getTokenSync() ?: ""
-
         // Cache the audiobook for later use
         audiobookCache[audiobook.id] = audiobook
 
-        // For Android Auto, we need to handle authentication differently
-        // Some Android Auto systems may not properly handle tokens in URLs
-        val coverArtUri = if (audiobook.coverImage != null && serverUrl.isNotEmpty()) {
-            // Try to use a simpler URL structure that might work better with Auto
-            if (token.isNotEmpty()) {
-                Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token")
-            } else {
-                // Fallback for unauthenticated or when token is unavailable
-                Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover")
-            }
-        } else {
-            null
-        }
+        val coverArtUri = coverArtUriFor(audiobook)
 
         // Build subtitle with progress info if available - optimized for Android Auto
         val subtitle = buildString {
@@ -1262,135 +1209,90 @@ class AudioPlaybackService : MediaLibraryService() {
     }
 
     fun loadAndPlay(audiobook: Audiobook, startPosition: Int) {
+        // Promote to foreground FIRST. Every path below may return early, and a
+        // service started with startForegroundService() that never calls
+        // startForeground() is killed with ForegroundServiceDidNotStartInTime.
+        startForeground(NOTIFICATION_ID, createNotification())
 
         // Ensure player is initialized - reinitialize if it was released
         if (player == null || mediaLibrarySession == null) {
             initializePlayer()
         }
 
-        player?.let { exoPlayer ->
-            android.util.Log.d("AudioPlaybackService", "loadAndPlay: book=${audiobook.title}, startPosition=$startPosition")
-
-            // Stop any existing playback to ensure clean state
-            exoPlayer.stop()
-
-            // Always set position to what we intend to play
-            playerState.updatePosition(startPosition.toLong())
-            playerState.updateAudiobook(audiobook)
-            playerState.updateLoadingState(true)
-
-            // Request audio focus before playing
-            if (!requestAudioFocus()) {
-                android.util.Log.w("AudioPlaybackService", "Audio focus request failed")
-                playerState.updateLoadingState(false)
-                return
-            }
-
-            // Load cover bitmap for notification
-            loadCoverBitmap(audiobook)
-
-            // Get server URL and token
-            val serverUrl = authRepository.getServerUrlSync()
-            val token = authRepository.getTokenSync()
-
-            // Check if we have a downloaded copy
-            val localFilePath = downloadManager.getLocalFilePath(audiobook.id)
-            val mediaUri: Uri
-
-            if (localFilePath != null && File(localFilePath).exists()) {
-                // Use local downloaded file
-                mediaUri = Uri.fromFile(File(localFilePath))
-                isPlayingLocalFile = true
-                android.util.Log.d("AudioPlaybackService", "Using local file: $localFilePath")
-            } else {
-                // Stream from server
-                if (serverUrl == null || token == null) {
-                    android.util.Log.e("AudioPlaybackService", "No server URL or token available")
-                    playerState.updateLoadingState(false)
-                    return
-                }
-                mediaUri = Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream?token=$token")
-                isPlayingLocalFile = false
-                // SECURITY: never log mediaUri — it carries the auth token as a query param
-                android.util.Log.d("AudioPlaybackService", "Streaming audiobook ${audiobook.id} from server")
-            }
-
-            // Build cover art URI for notification
-            val coverArtUri = if (audiobook.coverImage != null && !serverUrl.isNullOrEmpty() && !token.isNullOrEmpty()) {
-                Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token")
-            } else {
-                null
-            }
-
-            val mediaItem = MediaItem.Builder()
-                .setUri(mediaUri)
-                .setMediaId(audiobook.id.toString())
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(audiobook.title)
-                        .setArtist(audiobook.author)
-                        .setAlbumTitle(audiobook.series)
-                        .setArtworkUri(coverArtUri)
-                        .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
-                        .build()
-                )
-                .build()
-
-            exoPlayer.setMediaItem(mediaItem)
-            exoPlayer.prepare()
-
-            // Always seek to the target position, even if it's 0
-            // This ensures consistent player state and mirrors the web player behavior
-            // that always sets currentTime after the audio is ready
-            // Apply rewind on resume if resuming from a saved position
-            val rewindSeconds = if (startPosition > 0) userPreferences.rewindOnResumeSeconds.value else 0
-            val adjustedPosition = (startPosition - rewindSeconds).coerceAtLeast(0)
-            android.util.Log.d("AudioPlaybackService", "Seeking to position: ${adjustedPosition * 1000L}ms (rewind: ${rewindSeconds}s)")
-            exoPlayer.seekTo(adjustedPosition * 1000L)
-
-            android.util.Log.d("AudioPlaybackService", "Calling play()")
-            exoPlayer.play()
-
-            // Mark the start of this playback session for progress sync delay
-            playbackSessionStartTime = System.currentTimeMillis()
-
-            // Restore saved playback speed, or use default preference if not set
-            val savedSpeed = authRepository.getPlaybackSpeed()
-            val effectiveSpeed = if (savedSpeed == 1.0f) {
-                // No custom speed saved, use default preference
-                userPreferences.defaultPlaybackSpeed.value
-            } else {
-                savedSpeed
-            }
-            exoPlayer.setPlaybackSpeed(effectiveSpeed)
-            playerState.updatePlaybackSpeed(effectiveSpeed)
-
-            startProgressSync()
-
-            // Start foreground with our custom MediaStyle notification
-            startForeground(NOTIFICATION_ID, createNotification())
-
-            // Try to sync any pending offline progress when we start playback
-            syncPendingProgress()
+        val exoPlayer = player ?: run {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            return
         }
+        android.util.Log.d("AudioPlaybackService", "loadAndPlay: book=${audiobook.title}, startPosition=$startPosition")
+
+        // Stop any existing playback to ensure clean state
+        exoPlayer.stop()
+        pendingSessionBooks.clear()
+
+        // Always set position to what we intend to play
+        playerState.updatePosition(startPosition.toLong())
+        playerState.updateAudiobook(audiobook)
+        playerState.updateLoadingState(true)
+
+        val serverUrl = authRepository.getServerUrlSync()
+        val token = authRepository.getTokenSync()
+        val localFilePath = downloadManager.getLocalFilePath(audiobook.id)
+        val hasLocalFile = localFilePath != null && File(localFilePath).exists()
+        if (!hasLocalFile && (serverUrl == null || token == null)) {
+            android.util.Log.e("AudioPlaybackService", "No server URL or token available")
+            playerState.updateLoadingState(false)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            return
+        }
+
+        // Load cover bitmap for notification
+        loadCoverBitmap(audiobook)
+
+        val mediaItem = buildPlayableMediaItem(audiobook)
+        isPlayingLocalFile = hasLocalFile
+        // Not logging the URI itself: file paths and server URLs stay out of logcat
+        android.util.Log.d("AudioPlaybackService", if (hasLocalFile) "Using local file" else "Streaming audiobook ${audiobook.id} from server")
+
+        // Apply rewind on resume if resuming from a saved position
+        val rewindSeconds = if (startPosition > 0) userPreferences.rewindOnResumeSeconds.value else 0
+        val adjustedPosition = (startPosition - rewindSeconds).coerceAtLeast(0)
+
+        // setMediaItem with a start position: no window where the item is
+        // prepared at 0:00 before a separate seek lands.
+        exoPlayer.setMediaItem(mediaItem, adjustedPosition * 1000L)
+        exoPlayer.prepare()
+        // Media3 requests audio focus on play(); if it is refused (e.g. during
+        // a call) playback simply waits instead of crashing or bailing out.
+        exoPlayer.play()
+
+        // Mark the start of this playback session for progress sync delay
+        playbackSessionStartTime = System.currentTimeMillis()
+
+        applySavedPlaybackSpeed()
+        startProgressSync()
+
+        // Refresh the foreground notification now that metadata is set
+        updateNotification()
+
+        // Try to sync any pending offline progress when we start playback
+        syncPendingProgress()
     }
 
-    fun togglePlayPause(): Boolean {
-        val exoPlayer = player
-        if (exoPlayer == null) {
-            // Player is null - signal caller to restart playback
-            return false
-        }
-
-        if (exoPlayer.isPlaying) {
-            exoPlayer.pause()
+    /** Restore saved playback speed, or use the default preference if none was saved. */
+    private fun applySavedPlaybackSpeed() {
+        val savedSpeed = authRepository.getPlaybackSpeed()
+        val effectiveSpeed = if (savedSpeed == 1.0f) {
+            userPreferences.defaultPlaybackSpeed.value
         } else {
-            // Request audio focus before resuming playback
-            if (!requestAudioFocus()) {
-                return true // Still return true since player exists, just can't get focus
-            }
-            exoPlayer.play()
+            savedSpeed
         }
+        player?.setPlaybackSpeed(effectiveSpeed)
+        playerState.updatePlaybackSpeed(effectiveSpeed)
+    }
+
+    override fun togglePlayPause(): Boolean {
+        val exoPlayer = player ?: return false // signal caller to restart playback
+        if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
         return true
     }
 
@@ -1398,18 +1300,21 @@ class AudioPlaybackService : MediaLibraryService() {
         return player?.isPlaying == true
     }
 
-    fun seekTo(seconds: Long) {
-        player?.seekTo(seconds * 1000)
+    /** Seek to [seconds] (NOT milliseconds) into the book. */
+    override fun seekTo(seconds: Long) {
+        val target = ProgressPolicy.clampSeekSeconds(seconds, playerState.duration.value)
+        player?.seekTo(target * 1000)
         // Immediately update UI position so slider doesn't snap back
-        playerState.updatePosition(seconds)
+        playerState.updatePosition(target)
         playerState.updateLastActiveTimestamp()
     }
 
-    fun seekToAndPlay(seconds: Long) {
+    override fun seekToAndPlay(seconds: Long) {
         player?.let {
-            it.seekTo(seconds * 1000)
+            val target = ProgressPolicy.clampSeekSeconds(seconds, playerState.duration.value)
+            it.seekTo(target * 1000)
             // Immediately update UI position so slider doesn't snap back
-            playerState.updatePosition(seconds)
+            playerState.updatePosition(target)
             playerState.updateLastActiveTimestamp()
             if (!it.isPlaying) {
                 it.play()
@@ -1417,7 +1322,7 @@ class AudioPlaybackService : MediaLibraryService() {
         }
     }
 
-    fun skipForward() {
+    override fun skipForward() {
         player?.let {
             val skipSeconds = userPreferences.skipForwardSeconds.value.toLong()
             val newPosition = clampSkipForwardPosition(
@@ -1428,7 +1333,7 @@ class AudioPlaybackService : MediaLibraryService() {
         }
     }
 
-    fun skipBackward() {
+    override fun skipBackward() {
         player?.let {
             val skipSeconds = userPreferences.skipBackwardSeconds.value.toLong()
             val newPosition = (it.currentPosition / 1000 - skipSeconds).coerceAtLeast(0)
@@ -1554,7 +1459,7 @@ class AudioPlaybackService : MediaLibraryService() {
                 val totalDuration = playerState.duration.value.toInt()
 
                 // Skip sync if near the end of the book
-                if (totalDuration > 0 && (totalDuration - position) < 30) {
+                if (ProgressPolicy.isNearEnd(position.toLong(), totalDuration.toLong())) {
                     return@launch
                 }
 
@@ -1599,35 +1504,39 @@ class AudioPlaybackService : MediaLibraryService() {
 
     private fun syncPendingProgress() {
         serviceScope.launch {
-            val pendingList = downloadManager.getPendingProgressList()
-            if (pendingList.isEmpty()) return@launch
-
-            for (pending in pendingList) {
-                try {
-                    api.updateProgress(
-                        pending.audiobookId,
-                        ProgressUpdateRequest(
-                            position = pending.position,
-                            completed = 0,
-                            state = "paused"
-                        )
-                    )
-                    downloadManager.clearPendingProgress(pending.audiobookId)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    // Continue trying remaining items
-                }
+            try {
+                pendingProgressReplayer.replayAll()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("AudioPlaybackService", "Pending progress replay failed", e)
             }
         }
     }
 
-    private fun markFinished() {
+    /**
+     * The player reached the end of its media. That is only the end of the
+     * BOOK when we're near the server's total duration — a multi-file book's
+     * stream/download is part 1 only, and ending part 1 must not mark the
+     * whole book finished (which also resets the position to 0 server-side).
+     */
+    private fun handlePlaybackEnded(endPositionSeconds: Long) {
+        val book = playerState.currentAudiobook.value ?: return
+        if (ProgressPolicy.shouldMarkFinished(endPositionSeconds, book.duration)) {
+            markFinished(book)
+        } else {
+            android.util.Log.w(
+                "AudioPlaybackService",
+                "Media ended at ${endPositionSeconds}s but book ${book.id} is ${book.duration}s; not marking finished"
+            )
+            syncProgressImmediate()
+        }
+    }
+
+    private fun markFinished(book: Audiobook) {
         serviceScope.launch {
             try {
-                playerState.currentAudiobook.value?.let { book ->
-                    api.markFinished(book.id, ProgressUpdateRequest(0, 1, "stopped"))
-                }
+                api.markFinished(book.id, ProgressUpdateRequest(0, 1, "stopped"))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1710,7 +1619,6 @@ class AudioPlaybackService : MediaLibraryService() {
 
     private fun loadCoverBitmap(audiobook: Audiobook) {
         val serverUrl = authRepository.getServerUrlSync() ?: return
-        val token = authRepository.getTokenSync() ?: return
         if (audiobook.coverImage == null) {
             currentCoverBitmap = null
             return
@@ -1718,7 +1626,9 @@ class AudioPlaybackService : MediaLibraryService() {
 
         serviceScope.launch(Dispatchers.IO) {
             try {
-                val coverUrl = "$serverUrl/api/audiobooks/${audiobook.id}/cover?token=$token"
+                // The shared OkHttpClient adds the Authorization header; no
+                // token in the URL.
+                val coverUrl = "$serverUrl/api/audiobooks/${audiobook.id}/cover"
                 val request = okhttp3.Request.Builder()
                     .url(coverUrl)
                     .build()
@@ -1742,6 +1652,32 @@ class AudioPlaybackService : MediaLibraryService() {
         }
     }
 
+    /**
+     * Logout: push the final position while the session token is still valid,
+     * then stop. Unlike [stopPlayback] this waits for the sync (bounded), so
+     * the position isn't left in an offline queue that logout then clears.
+     */
+    override suspend fun stopForLogout(syncFinalPosition: Boolean) {
+        val book = playerState.currentAudiobook.value
+        val position = (player?.currentPosition ?: 0L) / 1000
+        val worthSaving = book != null && position > 0 && !ProgressPolicy.isNearEnd(position, playerState.duration.value)
+        if (worthSaving && !syncFinalPosition) {
+            downloadManager.saveOfflineProgress(book!!.id, position.toInt())
+        } else if (worthSaving) {
+            kotlinx.coroutines.withTimeoutOrNull(5_000) {
+                try {
+                    api.updateProgress(book!!.id, ProgressUpdateRequest(position.toInt(), 0, "stopped"))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.w("AudioPlaybackService", "Final sync at logout failed", e)
+                }
+            }
+        }
+        playerState.updateAudiobook(null) // nothing left for stopPlayback to re-sync
+        stopPlayback()
+    }
+
     fun stopPlayback() {
         syncProgressImmediate() // Bypass delay guard — this is an explicit stop
         player?.stop()
@@ -1756,9 +1692,7 @@ class AudioPlaybackService : MediaLibraryService() {
         sleepAtEndOfChapter = false
         playerState.deactivate()
         audiobookCache.clear() // Clear cache to avoid stale data after re-login
-        abandonAudioFocus()
-        unregisterNoisyReceiver()
-        unregisterNotificationActionReceiver()
+        pendingSessionBooks.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -1836,8 +1770,6 @@ class AudioPlaybackService : MediaLibraryService() {
         // Cancel the whole scope — individual job cancels missed sleepTimerJob
         // and the onTaskRemoved fallback-timeout coroutine, which leaked.
         serviceScope.cancel()
-        abandonAudioFocus()
-        unregisterNoisyReceiver()
         unregisterNotificationActionReceiver()
         playerState.deactivate()
         super.onDestroy()

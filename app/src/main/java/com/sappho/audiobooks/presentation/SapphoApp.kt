@@ -11,17 +11,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewModelScope
 import com.sappho.audiobooks.data.repository.AuthRepository
+import com.sappho.audiobooks.data.repository.SessionTeardown
+import kotlinx.coroutines.launch
 import com.sappho.audiobooks.presentation.login.LoginScreen
 import com.sappho.audiobooks.presentation.main.MainScreen
 import javax.inject.Inject
 
 @Composable
 fun SapphoApp(
-    authRepository: AuthRepository = hiltViewModel<SapphoAppViewModel>().authRepository,
+    appViewModel: SapphoAppViewModel = hiltViewModel(),
     initialAuthor: String? = null,
     initialSeries: String? = null
 ) {
+    val authRepository = appViewModel.authRepository
     val navController = rememberNavController()
     val isAuthenticated by authRepository.isAuthenticated.collectAsStateWithLifecycle()
     val authError by authRepository.authError.collectAsStateWithLifecycle()
@@ -32,9 +36,9 @@ fun SapphoApp(
     LaunchedEffect(authError) {
         if (authError) {
             authRepository.clearAuthError()
-            // Stop any active playback - the token in the stream URL is now invalid
-            com.sappho.audiobooks.service.AudioPlaybackService.instance?.stopPlayback()
-            authRepository.clearToken()
+            // Session expired: stop playback and clear local session state.
+            // The offline queue stays (account-scoped) for when this user returns.
+            appViewModel.sessionTeardown.onSessionExpired()
             navController.navigate("login") {
                 popUpTo(0) { inclusive = true }
             }
@@ -74,9 +78,10 @@ fun SapphoApp(
         composable("main") {
             MainScreen(
                 onLogout = {
-                    authRepository.clearToken()
-                    navController.navigate("login") {
-                        popUpTo(0) { inclusive = true }
+                    appViewModel.logout {
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 },
                 initialAuthor = initialAuthor,
@@ -89,5 +94,23 @@ fun SapphoApp(
 // ViewModel to provide AuthRepository to SapphoApp
 @dagger.hilt.android.lifecycle.HiltViewModel
 class SapphoAppViewModel @Inject constructor(
-    val authRepository: AuthRepository
-) : androidx.lifecycle.ViewModel()
+    val authRepository: AuthRepository,
+    val sessionTeardown: SessionTeardown
+) : androidx.lifecycle.ViewModel() {
+
+    private var loggingOut = false
+
+    /** Full logout (stop playback, revoke server-side, clear session), then [onDone]. */
+    fun logout(onDone: () -> Unit) {
+        if (loggingOut) return
+        loggingOut = true
+        viewModelScope.launch {
+            try {
+                sessionTeardown.logout()
+            } finally {
+                loggingOut = false
+                onDone()
+            }
+        }
+    }
+}

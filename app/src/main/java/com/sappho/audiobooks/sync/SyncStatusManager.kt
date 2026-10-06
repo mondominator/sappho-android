@@ -51,7 +51,7 @@ class SyncStatusManager @Inject constructor(
 
     private val workManager = WorkManager.getInstance(context)
 
-    // Store observer reference to allow cleanup and prevent leaks
+    // App-lifetime singleton: the observer is never removed.
     private val workStatusObserver = Observer<List<WorkInfo>> { workInfos ->
         handleWorkInfoUpdate(workInfos)
     }
@@ -68,7 +68,9 @@ class SyncStatusManager @Inject constructor(
     }
 
     private fun handleWorkInfoUpdate(workInfos: List<WorkInfo>?) {
-        val workInfo = workInfos?.firstOrNull()
+        // With APPEND_OR_REPLACE the unique-work chain can hold several runs;
+        // the newest is the one that reflects the current queue.
+        val workInfo = workInfos?.lastOrNull()
         val isRunning = workInfo?.state == WorkInfo.State.RUNNING
 
         if (isRunning != _isSyncing.value) {
@@ -103,22 +105,13 @@ class SyncStatusManager @Inject constructor(
                         )
                     }
                     WorkInfo.State.CANCELLED -> {
-                        // Expected when using ExistingWorkPolicy.REPLACE
+                        // A failed chain replaced by a new enqueue
                         lastProcessedWorkRunId = workRunId
                     }
                     else -> {}
                 }
             }
         }
-    }
-    
-    /**
-     * Cleanup resources to prevent memory leaks.
-     * Should be called when this singleton is no longer needed.
-     */
-    fun cleanup() {
-        workManager.getWorkInfosForUniqueWorkLiveData("progress_sync")
-            .removeObserver(workStatusObserver)
     }
     
     private fun observePendingProgress() {

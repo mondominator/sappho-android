@@ -69,18 +69,39 @@
                 <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
-            <!-- Voice search support ("Hey Google, play X on Sappho") -->
-            <intent-filter>
-                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+            <!-- Voice search ("Hey Google, play X on Sappho") arrives through the
+                 media session (onSetMediaItems searchQuery), not an intent:
+                 MEDIA_PLAY_FROM_SEARCH is only delivered to activities. -->
         </service>
+
+        <!-- Cover art for notification / lock screen / Android Auto, served as
+             content:// URIs so artwork URLs never carry the auth token.
+             Exported read-only so the Android Auto host can open it. -->
+        <provider
+            android:name=".service.CoverArtProvider"
+            android:authorities="${applicationId}.covers"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
 
         <!-- Download Service -->
         <service
             android:name=".service.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- WorkManager initializes on demand from SapphoApplication's
+             Configuration.Provider (Hilt worker factory), so its default
+             startup initializer must not run. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
 
         <!-- Upload Service -->
         <service

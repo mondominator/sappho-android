@@ -3,4 +3,10 @@
     <!-- Exclude encrypted prefs — Keystore keys don't survive backup/restore -->
     <exclude domain="sharedpref" path="secure_prefs.xml" />
     <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs__.xml" />
+    <!-- Downloaded audiobooks: gigabytes, re-downloadable. Including them blows
+         the 25 MB cloud-backup quota, which then skips the whole backup. -->
+    <exclude domain="file" path="audiobooks/" />
+    <exclude domain="file" path="downloads_metadata.json" />
+    <!-- Offline progress queue: tied to a session that won't exist after restore -->
+    <exclude domain="file" path="pending_progress.json" />
 </full-backup-content>

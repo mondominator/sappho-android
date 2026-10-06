@@ -6,6 +6,7 @@ import com.google.gson.GsonBuilder
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.remote.TokenAuthenticator
 import com.sappho.audiobooks.data.repository.AuthRepository
+import com.sappho.audiobooks.util.ClientIdentity
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -214,10 +215,14 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
+        @ApplicationContext context: Context,
         authRepository: AuthRepository,
         @Named("refreshApi") refreshApi: SapphoApi
     ): OkHttpClient {
         return OkHttpClient.Builder()
+            // X-Device-Name / X-App-Version / User-Agent on every request, so
+            // listening sessions name this device instead of "Unknown".
+            .addInterceptor(ClientIdentity.interceptor(context))
             .addInterceptor(provideLoggingInterceptor())
             .addInterceptor(serverUrlInterceptor(authRepository, addAuthHeader = true))
             // Interceptor to detect auth errors (401 only — 403 is used for non-auth permission checks).
@@ -248,8 +253,12 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("refreshClient")
-    fun provideRefreshOkHttpClient(authRepository: AuthRepository): OkHttpClient {
+    fun provideRefreshOkHttpClient(
+        @ApplicationContext context: Context,
+        authRepository: AuthRepository
+    ): OkHttpClient {
         return OkHttpClient.Builder()
+            .addInterceptor(ClientIdentity.interceptor(context))
             .addInterceptor(provideLoggingInterceptor())
             .addInterceptor(serverUrlInterceptor(authRepository, addAuthHeader = false))
             .connectTimeout(60, TimeUnit.SECONDS)

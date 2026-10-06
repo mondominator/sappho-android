@@ -25,6 +25,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Response
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -169,6 +170,36 @@ class HomeViewModelTest {
         io.mockk.verify { syncStatusManager.triggerSync() }
     }
     
+    @Test
+    fun `loading Home keeps queued offline progress until the server confirms it`() = runTest {
+        // A REAL DownloadManager holding a position recorded offline (e.g. a
+        // flight on a downloaded book). Any server response used to wipe it.
+        val dir = java.nio.file.Files.createTempDirectory("home-queue").toFile()
+        val context = mockk<android.content.Context>(relaxed = true)
+        every { context.filesDir } returns dir
+        val auth = mockk<AuthRepository>(relaxed = true)
+        every { auth.getAccountKeySync() } returns "https://server#1"
+        val realDownloads = DownloadManager(context, auth)
+        realDownloads.saveOfflineProgress(audiobookId = 42, position = 10_800)
+
+        // Server reachable but returning errors and empty lists
+        coEvery { api.getFavorites() } returns Response.error(500, "".toResponseBody())
+        coEvery { api.getInProgress(any()) } returns Response.success(emptyList())
+        coEvery { api.getRecentlyAdded(any()) } returns Response.success(emptyList())
+        coEvery { api.getUpNext(any()) } returns Response.success(emptyList())
+        coEvery { api.getFinished(any()) } returns Response.success(emptyList())
+
+        val performanceMonitor = mockk<com.sappho.audiobooks.util.PerformanceMonitor>(relaxed = true)
+        HomeViewModel(api, authRepository, realDownloads, networkMonitor, syncStatusManager, performanceMonitor)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertThat(realDownloads.getPendingProgressList().map { it.audiobookId to it.position })
+            .containsExactly(42 to 10_800)
+        // ...and Home hands it to the sync worker instead
+        verify { syncStatusManager.triggerSync() }
+        dir.deleteRecursively()
+    }
+
     private fun createTestBook(id: Int, title: String): Audiobook {
         return Audiobook(
             id = id,

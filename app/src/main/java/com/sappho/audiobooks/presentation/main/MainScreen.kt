@@ -243,7 +243,7 @@ fun MainScreen(
                 MinimizedPlayerBar(
                     playerState = viewModel.playerState,
                     serverUrl = serverUrl,
-                    castHelper = castHelper,
+                    playbackController = viewModel.playbackController,
                     onExpand = {
                         currentAudiobook?.let { book ->
                             val intent = android.content.Intent(context, com.sappho.audiobooks.presentation.player.PlayerActivity::class.java)
