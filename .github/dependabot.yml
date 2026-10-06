@@ -1,0 +1,34 @@
+# Weekly dependency PRs. Each PR runs the normal CI (tests, lint, release
+# build); nothing auto-merges, and merging to main ships to Play internal.
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      androidx:
+        patterns: ["androidx.*"]
+      kotlin-and-tooling:
+        patterns: ["org.jetbrains.kotlin*", "org.jetbrains.kotlinx*", "com.android.*", "com.google.devtools.ksp*"]
+      google-dagger:
+        patterns: ["com.google.dagger*"]
+      testing:
+        patterns: ["junit*", "io.mockk*", "org.robolectric*", "app.cash.turbine*", "com.google.truth*", "androidx.test*"]
+      network:
+        patterns: ["com.squareup.*"]
+    ignore:
+      # Media3 and Cast changes need a device pass (Android Auto, casting)
+      - dependency-name: "androidx.media3:*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      actions:
+        patterns: ["*"]

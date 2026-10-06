@@ -36,7 +36,7 @@ class SapphoApiTest {
         // Create API with mock server. The refresh API is unused by these tests
         // (no 401s are enqueued), so a relaxed mock is sufficient.
         val refreshApi = mockk<SapphoApi>(relaxed = true)
-        val okHttpClient = NetworkModule.provideOkHttpClient(authRepository, refreshApi)
+        val okHttpClient = NetworkModule.provideOkHttpClient(mockk(relaxed = true), authRepository, refreshApi)
         val retrofit = Retrofit.Builder()
             .baseUrl(mockWebServer.url("/"))
             .client(okHttpClient)
@@ -51,6 +51,19 @@ class SapphoApiTest {
         mockWebServer.shutdown()
     }
     
+    @Test
+    fun `every request identifies the device and app version`() = runBlocking {
+        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+
+        api.updateProgress(1, ProgressUpdateRequest(position = 120, completed = 0, state = "playing"))
+
+        val recorded = mockWebServer.takeRequest()
+        // The server records X-Device-Name on listening sessions (else "Unknown")
+        assertThat(recorded.getHeader("X-Device-Name")).isNotEmpty()
+        assertThat(recorded.getHeader("X-App-Version")).isNotEmpty()
+        assertThat(recorded.getHeader("User-Agent")).startsWith("Sappho-Android/")
+    }
+
     @Test
     fun `login request sends correct data`() = runBlocking {
         // Given

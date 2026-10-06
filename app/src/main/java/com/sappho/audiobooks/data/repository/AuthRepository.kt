@@ -52,6 +52,30 @@ class AuthRepository @Inject constructor(
     fun saveToken(token: String) {
         securePrefs.edit().putString(KEY_TOKEN, token).apply()
         _isAuthenticated.value = getTokenSync() != null && getServerUrlSync() != null
+        notifyIfAccountChanged()
+    }
+
+    // Listeners told when the signed-in account (server + user) changes:
+    // login, logout, or a different user signing in. Token refreshes for the
+    // same user don't fire.
+    private val accountListeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
+    @Volatile private var lastAccountKey: String? = null
+
+    fun addAccountChangeListener(listener: () -> Unit) {
+        accountListeners.add(listener)
+    }
+
+    private fun notifyIfAccountChanged() {
+        val key = getAccountKeySync()
+        if (key == lastAccountKey) return
+        lastAccountKey = key
+        accountListeners.forEach { listener ->
+            try {
+                listener()
+            } catch (e: Exception) {
+                Log.w("AuthRepository", "Account listener failed", e)
+            }
+        }
     }
 
     fun getTokenSync(): String? {
@@ -87,6 +111,7 @@ class AuthRepository @Inject constructor(
             .remove(KEY_REFRESH_TOKEN)
             .apply()
         _isAuthenticated.value = false
+        notifyIfAccountChanged()
     }
 
     fun saveServerUrl(url: String) {
@@ -101,6 +126,12 @@ class AuthRepository @Inject constructor(
     fun hasServerUrl(): Boolean {
         return getServerUrlSync() != null
     }
+
+    /**
+     * The current account ("server#userId"), or null when logged out. Used to
+     * scope the offline progress queue and downloads to one account.
+     */
+    fun getAccountKeySync(): String? = AccountKey.of(getServerUrlSync(), getTokenSync())
 
     // Cache user info for offline display
     fun saveUserInfo(username: String, displayName: String?, avatar: String?) {

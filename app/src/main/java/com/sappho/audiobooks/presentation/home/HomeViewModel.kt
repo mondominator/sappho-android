@@ -194,9 +194,13 @@ class HomeViewModel @Inject constructor(
         }
 
         if (reached) {
-            // Server has the real positions from successful syncs — stale pending
-            // items can be dropped.
-            downloadManager.clearAllPendingProgress()
+            // The server is reachable, so drain the offline queue. Never clear it
+            // here: it holds exactly the positions that FAILED to sync (offline
+            // listening, a pause while the server was down). Entries leave the
+            // queue only once the server confirms them (PendingProgressReplayer).
+            if (downloadManager.getPendingProgressCount() > 0) {
+                syncStatusManager.triggerSync()
+            }
             syncStatusManager.updateSyncStatus(lastSyncSuccess = true)
         }
         reached

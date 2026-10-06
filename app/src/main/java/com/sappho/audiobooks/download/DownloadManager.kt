@@ -2,6 +2,8 @@ package com.sappho.audiobooks.download
 
 import android.content.Context
 import android.util.Log
+import com.sappho.audiobooks.data.repository.AccountKey
+import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +18,9 @@ data class DownloadState(
     val progress: Float, // 0.0 to 1.0
     val isDownloading: Boolean,
     val isCompleted: Boolean,
-    val error: String? = null
+    val error: String? = null,
+    /** Waiting behind another download in the queue. */
+    val isQueued: Boolean = false
 )
 
 data class DownloadedBook(
@@ -24,26 +28,44 @@ data class DownloadedBook(
     val filePath: String,
     val fileSize: Long,
     val downloadedAt: Long,
-    val chapters: List<com.sappho.audiobooks.domain.model.Chapter> = emptyList()
+    val chapters: List<com.sappho.audiobooks.domain.model.Chapter> = emptyList(),
+    /** Account ("server#userId") that downloaded this file. Null = legacy entry. */
+    val accountKey: String? = null,
+    /** ETag the server sent for /stream when this file was downloaded. */
+    val etag: String? = null,
+    /** Total size in bytes the server reported for /stream at download time. */
+    val serverFileSize: Long? = null
 )
 
 data class PendingProgress(
     val audiobookId: Int,
     val position: Int,
-    val timestamp: Long
+    val timestamp: Long,
+    /** Account the position was recorded under. Null = legacy entry (pre-0.9.88). */
+    val accountKey: String? = null
 )
 
 @Singleton
 class DownloadManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val authRepository: AuthRepository
 ) {
     private val TAG = "DownloadManager"
 
     private val _downloadStates = MutableStateFlow<Map<Int, DownloadState>>(emptyMap())
     val downloadStates: StateFlow<Map<Int, DownloadState>> = _downloadStates
 
+    // Every download on disk, across all accounts.
+    private val allDownloads = MutableStateFlow<List<DownloadedBook>>(emptyList())
+
+    // Downloads belonging to the signed-in account (what the UI sees).
     private val _downloadedBooks = MutableStateFlow<List<DownloadedBook>>(emptyList())
     val downloadedBooks: StateFlow<List<DownloadedBook>> = _downloadedBooks
+
+    // Book ids whose local copy no longer matches the server file (see
+    // DownloadFreshness). Playback streams instead of using a stale copy.
+    private val _staleDownloads = MutableStateFlow<Set<Int>>(emptySet())
+    val staleDownloads: StateFlow<Set<Int>> = _staleDownloads
 
     private val metadataFile: File
         get() = File(context.filesDir, "downloads_metadata.json")
@@ -51,6 +73,10 @@ class DownloadManager @Inject constructor(
     private val pendingProgressFile: File
         get() = File(context.filesDir, "pending_progress.json")
 
+    // Every queued position, across accounts.
+    private val allPending = MutableStateFlow<List<PendingProgress>>(emptyList())
+
+    // Pending progress for the signed-in account, keyed by book id.
     private val _pendingProgress = MutableStateFlow<Map<Int, PendingProgress>>(emptyMap())
     val pendingProgress: StateFlow<Map<Int, PendingProgress>> = _pendingProgress
 
@@ -63,6 +89,47 @@ class DownloadManager @Inject constructor(
     init {
         loadDownloadedBooks()
         loadPendingProgress()
+        onAccountChanged()
+        authRepository.addAccountChangeListener { onAccountChanged() }
+    }
+
+    private fun currentAccount(): String? = try {
+        authRepository.getAccountKeySync()
+    } catch (e: Exception) {
+        Log.w(TAG, "Could not read account key", e)
+        null
+    }
+
+    /**
+     * Re-scope visible downloads and pending progress to the signed-in account.
+     * Call after login and logout. Legacy entries (written before entries were
+     * tagged) are adopted by the first account that signs in, which on a
+     * single-user install is the user who created them.
+     */
+    fun onAccountChanged() {
+        val account = currentAccount()
+        if (account != null) {
+            var adoptedDownloads = false
+            allDownloads.update { books ->
+                books.map { if (it.accountKey == null) { adoptedDownloads = true; it.copy(accountKey = account) } else it }
+            }
+            if (adoptedDownloads) saveDownloadedBooks()
+
+            var adoptedPending = false
+            allPending.update { list ->
+                list.map { if (it.accountKey == null) { adoptedPending = true; it.copy(accountKey = account) } else it }
+            }
+            if (adoptedPending) savePendingProgress()
+        }
+        publishVisible()
+    }
+
+    private fun publishVisible() {
+        val account = currentAccount()
+        _downloadedBooks.value = if (account == null) emptyList()
+        else allDownloads.value.filter { it.accountKey == account }
+        _pendingProgress.value = if (account == null) emptyMap()
+        else allPending.value.filter { it.accountKey == account }.associateBy { it.audiobookId }
     }
 
     private fun loadDownloadedBooks() {
@@ -72,7 +139,7 @@ class DownloadManager @Inject constructor(
                 val books = parseDownloadedBooks(json)
                 // Filter out books whose files no longer exist
                 val validBooks = books.filter { File(it.filePath).exists() }
-                _downloadedBooks.value = validBooks
+                allDownloads.value = validBooks
                 if (validBooks.size != books.size) {
                     saveDownloadedBooks()
                 }
@@ -83,7 +150,6 @@ class DownloadManager @Inject constructor(
     }
 
     private fun parseDownloadedBooks(json: String): List<DownloadedBook> {
-        // Simple JSON parsing - in production would use Gson/Moshi
         val books = mutableListOf<DownloadedBook>()
         try {
             val gson = com.google.gson.Gson()
@@ -95,7 +161,11 @@ class DownloadManager @Inject constructor(
                     filePath = jsonBook.filePath,
                     fileSize = jsonBook.fileSize,
                     downloadedAt = jsonBook.downloadedAt,
-                    chapters = jsonBook.chapters
+                    // Gson bypasses Kotlin defaults, so a missing list arrives as null
+                    chapters = jsonBook.chapters ?: emptyList(),
+                    accountKey = jsonBook.accountKey,
+                    etag = jsonBook.etag,
+                    serverFileSize = jsonBook.serverFileSize
                 ))
             }
         } catch (e: Exception) {
@@ -109,7 +179,10 @@ class DownloadManager @Inject constructor(
         val filePath: String,
         val fileSize: Long,
         val downloadedAt: Long,
-        val chapters: List<com.sappho.audiobooks.domain.model.Chapter> = emptyList()
+        val chapters: List<com.sappho.audiobooks.domain.model.Chapter>? = emptyList(),
+        val accountKey: String? = null,
+        val etag: String? = null,
+        val serverFileSize: Long? = null
     )
 
     private fun saveDownloadedBooks() {
@@ -120,13 +193,16 @@ class DownloadManager @Inject constructor(
         synchronized(metadataFileLock) {
             try {
                 val gson = com.google.gson.Gson()
-                val jsonBooks = _downloadedBooks.value.map { book ->
+                val jsonBooks = allDownloads.value.map { book ->
                     DownloadedBookJson(
                         audiobook = book.audiobook,
                         filePath = book.filePath,
                         fileSize = book.fileSize,
                         downloadedAt = book.downloadedAt,
-                        chapters = book.chapters
+                        chapters = book.chapters,
+                        accountKey = book.accountKey,
+                        etag = book.etag,
+                        serverFileSize = book.serverFileSize
                     )
                 }
                 metadataFile.writeText(gson.toJson(jsonBooks))
@@ -134,6 +210,15 @@ class DownloadManager @Inject constructor(
                 Log.e(TAG, "Error saving downloaded books", e)
             }
         }
+    }
+
+    /**
+     * Directory for the signed-in account's downloads. Book ids are only unique
+     * per server, so each account gets its own folder.
+     */
+    fun downloadsDirForCurrentAccount(): File? {
+        val account = currentAccount() ?: return null
+        return File(File(context.filesDir, DOWNLOADS_ROOT), AccountKey.directoryName(account))
     }
 
     fun isDownloaded(audiobookId: Int): Boolean {
@@ -144,8 +229,18 @@ class DownloadManager @Inject constructor(
         return _downloadedBooks.value.find { it.audiobook.id == audiobookId }
     }
 
+    /**
+     * Local file to play for this book, or null to stream. A download known to
+     * be stale (the server file changed) is skipped so the user hears the
+     * current file while a fresh copy downloads.
+     */
     fun getLocalFilePath(audiobookId: Int): String? {
+        if (audiobookId in _staleDownloads.value) return null
         return getDownloadedBook(audiobookId)?.filePath
+    }
+
+    fun markStale(audiobookId: Int) {
+        _staleDownloads.update { it + audiobookId }
     }
 
     fun deleteDownload(audiobookId: Int): Boolean {
@@ -157,8 +252,12 @@ class DownloadManager @Inject constructor(
                 file.delete()
             }
 
-            _downloadedBooks.update { books -> books.filter { it.audiobook.id != audiobookId } }
+            allDownloads.update { books ->
+                books.filterNot { it.audiobook.id == audiobookId && it.accountKey == downloadedBook.accountKey }
+            }
             saveDownloadedBooks()
+            publishVisible()
+            _staleDownloads.update { it - audiobookId }
 
             // Clear download state
             _downloadStates.update { it - audiobookId }
@@ -182,22 +281,47 @@ class DownloadManager @Inject constructor(
         updateDownloadState(audiobookId, state)
     }
 
-    // Called by DownloadService to save a completed download
+    /** Drop any in-memory state for this book (used when a queued download is cancelled). */
+    fun clearDownloadState(audiobookId: Int) {
+        _downloadStates.update { it - audiobookId }
+    }
+
+    // Called by DownloadService to save a completed download. Replaces any
+    // existing entry for the same book and account (re-download).
     fun saveDownloadedBook(
         audiobook: Audiobook,
         filePath: String,
         fileSize: Long,
-        chapters: List<com.sappho.audiobooks.domain.model.Chapter>
+        chapters: List<com.sappho.audiobooks.domain.model.Chapter>,
+        etag: String? = null,
+        serverFileSize: Long? = null
     ) {
+        val account = currentAccount()
         val downloadedBook = DownloadedBook(
             audiobook = audiobook,
             filePath = filePath,
             fileSize = fileSize,
             downloadedAt = System.currentTimeMillis(),
-            chapters = chapters
+            chapters = chapters,
+            accountKey = account,
+            etag = etag,
+            serverFileSize = serverFileSize
         )
-        _downloadedBooks.update { it + downloadedBook }
+        val replaced = mutableListOf<DownloadedBook>()
+        allDownloads.update { books ->
+            val (same, others) = books.partition { it.audiobook.id == audiobook.id && it.accountKey == account }
+            replaced.clear()
+            replaced.addAll(same)
+            others + downloadedBook
+        }
+        // A re-download may land at a new path (e.g. a legacy flat file); remove
+        // the superseded file so it doesn't linger untracked.
+        replaced.filter { it.filePath != filePath }.forEach { old ->
+            try { File(old.filePath).delete() } catch (e: Exception) { Log.w(TAG, "Could not remove old file", e) }
+        }
         saveDownloadedBooks()
+        _staleDownloads.update { it - audiobook.id }
+        publishVisible()
     }
 
     fun clearDownloadError(audiobookId: Int) {
@@ -224,6 +348,26 @@ class DownloadManager @Inject constructor(
         }
     }
 
+    /**
+     * Delete files in the downloads tree that no metadata entry points at:
+     * leftovers from a crash mid-download, or a transfer whose metadata save
+     * failed. Partial `.part` files of an active download are kept (they are
+     * the resume point).
+     */
+    fun sweepOrphanedFiles(activePartFiles: Set<String> = emptySet()) {
+        val root = File(context.filesDir, DOWNLOADS_ROOT)
+        if (!root.exists()) return
+        val tracked = allDownloads.value.map { File(it.filePath).absolutePath }.toSet()
+        root.walkTopDown().filter { it.isFile }.forEach { file ->
+            val path = file.absolutePath
+            val keep = path in tracked || path in activePartFiles
+            if (!keep) {
+                Log.i(TAG, "Removing untracked download file ${file.name}")
+                file.delete()
+            }
+        }
+    }
+
     // Pending progress management for offline sync
     private fun loadPendingProgress() {
         try {
@@ -232,7 +376,7 @@ class DownloadManager @Inject constructor(
                 val gson = com.google.gson.Gson()
                 val type = object : com.google.gson.reflect.TypeToken<List<PendingProgress>>() {}.type
                 val progressList: List<PendingProgress> = gson.fromJson(json, type) ?: emptyList()
-                _pendingProgress.value = progressList.associateBy { it.audiobookId }
+                allPending.value = progressList
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error loading pending progress", e)
@@ -243,56 +387,95 @@ class DownloadManager @Inject constructor(
         synchronized(pendingProgressFileLock) {
             try {
                 val gson = com.google.gson.Gson()
-                val progressList = _pendingProgress.value.values.toList()
-                pendingProgressFile.writeText(gson.toJson(progressList))
+                pendingProgressFile.writeText(gson.toJson(allPending.value))
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving pending progress", e)
             }
         }
     }
 
+    /**
+     * Queue a position for later sync, tagged with the signed-in account. With
+     * no account (logged out) there is nobody to sync it to, so it is dropped.
+     */
     fun saveOfflineProgress(audiobookId: Int, position: Int) {
+        val account = currentAccount()
+        if (account == null) {
+            Log.w(TAG, "Not queueing progress for book $audiobookId: no signed-in account")
+            return
+        }
         Log.d(TAG, "Saving offline progress for book $audiobookId: position $position")
         val pending = PendingProgress(
             audiobookId = audiobookId,
             position = position,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            accountKey = account
         )
-        _pendingProgress.update { it + (audiobookId to pending) }
+        allPending.update { list ->
+            list.filterNot { it.audiobookId == audiobookId && it.accountKey == account } + pending
+        }
         savePendingProgress()
+        publishVisible()
 
         // Also update the audiobook's progress in the downloaded book metadata
         updateDownloadedBookProgress(audiobookId, position)
-        
+
         // Trigger background sync if we have network
         triggerSyncIfOnline()
     }
 
+    /** Queued positions for the signed-in account only. */
     fun getPendingProgressList(): List<PendingProgress> {
         return _pendingProgress.value.values.toList()
     }
 
+    /**
+     * Remove a queued position after the server confirmed it (or deliberately
+     * ignored it as stale). Only the signed-in account's entry is touched.
+     */
     fun clearPendingProgress(audiobookId: Int) {
+        val account = currentAccount() ?: return
         Log.d(TAG, "Clearing pending progress for book $audiobookId")
-        _pendingProgress.update { it - audiobookId }
+        allPending.update { list -> list.filterNot { it.audiobookId == audiobookId && it.accountKey == account } }
         savePendingProgress()
+        publishVisible()
     }
 
-    fun clearAllPendingProgress() {
-        if (_pendingProgress.value.isEmpty()) return
-        Log.d(TAG, "Clearing all pending progress (${_pendingProgress.value.size} items)")
-        _pendingProgress.value = emptyMap()
-        savePendingProgress()
+    /**
+     * Remove only the given entry, and only if it hasn't been replaced by a
+     * newer position since it was read. Prevents a slow sync from deleting a
+     * position recorded while the request was in flight.
+     */
+    fun clearPendingProgressIfUnchanged(entry: PendingProgress) {
+        var removed = false
+        allPending.update { list ->
+            list.filterNot {
+                val match = it == entry
+                if (match) removed = true
+                match
+            }
+        }
+        if (removed) {
+            savePendingProgress()
+            publishVisible()
+        }
     }
 
-    fun hasPendingProgress(): Boolean {
-        return _pendingProgress.value.isNotEmpty()
+    /**
+     * Logout: drop the signed-in account's queue. Positions that never synced
+     * can't be sent once the session is revoked, and must not leak into the
+     * next account that signs in.
+     */
+    fun clearPendingProgressForAccount(accountKey: String?) {
+        allPending.update { list -> list.filterNot { it.accountKey == accountKey || it.accountKey == null } }
+        savePendingProgress()
+        publishVisible()
     }
-    
+
     fun getPendingProgressCount(): Int {
         return _pendingProgress.value.size
     }
-    
+
     private fun triggerSyncIfOnline() {
         Log.d(TAG, "Triggering background sync - ${getPendingProgressCount()} items pending")
         try {
@@ -303,10 +486,11 @@ class DownloadManager @Inject constructor(
     }
 
     private fun updateDownloadedBookProgress(audiobookId: Int, position: Int) {
-        if (_downloadedBooks.value.none { it.audiobook.id == audiobookId }) return
-        _downloadedBooks.update { books ->
+        val account = currentAccount()
+        if (allDownloads.value.none { it.audiobook.id == audiobookId && it.accountKey == account }) return
+        allDownloads.update { books ->
             books.map { book ->
-                if (book.audiobook.id == audiobookId) {
+                if (book.audiobook.id == audiobookId && book.accountKey == account) {
                     val updatedProgress = book.audiobook.progress?.copy(position = position)
                         ?: com.sappho.audiobooks.domain.model.Progress(
                             position = position,
@@ -319,5 +503,10 @@ class DownloadManager @Inject constructor(
             }
         }
         saveDownloadedBooks()
+        publishVisible()
+    }
+
+    companion object {
+        const val DOWNLOADS_ROOT = "audiobooks"
     }
 }

@@ -1,6 +1,8 @@
 package com.sappho.audiobooks
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.util.DebugLogger
@@ -13,7 +15,19 @@ import okhttp3.OkHttpClient
 import javax.inject.Inject
 
 @HiltAndroidApp
-class SapphoApplication : Application(), ImageLoaderFactory {
+class SapphoApplication : Application(), ImageLoaderFactory, Configuration.Provider {
+
+    // WorkManager must build workers through Hilt: ProgressSyncWorker has an
+    // @AssistedInject constructor that the default WorkerFactory can't call
+    // ("Could not create Worker"). The default initializer is removed in the
+    // manifest so WorkManager initializes on demand from this configuration.
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 
     @Inject
     lateinit var okHttpClient: OkHttpClient

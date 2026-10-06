@@ -92,6 +92,7 @@ fun AudiobookDetailScreen(
     isAdmin: Boolean = false,
     viewModel: AudiobookDetailViewModel = hiltViewModel()
 ) {
+    val requestNotificationPermission = com.sappho.audiobooks.presentation.components.rememberNotificationPermissionRequest()
     val audiobook by viewModel.audiobook.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
     val isProgressLoading by viewModel.isProgressLoading.collectAsStateWithLifecycle()
@@ -747,17 +748,19 @@ fun AudiobookDetailScreen(
                                     when {
                                         isDownloading -> {
                                             downloadCancelHaptic()
-                                            DownloadService.cancelDownload(context)
+                                            DownloadService.cancelDownload(context, book.id)
                                         }
                                         isDownloaded -> {
                                             // No-op: deletion only available from Downloads screen
                                         }
                                         hasDownloadError -> {
                                             downloadStartHaptic()
+                                            requestNotificationPermission()
                                             viewModel.downloadAudiobook()
                                         }
                                         else -> {
                                             downloadStartHaptic()
+                                            requestNotificationPermission()
                                             viewModel.downloadAudiobook()
                                         }
                                     }
@@ -1027,9 +1030,9 @@ fun AudiobookDetailScreen(
                             onClick = {
                                 if (!canPlay) return@Button
                                 playButtonHaptic()
-                                val service = AudioPlaybackService.instance
-                                if (isThisBookLoaded && service != null) {
-                                    val playerHandled = service.togglePlayPause()
+                                if (isThisBookLoaded) {
+                                    // Cast receiver when casting, else the local player
+                                    val playerHandled = viewModel.playbackController.togglePlayPause()
                                     if (!playerHandled) {
                                         val position = if (currentPosition > 0) currentPosition.toInt() else progress?.position
                                         onPlayClick(book.id, position)
@@ -1677,9 +1680,10 @@ fun AudiobookDetailScreen(
                 fetchChaptersResult = fetchChaptersResult,
                 onChapterClick = { chapter ->
                     audiobook?.let { book ->
-                        val service = AudioPlaybackService.instance
-                        if (currentAudiobook?.id == book.id && service != null) {
-                            service.seekToAndPlay(chapter.startTime.toLong())
+                        val controller = viewModel.playbackController
+                        val canControl = controller.isCasting() || AudioPlaybackService.instance != null
+                        if (currentAudiobook?.id == book.id && canControl) {
+                            controller.seekToAndPlay(chapter.startTime.toLong())
                         } else {
                             onPlayClick(book.id, chapter.startTime.toInt())
                         }
