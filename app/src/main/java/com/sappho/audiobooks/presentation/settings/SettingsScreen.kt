@@ -40,6 +40,7 @@ fun SettingsScreen(
     val defaultSleepTimerMinutes by viewModel.userPreferences.defaultSleepTimerMinutes.collectAsStateWithLifecycle()
     val bufferSizeSeconds by viewModel.userPreferences.bufferSizeSeconds.collectAsStateWithLifecycle()
     val showChapterProgress by viewModel.userPreferences.showChapterProgress.collectAsStateWithLifecycle()
+    val dataSaverStreaming by viewModel.userPreferences.dataSaverStreaming.collectAsStateWithLifecycle()
 
     // Handle system back button
     BackHandler { onBackClick() }
@@ -164,6 +165,15 @@ fun SettingsScreen(
                         subtitle = "Display progress within chapter instead of whole book",
                         checked = showChapterProgress,
                         onCheckedChange = { viewModel.userPreferences.setShowChapterProgress(it) }
+                    )
+
+                    HorizontalDivider(color = SapphoProgressTrack, modifier = Modifier.padding(vertical = 8.dp))
+
+                    SettingsToggle(
+                        label = "Data Saver",
+                        subtitle = "Stream speech-quality audio when the server has it ready. Downloads are not affected.",
+                        checked = dataSaverStreaming,
+                        onCheckedChange = { viewModel.userPreferences.setDataSaverStreaming(it) }
                     )
                 }
 

@@ -70,6 +70,10 @@ class UserPreferencesRepository @Inject constructor(
     private val _showChapterProgress = MutableStateFlow(getShowChapterProgressSync())
     val showChapterProgress: StateFlow<Boolean> = _showChapterProgress.asStateFlow()
 
+    // Data saver: stream the server's low-bitrate HLS variant
+    private val _dataSaverStreaming = MutableStateFlow(getDataSaverStreamingSync())
+    val dataSaverStreaming: StateFlow<Boolean> = _dataSaverStreaming.asStateFlow()
+
     // Skip forward options: 10s, 15s, 30s, 45s, 60s, 90s
     fun setSkipForwardSeconds(seconds: Int) {
         prefs.edit().putInt(KEY_SKIP_FORWARD, seconds).apply()
@@ -180,6 +184,16 @@ class UserPreferencesRepository @Inject constructor(
         return prefs.getBoolean(KEY_SHOW_CHAPTER_PROGRESS, DEFAULT_SHOW_CHAPTER_PROGRESS)
     }
 
+    // Data saver streaming
+    fun setDataSaverStreaming(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DATA_SAVER_STREAMING, enabled).apply()
+        _dataSaverStreaming.value = enabled
+    }
+
+    fun getDataSaverStreamingSync(): Boolean {
+        return prefs.getBoolean(KEY_DATA_SAVER_STREAMING, DEFAULT_DATA_SAVER_STREAMING)
+    }
+
     companion object {
         private const val PREFS_NAME = "user_preferences"
         private const val KEY_SKIP_FORWARD = "skip_forward_seconds"
@@ -192,6 +206,7 @@ class UserPreferencesRepository @Inject constructor(
         private const val KEY_DEFAULT_SLEEP_TIMER = "default_sleep_timer_minutes"
         private const val KEY_BUFFER_SIZE = "buffer_size_seconds"
         private const val KEY_SHOW_CHAPTER_PROGRESS = "show_chapter_progress"
+        private const val KEY_DATA_SAVER_STREAMING = "data_saver_streaming"
 
         const val DEFAULT_SKIP_FORWARD = 15
         const val DEFAULT_SKIP_BACKWARD = 15
@@ -203,6 +218,7 @@ class UserPreferencesRepository @Inject constructor(
         const val DEFAULT_SLEEP_TIMER = 0
         const val DEFAULT_BUFFER_SIZE = 60  // 1 minute default
         const val DEFAULT_SHOW_CHAPTER_PROGRESS = true
+        const val DEFAULT_DATA_SAVER_STREAMING = false
 
         // Available options for skip intervals
         val SKIP_FORWARD_OPTIONS = listOf(10, 15, 30, 45, 60, 90)
