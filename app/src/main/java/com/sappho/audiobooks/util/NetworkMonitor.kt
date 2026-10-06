@@ -58,6 +58,16 @@ class NetworkMonitor @Inject constructor(
         }
     }
 
+    /**
+     * True when the default network is metered (cellular, a metered Wi-Fi
+     * hotspot), or when there is no network to ask about.
+     */
+    fun isActiveNetworkMetered(): Boolean {
+        val network = connectivityManager.activeNetwork ?: return true
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return true
+        return !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    }
+
     private fun checkCurrentConnectivity(): Boolean {
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
