@@ -17,6 +17,7 @@ import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
@@ -83,6 +84,12 @@ class AudioPlaybackService : MediaLibraryService(), LocalPlayback {
 
     @Inject
     lateinit var castManager: com.sappho.audiobooks.cast.CastManager
+
+    @Inject
+    lateinit var networkMonitor: com.sappho.audiobooks.util.NetworkMonitor
+
+    // Progressive vs HLS, and how to recover when HLS fails.
+    private val streamPolicy = StreamSourcePolicy()
 
     private var player: ExoPlayer? = null
     // @Volatile: written from a background coroutine (cover fetch) and read on
@@ -336,12 +343,14 @@ class AudioPlaybackService : MediaLibraryService(), LocalPlayback {
             .setAudioAttributes(media3AudioAttributes, /* handleAudioFocus= */ true)
             .setHandleAudioBecomingNoisy(true)
             .setMediaSourceFactory(
+                // HLS playlists and segments go through the same OkHttpClient,
+                // so they carry the Authorization header like /stream does.
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     androidx.media3.datasource.DefaultDataSource.Factory(
                         this,
                         androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(okHttpClient)
                     )
-                )
+                ).setLoadErrorHandlingPolicy(NoRetryOnClientErrorPolicy())
             )
             .build().apply {
             addListener(object : Player.Listener {
@@ -404,6 +413,7 @@ class AudioPlaybackService : MediaLibraryService(), LocalPlayback {
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                     android.util.Log.e("AudioPlaybackService", "Player error: ${error.message}", error)
+                    if (recoverFromStreamError(error)) return
                     playerState.updateLoadingState(false)
                     playerState.updatePlayingState(false)
                     // Surface the error through PlayerState so the UI can show a
@@ -891,27 +901,39 @@ class AudioPlaybackService : MediaLibraryService(), LocalPlayback {
     }
 
     /**
-     * Item ExoPlayer can play: the downloaded file when present, otherwise the
-     * stream. The stream URL carries no token; ExoPlayer fetches it through the
-     * app's OkHttpClient, which adds the Authorization header and refreshes an
-     * expired access token.
+     * Item ExoPlayer can play: the downloaded file when present, otherwise a
+     * stream chosen by [StreamSourcePolicy] (HLS on metered networks or with
+     * data saver, progressive `/stream` otherwise). Stream URLs carry no token;
+     * ExoPlayer fetches them through the app's OkHttpClient, which adds the
+     * Authorization header and refreshes an expired access token.
      */
     private fun buildPlayableMediaItem(audiobook: Audiobook): MediaItem {
         val serverUrl = authRepository.getServerUrlSync() ?: ""
 
-        // Check for downloaded file first
         val localFilePath = downloadManager.getLocalFilePath(audiobook.id)
-        val mediaUri = if (localFilePath != null && File(localFilePath).exists()) {
-            Uri.fromFile(File(localFilePath))
-        } else {
-            Uri.parse("$serverUrl/api/audiobooks/${audiobook.id}/stream")
+        val hasLocalFile = localFilePath != null && File(localFilePath).exists()
+        val plan = streamPolicy.choose(
+            audiobookId = audiobook.id,
+            hasLocalFile = hasLocalFile,
+            isMeteredNetwork = !hasLocalFile && networkMonitor.isActiveNetworkMetered(),
+            dataSaver = userPreferences.dataSaverStreaming.value
+        )
+        android.util.Log.d("AudioPlaybackService", "Book ${audiobook.id}: ${plan.mode}${if (plan.preferLow) " (data saver)" else ""}")
+        applyDataSaverTrackSelection(plan)
+
+        val builder = MediaItem.Builder()
+        when (plan.mode) {
+            StreamMode.LOCAL -> builder.setUri(Uri.fromFile(File(localFilePath!!)))
+            StreamMode.PROGRESSIVE -> builder.setUri(StreamUrls.progressive(serverUrl, audiobook.id))
+            StreamMode.HLS -> builder
+                .setUri(StreamUrls.hlsMaster(serverUrl, audiobook.id, plan.preferLow))
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
         }
 
         val coverArtUri = coverArtUriFor(audiobook)
 
-        return MediaItem.Builder()
+        return builder
             .setMediaId(audiobook.id.toString())
-            .setUri(mediaUri)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setIsPlayable(true)
@@ -924,6 +946,59 @@ class AudioPlaybackService : MediaLibraryService(), LocalPlayback {
                     .build()
             )
             .build()
+    }
+
+    /**
+     * With data saver, keep HLS on the lowest variant: `?prefer=low` only
+     * decides where playback starts, and adaptive selection could otherwise
+     * switch up to `source` on a fast link.
+     */
+    private fun applyDataSaverTrackSelection(plan: StreamPlan) {
+        val exoPlayer = player ?: return
+        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+            .setForceLowestBitrate(plan.preferLow)
+            .build()
+    }
+
+    /**
+     * Handles an HLS failure without bothering the user: reload master.m3u8
+     * after the file changed, or switch to progressive `/stream`. Either way
+     * playback resumes at the same position (both share one timeline) with the
+     * same play/pause intent. Returns false when the error is not ours to fix.
+     */
+    private fun recoverFromStreamError(error: androidx.media3.common.PlaybackException): Boolean {
+        val exoPlayer = player ?: return false
+        val item = exoPlayer.currentMediaItem ?: return false
+        val audiobookId = item.mediaId.toIntOrNull() ?: return false
+        val mode = if (item.localConfiguration?.mimeType == MimeTypes.APPLICATION_M3U8) {
+            StreamMode.HLS
+        } else {
+            StreamMode.PROGRESSIVE
+        }
+        val failure = StreamErrors.httpFailureOf(error)
+        val recovery = streamPolicy.recoveryFor(audiobookId, mode, failure)
+        val recovered = when (recovery) {
+            StreamRecovery.NONE -> return false
+            // Same master URL: a fresh load picks up the new file_version.
+            StreamRecovery.RELOAD_HLS -> item
+            StreamRecovery.FALL_BACK_TO_PROGRESSIVE -> {
+                val serverUrl = authRepository.getServerUrlSync() ?: return false
+                applyDataSaverTrackSelection(StreamPlan(StreamMode.PROGRESSIVE))
+                item.buildUpon()
+                    .setUri(StreamUrls.progressive(serverUrl, audiobookId))
+                    .setMimeType(null)
+                    .build()
+            }
+        }
+        android.util.Log.w(
+            "AudioPlaybackService",
+            "HLS failed for book $audiobookId (HTTP ${failure?.statusCode}, ${failure?.errorCode}): $recovery"
+        )
+        // After an error the player is idle but keeps its position and playWhenReady.
+        exoPlayer.setMediaItem(recovered, exoPlayer.currentPosition)
+        exoPlayer.prepare()
+        playerState.updateLoadingState(true)
+        return true
     }
 
     /**

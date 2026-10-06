@@ -15,8 +15,8 @@ android {
         applicationId = "com.sappho.audiobooks"
         minSdk = 26
         targetSdk = 36
-        versionCode = 106
-        versionName = "0.9.88"
+        versionCode = 107
+        versionName = "0.9.89"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -131,6 +131,8 @@ dependencies {
     implementation("androidx.media3:media3-common:$media3Version")
     // Streams go through the app's OkHttpClient (auth header + token refresh)
     implementation("androidx.media3:media3-datasource-okhttp:$media3Version")
+    // HLS for metered networks and data saver (server 0.15+, see StreamSourcePolicy)
+    implementation("androidx.media3:media3-exoplayer-hls:$media3Version")
 
     // Google Cast
     implementation("com.google.android.gms:play-services-cast-framework:22.0.0")
