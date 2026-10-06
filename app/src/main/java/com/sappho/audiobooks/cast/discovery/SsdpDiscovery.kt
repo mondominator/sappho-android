@@ -22,7 +22,7 @@ data class SsdpDevice(
 
 /**
  * SSDP (Simple Service Discovery Protocol) discovery for finding devices
- * on the local network. Used by Roku (roku:ecp) and Kodi (UPnP MediaRenderer).
+ * on the local network. Used for Kodi (UPnP MediaRenderer).
  */
 class SsdpDiscovery {
 

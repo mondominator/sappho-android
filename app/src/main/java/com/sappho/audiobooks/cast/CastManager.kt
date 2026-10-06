@@ -9,9 +9,14 @@ import com.sappho.audiobooks.cast.discovery.SsdpDiscovery
 import com.sappho.audiobooks.cast.targets.AirPlayCastTarget
 import com.sappho.audiobooks.cast.targets.ChromecastTarget
 import com.sappho.audiobooks.cast.targets.KodiCastTarget
-import com.sappho.audiobooks.cast.targets.RokuCastTarget
+import com.sappho.audiobooks.data.remote.ProgressUpdateRequest
+import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.repository.AuthRepository
 import com.sappho.audiobooks.domain.model.Audiobook
+import com.sappho.audiobooks.download.DownloadManager
+import com.sappho.audiobooks.presentation.theme.Timing
+import com.sappho.audiobooks.service.PlayerState
+import com.sappho.audiobooks.sync.ProgressPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +24,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -27,18 +34,21 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Orchestrates casting across all supported protocols (Chromecast, Roku, Kodi, AirPlay).
- * Manages device discovery, delegates playback to the active CastTarget, and exposes
- * unified StateFlows for the UI layer.
+ * Orchestrates casting across all supported protocols (Chromecast, Kodi, AirPlay).
+ * Manages device discovery, delegates playback to the active CastTarget, exposes
+ * unified StateFlows for the UI layer, and reports listening progress to the
+ * server while casting (the local player is idle, so nothing else does).
  */
 @Singleton
 class CastManager @Inject constructor(
     private val authRepository: AuthRepository,
-    private val castHelper: CastHelper
+    private val castHelper: CastHelper,
+    private val api: SapphoApi,
+    private val playerState: PlayerState,
+    private val downloadManager: DownloadManager
 ) {
     companion object {
         private const val TAG = "CastManager"
-        private const val ROKU_SEARCH_TARGET = "roku:ecp"
         private const val KODI_SEARCH_TARGET = "urn:schemas-upnp-org:device:MediaRenderer:1"
         private const val AIRPLAY_SERVICE_TYPE = "_airplay._tcp."
     }
@@ -51,7 +61,6 @@ class CastManager @Inject constructor(
 
     // Protocol targets
     private val chromecastTarget = ChromecastTarget(castHelper)
-    private val rokuTarget = RokuCastTarget(localHttpClient)
     private val kodiTarget = KodiCastTarget(localHttpClient)
     private val airPlayTarget = AirPlayCastTarget(localHttpClient)
 
@@ -89,7 +98,14 @@ class CastManager @Inject constructor(
     private var stateObserverJob: Job? = null
     private var multicastLock: WifiManager.MulticastLock? = null
 
+    private var progressJob: Job? = null
+    private var lastReportedPosition: Long = -1
+    // Last position seen while connected, handed back to the local player on disconnect.
+    private var lastCastPosition: Long = 0
+
     init {
+        observeCastProgress()
+
         // Observe Chromecast connection changes from CastHelper (it connects externally via route selection)
         scope.launch {
             castHelper.isConnected.collect { connected ->
@@ -99,6 +115,7 @@ class CastManager @Inject constructor(
                     _activeProtocol.value = CastProtocol.CHROMECAST
                     observeActiveTargetState()
                 } else if (!connected && activeTarget == chromecastTarget) {
+                    onCastSessionEnded()
                     activeTarget = null
                     _activeProtocol.value = null
                     _isConnected.value = false
@@ -148,9 +165,6 @@ class CastManager @Inject constructor(
                     updateDeviceList(CastProtocol.CHROMECAST, chromecastDevices)
                 }
             }
-
-            // Roku discovery disabled — Roku locked down PlayOnRoku in OS 11.5+ and there's
-            // no built-in way to stream arbitrary URLs without a third-party channel installed.
 
             // Discover Kodi devices via SSDP
             // Note: The UPnP MediaRenderer search target is generic — many non-Kodi devices
@@ -231,7 +245,6 @@ class CastManager @Inject constructor(
                 }
                 return
             }
-            CastProtocol.ROKU -> rokuTarget
             CastProtocol.KODI -> kodiTarget
             CastProtocol.AIRPLAY -> airPlayTarget
         }
@@ -246,6 +259,7 @@ class CastManager @Inject constructor(
      * Disconnect from the current casting device.
      */
     suspend fun disconnect() {
+        onCastSessionEnded()
         activeTarget?.disconnect()
         activeTarget = null
         _activeProtocol.value = null
@@ -285,7 +299,7 @@ class CastManager @Inject constructor(
         }
 
         // SECURITY NOTE: Auth token must be passed as a URL query parameter because all
-        // cast protocols (AirPlay, Kodi JSON-RPC, Roku ECP) work by instructing a remote
+        // cast protocols (AirPlay, Kodi JSON-RPC) work by instructing a remote
         // device to fetch a URL. The remote device's HTTP client cannot be configured with
         // custom headers from the sender app. This is an inherent limitation of these
         // protocols, not a design choice. The risk is mitigated by:
@@ -328,6 +342,13 @@ class CastManager @Inject constructor(
         activeTarget?.stop()
     }
 
+    /** Skip relative to the receiver's current position, clamped to the book. */
+    suspend fun skipBy(deltaSeconds: Long) {
+        val duration = playerState.currentAudiobook.value?.duration?.toLong() ?: 0L
+        val target = ProgressPolicy.clampSeekSeconds(_currentPosition.value + deltaSeconds, duration)
+        seek(target)
+    }
+
     fun isCasting(): Boolean {
         return activeTarget != null && _isConnected.value
     }
@@ -346,6 +367,78 @@ class CastManager @Inject constructor(
      * not through the generic connect() path.
      */
     fun getChromecastTarget(): ChromecastTarget = chromecastTarget
+
+    // -- Progress reporting while casting --
+
+    /**
+     * While a receiver plays, the phone's player is idle, so the service's
+     * sync loop records nothing. Report the receiver's position on the same
+     * cadence, plus once on every pause.
+     */
+    private fun observeCastProgress() {
+        scope.launch {
+            _isPlaying.collect { playing ->
+                progressJob?.cancel()
+                if (playing) {
+                    progressJob = scope.launch {
+                        while (isActive) {
+                            delay(Timing.SYNC_INTERVAL_MS)
+                            reportCastProgress("playing")
+                        }
+                    }
+                } else if (_isConnected.value) {
+                    reportCastProgress("paused")
+                }
+            }
+        }
+        scope.launch {
+            _currentPosition.collect { pos ->
+                if (_isConnected.value && pos > 0) lastCastPosition = pos
+            }
+        }
+    }
+
+    internal suspend fun reportCastProgress(state: String) {
+        val book = playerState.currentAudiobook.value ?: return
+        val position = _currentPosition.value.takeIf { it > 0 } ?: lastCastPosition
+        val duration = book.duration?.toLong() ?: 0L
+        if (position <= 0 || ProgressPolicy.isNearEnd(position, duration)) return
+        if (state == "playing" && position == lastReportedPosition) return
+        lastReportedPosition = position
+        playerState.updatePosition(position)
+        try {
+            val response = api.updateProgress(
+                book.id,
+                ProgressUpdateRequest(position = position.toInt(), completed = 0, state = state)
+            )
+            if (response.isSuccessful) {
+                downloadManager.clearPendingProgress(book.id)
+            } else {
+                downloadManager.saveOfflineProgress(book.id, position.toInt())
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Cast progress sync failed; queued for retry", e)
+            downloadManager.saveOfflineProgress(book.id, position.toInt())
+        }
+    }
+
+    /**
+     * The cast session is ending: record the final position and hand it to the
+     * local player so resuming on the phone continues where the TV stopped.
+     */
+    private fun onCastSessionEnded() {
+        progressJob?.cancel()
+        val position = lastCastPosition
+        if (position > 0 && playerState.currentAudiobook.value != null) {
+            playerState.updatePosition(position)
+            scope.launch { reportCastProgress("paused") }
+            com.sappho.audiobooks.service.AudioPlaybackService.instance?.seekTo(position)
+        }
+        lastCastPosition = 0
+        lastReportedPosition = -1
+    }
 
     // -- Private helpers --
 

@@ -29,7 +29,10 @@ class PlayerViewModel @Inject constructor(
     private val sharedPlayerState: PlayerState,
     private val downloadManager: DownloadManager,
     private val castHelper: CastHelper,
-    private val castManager: CastManager
+    private val castManager: CastManager,
+    /** Routes transport controls to the cast receiver or the local player. */
+    val playbackController: com.sappho.audiobooks.service.PlaybackController,
+    private val downloadFreshnessChecker: com.sappho.audiobooks.download.DownloadFreshnessChecker
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -73,6 +76,14 @@ class PlayerViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+            }
+
+            // Online and downloaded: make sure the local file still matches the
+            // server's (bounded probe). A stale copy is skipped for streaming.
+            if (book != null && downloadManager.isDownloaded(audiobookId)) {
+                authRepository.getServerUrlSync()?.let { url ->
+                    downloadFreshnessChecker.checkAndMark(url, audiobookId)
+                }
             }
 
             // Fall back to downloaded data if server failed
@@ -124,7 +135,10 @@ class PlayerViewModel @Inject constructor(
                     // Not casting - use local playback
                     // Start the service
                     val context = getApplication<Application>()
+                    // ACTION_PREPARE_PLAYBACK makes the service call startForeground()
+                    // immediately in onStartCommand, before anything can bail out.
                     val serviceIntent = Intent(context, AudioPlaybackService::class.java)
+                        .setAction(AudioPlaybackService.ACTION_PREPARE_PLAYBACK)
                     context.startForegroundService(serviceIntent)
 
                     // Wait for service to be ready with retry logic

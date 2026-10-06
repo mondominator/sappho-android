@@ -11,9 +11,6 @@ import androidx.work.WorkManager
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.NetworkType
-import com.sappho.audiobooks.data.remote.ProgressUpdateRequest
-import com.sappho.audiobooks.data.remote.SapphoApi
-import com.sappho.audiobooks.download.DownloadManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
@@ -23,8 +20,7 @@ import kotlinx.coroutines.CancellationException
 class ProgressSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val api: SapphoApi,
-    private val downloadManager: DownloadManager
+    private val replayer: PendingProgressReplayer
 ) : CoroutineWorker(appContext, workerParams) {
 
     companion object {
@@ -48,7 +44,9 @@ class ProgressSyncWorker @AssistedInject constructor(
             WorkManager.getInstance(context)
                 .enqueueUniqueWork(
                     WORK_NAME,
-                    ExistingWorkPolicy.REPLACE,
+                    // Run after any in-flight sync instead of cancelling it
+                    // mid-request (REPLACE did); a failed chain is replaced.
+                    ExistingWorkPolicy.APPEND_OR_REPLACE,
                     workRequest
                 )
         }
@@ -56,71 +54,11 @@ class ProgressSyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            Log.d(TAG, "Starting progress sync work")
-            
-            val pendingList = downloadManager.getPendingProgressList()
-            if (pendingList.isEmpty()) {
-                Log.d(TAG, "No pending progress to sync")
-                return Result.success()
-            }
-
-            Log.d(TAG, "Syncing ${pendingList.size} pending progress updates")
-            var successCount = 0
-            var failureCount = 0
-
-            for (pending in pendingList) {
-                try {
-                    // Check server position first — don't overwrite if another device is ahead
-                    val progressResponse = api.getProgress(pending.audiobookId)
-                    if (progressResponse.isSuccessful) {
-                        val serverPosition = progressResponse.body()?.position ?: 0
-                        if (serverPosition > pending.position) {
-                            // Server is ahead (listened on another device) — discard local
-                            Log.d(TAG, "Server position ($serverPosition) ahead of local (${pending.position}) for book ${pending.audiobookId}, discarding local")
-                            downloadManager.clearPendingProgress(pending.audiobookId)
-                            successCount++
-                            continue
-                        }
-                    }
-
-                    val response = api.updateProgress(
-                        pending.audiobookId,
-                        ProgressUpdateRequest(
-                            position = pending.position,
-                            completed = 0,
-                            state = "paused"
-                        )
-                    )
-
-                    if (response.isSuccessful) {
-                        downloadManager.clearPendingProgress(pending.audiobookId)
-                        successCount++
-                        Log.d(TAG, "Successfully synced progress for book ${pending.audiobookId}")
-                    } else {
-                        failureCount++
-                        Log.w(TAG, "Failed to sync progress for book ${pending.audiobookId}: ${response.code()}")
-                    }
-                } catch (e: CancellationException) {
-                    // WorkManager cancelled the worker — propagate instead of
-                    // counting it as a per-item failure.
-                    throw e
-                } catch (e: Exception) {
-                    failureCount++
-                    Log.e(TAG, "Exception syncing progress for book ${pending.audiobookId}", e)
-                }
-            }
-
-            Log.d(TAG, "Progress sync complete: $successCount successes, $failureCount failures")
-
-            if (failureCount == 0) {
-                Result.success()
-            } else if (successCount > 0) {
-                // Partial success — retry for remaining failures
-                Result.retry()
-            } else {
-                // All failed
-                Result.failure()
-            }
+            val outcome = replayer.replayAll()
+            Log.d(TAG, "Progress sync: ${outcome.synced} synced, ${outcome.dropped} dropped, ${outcome.retryable} to retry")
+            // Unreachable server / 5xx: retry with backoff instead of FAILED,
+            // which would strand the queue until something new is enqueued.
+            if (outcome.needsRetry) Result.retry() else Result.success()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

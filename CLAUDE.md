@@ -415,7 +415,7 @@ app/src/test/java/
 ```
 
 ### Enforcement
-- **CI/CD pipeline fails** if tests don't pass or coverage drops
+- **CI/CD pipeline fails** if tests or lint fail (there is no coverage gate yet)
 - **PRs cannot be merged** without adequate test coverage
 - **Code reviews must verify** that tests cover the changes made
 - **No exceptions** - if you write code, you write tests
@@ -440,13 +440,13 @@ Before merging a PR to main:
 3. Bump both `versionCode` (increment by 1) and `versionName` in `app/build.gradle.kts`
 
 After merging to main:
-1. **Verify BOTH workflows succeed:**
-   - `Build and Release APK` - builds and tests the code
-   - `Deploy to Play Store` - uploads to Play Store internal testing
-2. Check with: `gh run list --limit 4` to see both workflows
-3. If Play Store deploy fails with "Version code already used", bump the version and push
+1. **Verify the `Build and Release APK` run succeeds end to end**, including its
+   `deploy-play` job (Play internal track). `deploy-play` only runs after `build`
+   (tests + lint + signed AAB) passes. See `docs/RELEASING.md`.
+2. Check with: `gh run list --limit 4` / `gh run view <id>`
+3. If `deploy-play` fails with "Version code already used", bump the version and push
 
-**Common mistake**: Saying "merged and done" after only checking the build CI, without verifying the Play Store deploy workflow.
+**Common mistake**: Saying "merged and done" after only checking the `build` job, without verifying `deploy-play`.
 
 ## Remote Server Access (Unraid)
 

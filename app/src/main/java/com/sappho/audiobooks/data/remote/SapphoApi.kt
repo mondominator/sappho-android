@@ -40,6 +40,11 @@ interface SapphoApi {
     @POST("api/auth/refresh")
     fun refreshTokenCall(@Body request: RefreshTokenRequest): retrofit2.Call<AuthResponse>
 
+    // Revokes the access token and (when supplied) the refresh-token family
+    // server-side. Called on logout so the stored refresh token can't be reused.
+    @POST("api/auth/logout")
+    suspend fun logout(@Body request: LogoutRequest): Response<MessageResponse>
+
     // Audiobooks
     @GET("api/audiobooks")
     suspend fun getAudiobooks(
@@ -532,6 +537,8 @@ data class RegisterRequest(
 // Serializes to {"refreshToken":"..."} — camelCase, NO @SerializedName.
 data class RefreshTokenRequest(val refreshToken: String)
 
+data class LogoutRequest(val refreshToken: String?)
+
 data class MfaVerifyRequest(
     @com.google.gson.annotations.SerializedName("mfa_token")
     val mfaToken: String,
@@ -557,7 +564,11 @@ data class RequestUnlockRequest(
 data class ProgressUpdateRequest(
     val position: Int,
     val completed: Int,
-    val state: String = "stopped"
+    val state: String = "stopped",
+    // True when re-sending a position captured earlier (offline queue). The
+    // server then applies its forward-only guard (progress.js) so a stale
+    // replay can't overwrite a newer position set on another device.
+    val isReplay: Boolean = false
 )
 
 data class HealthResponse(

@@ -94,9 +94,12 @@ class PlayerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val audiobookId = intent.getIntExtra("AUDIOBOOK_ID", -1)
+        // The Cast SDK's expanded-controller intent has no extras: fall back to
+        // the book that is already playing/casting instead of closing at once.
+        val currentBookId = playerState.currentAudiobook.value?.id
+        val audiobookId = intent.getIntExtra("AUDIOBOOK_ID", currentBookId ?: -1)
         val startPosition = intent.getIntExtra("START_POSITION", 0)
-        val fromMinimized = intent.getBooleanExtra("FROM_MINIMIZED", false)
+        val fromMinimized = intent.getBooleanExtra("FROM_MINIMIZED", !intent.hasExtra("AUDIOBOOK_ID"))
 
         if (audiobookId == -1) {
             finish()
@@ -146,6 +149,7 @@ fun PlayerScreen(
     var showSleepTimer by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     val castCoroutineScope = rememberCoroutineScope()
+    val playbackController = viewModel.playbackController
 
     // Sync progress from server when returning from background
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -528,7 +532,7 @@ fun PlayerScreen(
                                 // Jump to previous chapter
                                 val currentIdx = chapters.indexOfFirst { it == currentChapter }
                                 if (currentIdx > 0) {
-                                    AudioPlaybackService.instance?.seekTo(chapters[currentIdx - 1].startTime.toLong())
+                                    playbackController.seekTo(chapters[currentIdx - 1].startTime.toLong())
                                 }
                             },
                             modifier = Modifier.size(48.dp),
@@ -555,7 +559,7 @@ fun PlayerScreen(
                         )
 
                         IconButton(
-                            onClick = { AudioPlaybackService.instance?.skipBackward() },
+                            onClick = { playbackController.skipBackward() },
                             modifier = Modifier.size(56.dp),
                             interactionSource = skipBackSource
                         ) {
@@ -589,16 +593,8 @@ fun PlayerScreen(
                                     indication = null
                                 ) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    // Check if we're currently casting
                                     if (isCastConnected) {
-                                        // Control the cast device via CastManager
-                                        castCoroutineScope.launch {
-                                            if (isPlaying) {
-                                                castManager.pause()
-                                            } else {
-                                                castManager.play()
-                                            }
-                                        }
+                                        playbackController.togglePlayPause()
                                     } else {
                                         // Control local playback with staleness guard
                                         viewModel.togglePlayPauseWithGuard(audiobookId)
@@ -631,7 +627,7 @@ fun PlayerScreen(
                         )
 
                         IconButton(
-                            onClick = { AudioPlaybackService.instance?.skipForward() },
+                            onClick = { playbackController.skipForward() },
                             modifier = Modifier.size(56.dp),
                             interactionSource = skipForwardSource
                         ) {
@@ -659,7 +655,7 @@ fun PlayerScreen(
                                 // Jump to next chapter
                                 val currentIdx = chapters.indexOfFirst { it == currentChapter }
                                 if (currentIdx >= 0 && currentIdx < chapters.size - 1) {
-                                    AudioPlaybackService.instance?.seekTo(chapters[currentIdx + 1].startTime.toLong())
+                                    playbackController.seekTo(chapters[currentIdx + 1].startTime.toLong())
                                 }
                             },
                             modifier = Modifier.size(48.dp),
@@ -763,9 +759,9 @@ fun PlayerScreen(
                             onValueChangeFinished = {
                                 // Seek to position, only resume playback if it was playing before
                                 if (wasPlayingBeforeDrag) {
-                                    AudioPlaybackService.instance?.seekToAndPlay(dragPosition.toLong())
+                                    playbackController.seekToAndPlay(dragPosition.toLong())
                                 } else {
-                                    AudioPlaybackService.instance?.seekTo(dragPosition.toLong())
+                                    playbackController.seekTo(dragPosition.toLong())
                                 }
                                 isDragging = false
                             },
@@ -1008,7 +1004,7 @@ fun PlayerScreen(
                             val isCurrentChapter = chapter == currentChapter
                             androidx.compose.material3.TextButton(
                                 onClick = {
-                                    AudioPlaybackService.instance?.seekToAndPlay(chapter.startTime.toLong())
+                                    playbackController.seekToAndPlay(chapter.startTime.toLong())
                                     showChapters = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -1351,8 +1347,8 @@ fun PlayerScreen(
                     } else {
                         LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
                             items(listeningSessions) { session ->
-                                ListeningSessionItem(session) { position ->
-                                    AudioPlaybackService.instance?.seekTo(position * 1000L)
+                                ListeningSessionItem(session) {
+                                    playbackController.seekToHistorySession(session)
                                     showHistory = false
                                 }
                             }

@@ -46,7 +46,10 @@ class AudiobookDetailViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     val playerState: PlayerState,
     private val downloadManager: DownloadManager,
-    private val networkMonitor: NetworkMonitor
+    private val networkMonitor: NetworkMonitor,
+    private val downloadFreshnessChecker: com.sappho.audiobooks.download.DownloadFreshnessChecker,
+    /** Routes play/pause and seeks to the cast receiver or the local player. */
+    val playbackController: com.sappho.audiobooks.service.PlaybackController
 ) : ViewModel() {
 
     companion object {
@@ -236,6 +239,7 @@ class AudiobookDetailViewModel @Inject constructor(
                     response.body()?.let { book ->
                         _audiobook.value = book
                         _isFavorite.value = book.isFavorite
+                        if (downloadManager.isDownloaded(book.id)) refreshIfStale(book)
                     } ?: run {
                         _errorMessage.value = "Invalid response from server"
                     }
@@ -584,6 +588,22 @@ class AudiobookDetailViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 // Not critical — just means we won't show existing progress
+            }
+        }
+    }
+
+    /**
+     * The server's file may have changed since this book was downloaded (e.g.
+     * a multi-file book merged into one m4b, where the old download is part 1
+     * only). If so, playback streams and a fresh copy downloads in the
+     * background; the old file is replaced only once the new one is complete.
+     */
+    private fun refreshIfStale(book: Audiobook) {
+        val serverUrl = authRepository.getServerUrlSync() ?: return
+        viewModelScope.launch {
+            val verdict = downloadFreshnessChecker.checkAndMark(serverUrl, book.id)
+            if (verdict == com.sappho.audiobooks.download.DownloadFreshness.Verdict.STALE) {
+                DownloadService.startDownload(context, book)
             }
         }
     }

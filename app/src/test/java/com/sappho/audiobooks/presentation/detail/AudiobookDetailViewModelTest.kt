@@ -64,7 +64,9 @@ class AudiobookDetailViewModelTest {
             authRepository = authRepository,
             playerState = playerState,
             downloadManager = downloadManager,
-            networkMonitor = networkMonitor
+            networkMonitor = networkMonitor,
+            downloadFreshnessChecker = io.mockk.mockk(relaxed = true),
+            playbackController = io.mockk.mockk(relaxed = true)
         )
     }
 

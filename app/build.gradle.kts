@@ -15,8 +15,8 @@ android {
         applicationId = "com.sappho.audiobooks"
         minSdk = 26
         targetSdk = 36
-        versionCode = 105
-        versionName = "0.9.87"
+        versionCode = 106
+        versionName = "0.9.88"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -127,10 +127,10 @@ dependencies {
     // Media3 (ExoPlayer)
     val media3Version = "1.5.1"
     implementation("androidx.media3:media3-exoplayer:$media3Version")
-    implementation("androidx.media3:media3-ui:$media3Version")
     implementation("androidx.media3:media3-session:$media3Version")
     implementation("androidx.media3:media3-common:$media3Version")
-    implementation("androidx.media3:media3-cast:$media3Version")
+    // Streams go through the app's OkHttpClient (auth header + token refresh)
+    implementation("androidx.media3:media3-datasource-okhttp:$media3Version")
 
     // Google Cast
     implementation("com.google.android.gms:play-services-cast-framework:22.0.0")
@@ -174,6 +174,7 @@ dependencies {
     testImplementation("app.cash.turbine:turbine:1.1.0")
     testImplementation("com.google.truth:truth:1.4.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("androidx.work:work-testing:2.10.0")
     
     // Compose Testing for unit tests
     testImplementation(composeBom)

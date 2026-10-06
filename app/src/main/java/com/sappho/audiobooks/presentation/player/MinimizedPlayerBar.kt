@@ -42,9 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.sappho.audiobooks.service.AudioPlaybackService
+import com.sappho.audiobooks.service.PlaybackController
 import com.sappho.audiobooks.service.PlayerState
-import com.sappho.audiobooks.cast.CastHelper
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,7 +51,7 @@ import kotlinx.coroutines.delay
 fun MinimizedPlayerBar(
     playerState: PlayerState,
     serverUrl: String?,
-    castHelper: CastHelper,
+    playbackController: PlaybackController,
     onExpand: () -> Unit,
     onRestartPlayback: (audiobookId: Int, position: Int) -> Unit = { _, _ -> }
 ) {
@@ -62,21 +61,12 @@ fun MinimizedPlayerBar(
     val duration by playerState.duration.collectAsStateWithLifecycle()
     val bufferedPosition by playerState.bufferedPosition.collectAsStateWithLifecycle()
 
-    // Check cast state - use reactive StateFlow
-    val isCastConnected by castHelper.isConnected.collectAsStateWithLifecycle()
-    val castIsPlaying by castHelper.isPlayingFlow.collectAsStateWithLifecycle()
+    // Cast state for ALL receivers (Chromecast, Kodi, AirPlay) — not just
+    // Chromecast — so the bar never drives the local player while casting.
+    val isCastConnected by playbackController.isCastConnected.collectAsStateWithLifecycle()
+    val castIsPlaying by playbackController.castIsPlaying.collectAsStateWithLifecycle()
+    val castPosition by playbackController.castPosition.collectAsStateWithLifecycle()
     val isPlaying = if (isCastConnected) castIsPlaying else localIsPlaying
-
-    // Poll Cast position when connected for smooth time updates
-    var castPosition by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(isCastConnected) {
-        if (isCastConnected) {
-            while (true) {
-                castPosition = castHelper.getCurrentPosition()
-                delay(Timing.POLL_INTERVAL_MS)
-            }
-        }
-    }
     val currentPosition = if (isCastConnected) castPosition else localPosition
 
     // Slider state for seeking
@@ -161,11 +151,7 @@ fun MinimizedPlayerBar(
                                     val newProgress = (offset.x / sliderWidth).coerceIn(0f, 1f)
                                     sliderPosition = newProgress
                                     val seekPosition = (newProgress * duration).toLong()
-                                    if (isCastConnected) {
-                                        castHelper.seek(seekPosition)
-                                    } else {
-                                        AudioPlaybackService.instance?.seekTo(seekPosition)
-                                    }
+                                    playbackController.seekTo(seekPosition)
                                 }
                             }
                         }
@@ -175,11 +161,7 @@ fun MinimizedPlayerBar(
                                 onDragEnd = {
                                     isUserSeeking = false
                                     val seekPosition = (sliderPosition * duration).toLong()
-                                    if (isCastConnected) {
-                                        castHelper.seek(seekPosition)
-                                    } else {
-                                        AudioPlaybackService.instance?.seekTo(seekPosition)
-                                    }
+                                    playbackController.seekTo(seekPosition)
                                 },
                                 onHorizontalDrag = { _, dragAmount ->
                                     if (sliderWidth > 0) {
@@ -380,16 +362,9 @@ fun MinimizedPlayerBar(
                         )
                     }
 
-                    // Seek back button (10 seconds)
+                    // Seek back button (user's skip-back setting)
                     IconButton(
-                        onClick = {
-                            if (isCastConnected) {
-                                val newPosition = (currentPosition - 10).coerceAtLeast(0)
-                                castHelper.seek(newPosition)
-                            } else {
-                                AudioPlaybackService.instance?.skipBackward()
-                            }
-                        },
+                        onClick = { playbackController.skipBackward() },
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
@@ -484,15 +459,8 @@ fun MinimizedPlayerBar(
                                 interactionSource = playInteractionSource,
                                 indication = null
                             ) {
-                                if (isCastConnected) {
-                                    if (isPlaying) {
-                                        castHelper.pause()
-                                    } else {
-                                        castHelper.play()
-                                    }
-                                } else {
-                                    val service = AudioPlaybackService.instance
-                                    val playerHandled = service?.togglePlayPause() ?: false
+                                run {
+                                    val playerHandled = playbackController.togglePlayPause()
                                     if (!playerHandled) {
                                         // Service is null or player is null (killed after vehicle disconnect, etc.)
                                         // Restart playback from current position or saved progress
@@ -515,16 +483,9 @@ fun MinimizedPlayerBar(
                         )
                     }
 
-                    // Seek forward button (10 seconds)
+                    // Seek forward button (user's skip-forward setting)
                     IconButton(
-                        onClick = {
-                            if (isCastConnected) {
-                                val newPosition = currentPosition + 10
-                                castHelper.seek(newPosition)
-                            } else {
-                                AudioPlaybackService.instance?.skipForward()
-                            }
-                        },
+                        onClick = { playbackController.skipForward() },
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(

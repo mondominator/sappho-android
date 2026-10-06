@@ -70,7 +70,9 @@ class PlayerViewModelTest {
             sharedPlayerState = sharedPlayerState,
             downloadManager = downloadManager,
             castHelper = castHelper,
-            castManager = castManager
+            castManager = castManager,
+            playbackController = io.mockk.mockk(relaxed = true),
+            downloadFreshnessChecker = io.mockk.mockk(relaxed = true)
         )
     }
 

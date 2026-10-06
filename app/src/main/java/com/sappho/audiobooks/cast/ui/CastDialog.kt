@@ -364,7 +364,7 @@ private fun NoDevicesState() {
             fontWeight = FontWeight.Medium
         )
         Text(
-            "Make sure your Cast, Roku, Kodi, or\nAirPlay device is on the same network",
+            "Make sure your Cast, Kodi, or AirPlay\ndevice is on the same network",
             color = SapphoIconDefault.copy(alpha = 0.7f),
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
@@ -382,7 +382,6 @@ private fun DeviceList(
     val grouped = devices.groupBy { it.protocol }
     val protocolOrder = listOf(
         CastProtocol.CHROMECAST,
-        CastProtocol.ROKU,
         CastProtocol.KODI,
         CastProtocol.AIRPLAY
     )
@@ -485,7 +484,6 @@ private fun DeviceRow(
 private fun iconForProtocol(protocol: CastProtocol?): ImageVector {
     return when (protocol) {
         CastProtocol.CHROMECAST -> Icons.Default.Cast
-        CastProtocol.ROKU -> Icons.Default.Tv
         CastProtocol.KODI -> Icons.Default.DesktopWindows
         CastProtocol.AIRPLAY -> Icons.Default.Speaker
         null -> Icons.Default.Cast
@@ -495,7 +493,6 @@ private fun iconForProtocol(protocol: CastProtocol?): ImageVector {
 private fun labelForProtocol(protocol: CastProtocol?): String {
     return when (protocol) {
         CastProtocol.CHROMECAST -> "Casting via Chromecast"
-        CastProtocol.ROKU -> "Casting via Roku"
         CastProtocol.KODI -> "Casting via Kodi"
         CastProtocol.AIRPLAY -> "Casting via AirPlay"
         null -> "Casting audio to this device"
@@ -535,12 +532,6 @@ private fun deviceVisuals(device: CastDevice): DeviceVisuals {
                 }
             )
         }
-        CastProtocol.ROKU -> DeviceVisuals(
-            icon = Icons.Default.Tv,
-            gradientColors = listOf(LegacyPurpleLight.copy(alpha = 0.3f), SapphoInfo.copy(alpha = 0.2f)),
-            tint = LegacyPurpleLight,
-            typeLabel = "Roku"
-        )
         CastProtocol.KODI -> DeviceVisuals(
             icon = Icons.Default.DesktopWindows,
             gradientColors = listOf(SapphoInfo.copy(alpha = 0.3f), SapphoSuccess.copy(alpha = 0.2f)),

@@ -39,6 +39,7 @@ class MainViewModel @Inject constructor(
     private val okHttpClient: OkHttpClient,
     val playerState: com.sappho.audiobooks.service.PlayerState,
     val castHelper: com.sappho.audiobooks.cast.CastHelper,
+    val playbackController: com.sappho.audiobooks.service.PlaybackController,
     private val downloadManager: com.sappho.audiobooks.download.DownloadManager
 ) : ViewModel() {
 

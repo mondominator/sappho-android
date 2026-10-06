@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Protocol-agnostic interface for casting audio to external devices.
- * Each casting protocol (Chromecast, Roku, Kodi, AirPlay) implements this interface.
+ * Each casting protocol (Chromecast, Kodi, AirPlay) implements this interface.
  */
 interface CastTarget {
     val protocol: CastProtocol
@@ -31,7 +31,6 @@ interface CastTarget {
 
 enum class CastProtocol {
     CHROMECAST,
-    ROKU,
     KODI,
     AIRPLAY
 }
