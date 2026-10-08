@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.sappho.audiobooks.presentation.components.BookSourceTag
+import com.sappho.audiobooks.presentation.components.CoverSourceTag
+import com.sappho.audiobooks.presentation.components.dimIfRemoteOffline
 import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -1859,7 +1862,8 @@ fun SeriesBookListItem(
                 indication = ripple(),
                 onClick = { cardTapHaptic(); onClick() }
             )
-            .padding(Spacing.S),
+            .padding(Spacing.S)
+            .dimIfRemoteOffline(book),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Book number badge - subtle style
@@ -1929,6 +1933,7 @@ fun SeriesBookListItem(
                     )
                 }
             }
+            BookSourceTag(book = book, modifier = Modifier.padding(top = Spacing.XXS))
 
             // Animated progress bar
             if (progressPercent > 0) {
@@ -2010,6 +2015,7 @@ fun SeriesBookGridItem(
         Box(
             modifier = Modifier
                 .aspectRatio(1f)
+                .dimIfRemoteOffline(book)
                 .clip(RoundedCornerShape(8.dp))
                 .background(SapphoProgressTrack)
         ) {
@@ -2039,6 +2045,9 @@ fun SeriesBookGridItem(
                     )
                 }
             }
+
+            // Linked-server tag (remote books only)
+            CoverSourceTag(book)
 
             // Series position badge (top-left)
             if (book.seriesPosition != null) {
@@ -2463,6 +2472,7 @@ fun AuthorBookCard(
         Box(
             modifier = Modifier
                 .size(120.dp)
+                .dimIfRemoteOffline(book)
                 .clip(RoundedCornerShape(8.dp))
                 .background(SapphoProgressTrack)
         ) {
@@ -2485,6 +2495,9 @@ fun AuthorBookCard(
                     )
                 }
             }
+
+            // Linked-server tag (remote books only)
+            CoverSourceTag(book)
 
             // Series position badge
             if (showSeriesPosition && book.seriesPosition != null) {
@@ -2828,6 +2841,7 @@ fun GenreBookGridItem(
         Box(
             modifier = Modifier
                 .aspectRatio(1f)
+                .dimIfRemoteOffline(book)
                 .clip(RoundedCornerShape(8.dp))
                 .background(SapphoProgressTrack)
         ) {
@@ -2851,6 +2865,9 @@ fun GenreBookGridItem(
                     )
                 }
             }
+
+            // Linked-server tag (remote books only)
+            CoverSourceTag(book)
 
             // Completed badge
             if (isCompleted) {
@@ -2961,6 +2978,7 @@ fun BookGridItem(
         Box(
             modifier = Modifier
                 .aspectRatio(1f)
+                .dimIfRemoteOffline(book)
                 .clip(RoundedCornerShape(8.dp))
         ) {
             // Cover Image
@@ -2989,6 +3007,9 @@ fun BookGridItem(
                     )
                 }
             }
+
+            // Linked-server tag (remote books only)
+            CoverSourceTag(book)
 
             // Series position badge
             if (showSeriesPosition && book.seriesPosition != null) {
@@ -3111,6 +3132,8 @@ fun AllBooksView(
     val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedBookIds by viewModel.selectedBookIds.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val linkedSources by viewModel.linkedSources.collectAsStateWithLifecycle()
+    val sourceFilter by viewModel.sourceFilter.collectAsStateWithLifecycle()
 
     var showBatchCollectionDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -3184,7 +3207,12 @@ fun AllBooksView(
                         }
                     },
                     onAddToCollection = { showBatchCollectionDialog = true },
-                    onDelete = if (isAdmin) {{ showDeleteConfirmDialog = true }} else null,
+                    // Linked-server books can't be deleted here; hide Delete when any is selected.
+                    onDelete = if (isAdmin && sortedBooks.none { it.isRemote && it.id in selectedBookIds }) {
+                        { showDeleteConfirmDialog = true }
+                    } else {
+                        null
+                    },
                     onCancel = { viewModel.exitSelectionMode() }
                 )
             }
@@ -3260,6 +3288,21 @@ fun AllBooksView(
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
+
+            // Source filter: only when this server has linked servers
+            if (!isSelectionMode && linkedSources.isNotEmpty()) {
+                val sourceOptions = sourceFilterOptions(linkedSources)
+                FilterDropdown(
+                    label = "Source",
+                    value = sourceOptions.firstOrNull { it.first == sourceFilter }?.second
+                        ?: sourceOptions.first().second,
+                    options = sourceOptions,
+                    onSelect = { viewModel.setSourceFilter(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                )
             }
 
             // Books Grid (adaptive for tablets)
@@ -3503,6 +3546,7 @@ fun SelectableBookGridItem(
         Box(
             modifier = Modifier
                 .aspectRatio(1f)
+                .dimIfRemoteOffline(book)
                 .clip(RoundedCornerShape(8.dp))
         ) {
             // Cover Image
@@ -3531,6 +3575,9 @@ fun SelectableBookGridItem(
                     )
                 }
             }
+
+            // Linked-server tag (remote books only)
+            CoverSourceTag(book)
 
             // Selection overlay
             if (isSelectionMode) {
@@ -3773,6 +3820,15 @@ fun SelectCollectionDialog(
         containerColor = SapphoSurfaceDark
     )
 }
+
+/** (value for `?source=`, label) pairs for the Source filter: All, This server, then each linked server. */
+internal fun sourceFilterOptions(sources: List<com.sappho.audiobooks.domain.model.LinkedSource>): List<Pair<String, String>> =
+    listOf(
+        LibraryViewModel.SOURCE_ALL to "All",
+        LibraryViewModel.SOURCE_LOCAL to "This server"
+    ) + sources.map { source ->
+        source.id.toString() to if (source.available == false) "${source.displayName} (offline)" else source.displayName
+    }
 
 @Composable
 fun FilterDropdown(

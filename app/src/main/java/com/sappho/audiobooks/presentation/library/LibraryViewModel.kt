@@ -9,6 +9,7 @@ import com.sappho.audiobooks.domain.model.AuthorInfo
 import com.sappho.audiobooks.domain.model.GenreCategoryData
 import com.sappho.audiobooks.domain.model.GenreInfo
 import com.sappho.audiobooks.domain.model.GenreMetadata
+import com.sappho.audiobooks.domain.model.LinkedSource
 import com.sappho.audiobooks.domain.model.SeriesInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -26,6 +27,10 @@ class LibraryViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
+        /** Source filter values understood by `?source=` (a link id is the third kind). */
+        const val SOURCE_ALL = "all"
+        const val SOURCE_LOCAL = "local"
+
         // Genre mappings fetched from server, cached here (includes keywords, colors, icons)
         private var genreCategories: Map<String, GenreCategoryData> = emptyMap()
         private var defaultGenreMetadata: GenreMetadata = GenreMetadata(
@@ -101,6 +106,15 @@ class LibraryViewModel @Inject constructor(
 
     private val _allAudiobooks = MutableStateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>>(emptyList())
     val allAudiobooks: StateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>> = _allAudiobooks.asStateFlow()
+
+    // Linked servers (server 0.16.0+). Empty on older servers and when none
+    // are linked, which hides the Source filter.
+    private val _linkedSources = MutableStateFlow<List<LinkedSource>>(emptyList())
+    val linkedSources: StateFlow<List<LinkedSource>> = _linkedSources.asStateFlow()
+
+    /** [SOURCE_ALL], [SOURCE_LOCAL] or a linked server's id, as sent in `?source=`. */
+    private val _sourceFilter = MutableStateFlow(SOURCE_ALL)
+    val sourceFilter: StateFlow<String> = _sourceFilter.asStateFlow()
 
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl.asStateFlow()
@@ -558,6 +572,54 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    /** Show only books from [source] ([SOURCE_ALL], [SOURCE_LOCAL] or a link id) in All Books. */
+    fun setSourceFilter(source: String) {
+        if (source == _sourceFilter.value) return
+        _sourceFilter.value = source
+        viewModelScope.launch { loadAllAudiobooks() }
+    }
+
+    private suspend fun loadLinkedSources() {
+        try {
+            val response = api.getLinkedSources()
+            // A server without linked-server support answers 404: no filter.
+            val sources = if (response.isSuccessful) response.body().orEmpty() else emptyList()
+            _linkedSources.value = sources
+            val filter = _sourceFilter.value
+            val filterStillValid = filter == SOURCE_ALL ||
+                (sources.isNotEmpty() && (filter == SOURCE_LOCAL || sources.any { it.id.toString() == filter }))
+            if (!filterStillValid) _sourceFilter.value = SOURCE_ALL
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("LibraryViewModel", "Error loading linked sources", e)
+            _linkedSources.value = emptyList()
+            _sourceFilter.value = SOURCE_ALL
+        }
+    }
+
+    private suspend fun loadAllAudiobooks() {
+        try {
+            // "all" is the server default; leave it off so older servers see the same request as before.
+            val filter = _sourceFilter.value
+            val source = filter.takeUnless { it == SOURCE_ALL }
+            val audiobooksResponse = api.getAudiobooks(limit = 10000, source = source)
+            // The filter changed while this request was in flight: the newer load wins.
+            if (filter != _sourceFilter.value) return
+            if (audiobooksResponse.isSuccessful) {
+                val audiobooks = audiobooksResponse.body()?.audiobooks ?: emptyList()
+                _allAudiobooks.value = audiobooks
+                Log.d("LibraryViewModel", "Loaded ${audiobooks.size} audiobooks (source=${source ?: SOURCE_ALL})")
+            } else {
+                Log.e("LibraryViewModel", "Audiobooks request failed: ${audiobooksResponse.code()} - ${audiobooksResponse.errorBody()?.string()}")
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("LibraryViewModel", "Error loading audiobooks", e)
+        }
+    }
+
     fun loadCategories() {
         viewModelScope.launch {
             _uiState.value = LibraryUiState.Loading
@@ -596,21 +658,10 @@ class LibraryViewModel @Inject constructor(
                     Log.d("LibraryViewModel", "Loaded ${_authors.value.size} authors from server")
                 }
 
+                loadLinkedSources()
+
                 // Load all audiobooks for All Books view
-                try {
-                    val audiobooksResponse = api.getAudiobooks(limit = 10000)
-                    if (audiobooksResponse.isSuccessful) {
-                        val audiobooks = audiobooksResponse.body()?.audiobooks ?: emptyList()
-                        _allAudiobooks.value = audiobooks
-                        Log.d("LibraryViewModel", "Loaded ${audiobooks.size} audiobooks")
-                    } else {
-                        Log.e("LibraryViewModel", "Audiobooks request failed: ${audiobooksResponse.code()} - ${audiobooksResponse.errorBody()?.string()}")
-                    }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.e("LibraryViewModel", "Error loading audiobooks", e)
-                }
+                loadAllAudiobooks()
 
                 _uiState.value = LibraryUiState.Success
             } catch (e: CancellationException) {

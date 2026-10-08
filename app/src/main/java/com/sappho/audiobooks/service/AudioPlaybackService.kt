@@ -419,8 +419,12 @@ class AudioPlaybackService : MediaLibraryService(), LocalPlayback {
                     // Surface the error through PlayerState so the UI can show a
                     // dismissible dialog — a Toast from a service is easy to miss
                     // and gives the user no way to acknowledge the failure.
+                    // A linked-server failure gets a plain explanation, not a raw HTTP error.
+                    val remoteMessage = com.sappho.audiobooks.util.RemoteErrors.messageFor(
+                        StreamErrors.httpFailureOf(error)?.errorCode
+                    )
                     playerState.updatePlaybackError(
-                        "Playback error: ${error.message ?: "Unknown error"}"
+                        remoteMessage ?: "Playback error: ${error.message ?: "Unknown error"}"
                     )
                 }
             })

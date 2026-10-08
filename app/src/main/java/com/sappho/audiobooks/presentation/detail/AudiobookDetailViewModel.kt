@@ -244,7 +244,10 @@ class AudiobookDetailViewModel @Inject constructor(
                         _errorMessage.value = "Invalid response from server"
                     }
                 } else {
-                    _errorMessage.value = when (response.code()) {
+                    val remoteMessage = com.sappho.audiobooks.util.RemoteErrors.messageFor(
+                        com.sappho.audiobooks.util.parseApiErrorCode(response.errorBody()?.string())
+                    )
+                    _errorMessage.value = remoteMessage ?: when (response.code()) {
                         404 -> "Audiobook not found"
                         401 -> "Authentication required"
                         else -> "Failed to load audiobook (${response.code()})"

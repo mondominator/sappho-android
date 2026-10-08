@@ -5,7 +5,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
-import com.google.gson.JsonParser
+import com.sappho.audiobooks.util.RemoteErrors
+import com.sappho.audiobooks.util.parseApiErrorCode
 
 /** How a book is played. */
 enum class StreamMode {
@@ -87,6 +88,9 @@ class StreamSourcePolicy(private val maxMasterReloads: Int = DEFAULT_MAX_MASTER_
     fun recoveryFor(audiobookId: Int, mode: StreamMode, failure: HttpFailure?): StreamRecovery {
         if (mode != StreamMode.HLS) return StreamRecovery.NONE
         return when {
+            // The linked server is down or the book is gone: /stream is relayed
+            // the same way and would fail too, so let the error reach the user.
+            RemoteErrors.isRemoteError(failure?.errorCode) -> StreamRecovery.NONE
             failure?.statusCode == HTTP_UNSUPPORTED_MEDIA_TYPE -> {
                 hlsUnsupportedBooks += audiobookId
                 StreamRecovery.FALL_BACK_TO_PROGRESSIVE
@@ -128,18 +132,8 @@ object StreamErrors {
     }
 
     /** The `code` field of a JSON error body such as `{"code":"FILE_VERSION_CHANGED"}`. */
-    fun errorCodeOf(body: ByteArray?): String? {
-        if (body == null || body.isEmpty()) return null
-        return try {
-            val json = JsonParser.parseString(String(body, Charsets.UTF_8))
-            if (!json.isJsonObject) return null
-            val code = json.asJsonObject.get("code") ?: return null
-            if (code.isJsonPrimitive) code.asString else null
-        } catch (e: RuntimeException) {
-            // Not JSON (an HTML error page from a proxy, say): no code.
-            null
-        }
-    }
+    fun errorCodeOf(body: ByteArray?): String? =
+        if (body == null || body.isEmpty()) null else parseApiErrorCode(String(body, Charsets.UTF_8))
 }
 
 /**

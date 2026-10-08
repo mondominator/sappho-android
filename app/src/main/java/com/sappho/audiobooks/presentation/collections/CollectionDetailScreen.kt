@@ -40,6 +40,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.sappho.audiobooks.presentation.components.CoverSourceTag
+import com.sappho.audiobooks.presentation.components.dimIfRemoteOffline
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.presentation.theme.*
 import com.sappho.audiobooks.util.HapticPatterns
@@ -407,6 +409,7 @@ private fun CollectionBookItem(
         Box(
             modifier = Modifier
                 .aspectRatio(1f)
+                .dimIfRemoteOffline(book)
                 .clip(RoundedCornerShape(8.dp))
                 .background(SapphoProgressTrack)
         ) {
@@ -435,6 +438,9 @@ private fun CollectionBookItem(
                     )
                 }
             }
+
+            // Linked-server tag (remote books only)
+            CoverSourceTag(book)
 
             // Selection checkbox (top-left, only in edit mode)
             SapphoAnimatedVisibility(

@@ -116,6 +116,20 @@ class StreamSourcePolicyTest {
         assertThat(policy.recoveryFor(BOOK, StreamMode.LOCAL, null)).isEqualTo(StreamRecovery.NONE)
     }
 
+    @Test
+    fun `linked-server failures are surfaced, not retried as progressive`() {
+        listOf(
+            HttpFailure(503, "REMOTE_UNAVAILABLE"),
+            HttpFailure(502, "REMOTE_AUTH_FAILED"),
+            HttpFailure(502, "REMOTE_ERROR"),
+            HttpFailure(404, "REMOTE_BOOK_GONE")
+        ).forEach { failure ->
+            assertThat(policy.recoveryFor(BOOK, StreamMode.HLS, failure)).isEqualTo(StreamRecovery.NONE)
+        }
+        // And the book is not demoted to progressive for its next play.
+        assertThat(chooseFor(metered = true).mode).isEqualTo(StreamMode.HLS)
+    }
+
     // --- URLs ---
 
     @Test

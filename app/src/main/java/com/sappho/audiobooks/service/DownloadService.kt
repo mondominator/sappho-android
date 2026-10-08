@@ -20,6 +20,8 @@ import com.sappho.audiobooks.download.DownloadQueue
 import com.sappho.audiobooks.download.DownloadResume
 import com.sappho.audiobooks.download.DownloadState
 import com.sappho.audiobooks.presentation.MainActivity
+import com.sappho.audiobooks.util.RemoteErrors
+import com.sappho.audiobooks.util.parseApiErrorCode
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -81,6 +83,7 @@ class DownloadService : Service() {
 
     companion object {
         private const val TAG = "DownloadService"
+        private const val ERROR_BODY_PEEK_BYTES = 4096L
         private const val NOTIFICATION_ID = 2
         private const val CHANNEL_ID = "audiobook_download"
 
@@ -440,10 +443,14 @@ class DownloadService : Service() {
                 is DownloadResume.Outcome.Restart -> false to outcome.totalBytes
                 is DownloadResume.Outcome.AlreadyComplete -> return etag to outcome.totalBytes
                 is DownloadResume.Outcome.Fail -> {
+                    // Linked-server books fail with a REMOTE_* code; say why in words.
+                    val message = RemoteErrors.messageFor(
+                        parseApiErrorCode(response.peekBody(ERROR_BODY_PEEK_BYTES).string())
+                    ) ?: "Download failed: ${response.code}"
                     if (response.code == 401 || response.code == 403 || response.code == 404) {
-                        throw NonRetryableDownloadException("Download failed: ${response.code}")
+                        throw NonRetryableDownloadException(message)
                     }
-                    throw IOException("Download failed: ${response.code}")
+                    throw IOException(message)
                 }
             }
             if (body == null) throw IOException("Empty response body")

@@ -6,7 +6,9 @@ import com.google.gson.GsonBuilder
 import com.sappho.audiobooks.data.remote.SapphoApi
 import com.sappho.audiobooks.data.remote.TokenAuthenticator
 import com.sappho.audiobooks.data.repository.AuthRepository
+import com.sappho.audiobooks.util.AuthErrorPolicy
 import com.sappho.audiobooks.util.ClientIdentity
+import com.sappho.audiobooks.util.parseApiErrorCode
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -31,6 +33,9 @@ import javax.inject.Singleton
 object NetworkModule {
 
     private const val DEFAULT_BASE_URL = "http://192.168.1.100:3002"
+
+    /** Enough of a 401 body to read its JSON `code`. */
+    private const val ERROR_BODY_PEEK_BYTES = 4096L
 
     /**
      * True for hosts on a private/local network where the dynamic-URL rewrite
@@ -212,6 +217,26 @@ object NetworkModule {
         }
     }
 
+    /**
+     * Signs the user out on a 401 from our own server, and on nothing else.
+     * Linked-server failures (502/503/404/409 with a REMOTE_* code) are about
+     * another server and must never log out or clear tokens: see [AuthErrorPolicy].
+     */
+    internal fun authErrorInterceptor(authRepository: AuthRepository) = Interceptor { chain ->
+        val response = chain.proceed(chain.request())
+        if (response.code == 401) {
+            val shouldLogout = AuthErrorPolicy.shouldLogout(
+                statusCode = response.code,
+                requestHost = chain.request().url.host,
+                serverHost = authRepository.getServerUrlSync()?.toHttpUrlOrNull()?.host,
+                errorCode = parseApiErrorCode(response.peekBody(ERROR_BODY_PEEK_BYTES).string())
+            )
+            // Token expired or invalid - trigger auth error
+            if (shouldLogout) authRepository.triggerAuthError()
+        }
+        response
+    }
+
     @Provides
     @Singleton
     fun provideOkHttpClient(
@@ -229,14 +254,7 @@ object NetworkModule {
             // Runs ABOVE the Authenticator: on a successful refresh it sees the final 200
             // (not the intermediate 401) and does NOT log out; on refresh failure it sees the
             // final 401 and triggers logout.
-            .addInterceptor { chain ->
-                val response = chain.proceed(chain.request())
-                if (response.code == 401) {
-                    // Token expired or invalid - trigger auth error
-                    authRepository.triggerAuthError()
-                }
-                response
-            }
+            .addInterceptor(authErrorInterceptor(authRepository))
             .authenticator(TokenAuthenticator(authRepository, refreshApi))
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.MINUTES)
