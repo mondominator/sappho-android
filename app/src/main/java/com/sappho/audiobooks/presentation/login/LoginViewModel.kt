@@ -93,7 +93,7 @@ class LoginViewModel @Inject constructor(
                     is java.net.UnknownHostException -> "Cannot reach server. Please check your server URL and network connection"
                     is java.net.ConnectException -> "Connection failed. Is the server running?"
                     is java.net.SocketTimeoutException -> "Connection timed out. Please check your server URL"
-                    is javax.net.ssl.SSLHandshakeException -> "SSL certificate error. If using self-signed certificates, enable 'Allow cleartext traffic'"
+                    is javax.net.ssl.SSLHandshakeException -> "Secure connection failed. Check the server address: the server's certificate doesn't match it"
                     is java.io.IOException -> "Network error: ${e.message}"
                     else -> "Unexpected error: ${e.message ?: "Please try again"}"
                 }
