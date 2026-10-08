@@ -32,7 +32,17 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val DEFAULT_BASE_URL = "http://192.168.1.100:3002"
+    /**
+     * Retrofit's fixed base URL. Every request built against it is rewritten by
+     * [serverUrlInterceptor] onto the server URL stored at request time. It must
+     * NOT be the stored URL itself: Retrofit is a singleton built at startup, so
+     * after the user typed a different server on the login screen, requests still
+     * carried the old host, the interceptor took them for an external site and
+     * sent the login to the old server (an SSL error once that name was gone).
+     * `.invalid` never resolves, so an un-rewritten request can't leak anywhere.
+     */
+    internal const val PLACEHOLDER_BASE_URL = "http://sappho.invalid/"
+    private const val PLACEHOLDER_HOST = "sappho.invalid"
 
     /** Enough of a 401 body to read its JSON `code`. */
     private const val ERROR_BODY_PEEK_BYTES = 4096L
@@ -54,23 +64,16 @@ object NetworkModule {
     }
 
     /**
-     * Sanitizes a stored server URL to scheme+host+port for use as Retrofit's
-     * static baseUrl. Retrofit throws IllegalArgumentException at DI-graph
-     * creation for base URLs with a path that doesn't end in "/" (e.g.
-     * "https://host/sappho" as stored, since AuthRepository trims the trailing
-     * slash) — which would crash the app at startup with no recovery path.
-     * Dropping the path is safe because the serverUrlInterceptor rewrites every
-     * request URL from the stored value anyway.
+     * True when a request is for some other site (a cover CDN, say): it is then
+     * sent untouched, with no auth header. Requests built by Retrofit (the
+     * placeholder host), for the current server, or for a private-network host
+     * are ours and get rewritten onto the stored server URL.
      */
-    internal fun sanitizeBaseUrl(url: String?): String {
-        val httpUrl = url?.toHttpUrlOrNull() ?: return "$DEFAULT_BASE_URL/"
-        return okhttp3.HttpUrl.Builder()
-            .scheme(httpUrl.scheme)
-            .host(httpUrl.host)
-            .port(httpUrl.port)
-            .build()
-            .toString()
-    }
+    internal fun isExternalRequest(requestHost: String, serverHost: String?): Boolean =
+        serverHost != null &&
+            requestHost != PLACEHOLDER_HOST &&
+            requestHost != serverHost &&
+            !isPrivateNetworkHost(requestHost)
 
     @Provides
     @Singleton
@@ -179,13 +182,8 @@ object NetworkModule {
         val serverUrl = authRepository.getServerUrlSync()
         val serverHost = serverUrl?.toHttpUrlOrNull()?.host
 
-        // Check if this is an external URL (not going to our server)
-        // External URLs should be passed through unchanged without auth headers
-        val isExternalUrl = serverHost != null &&
-            originalHost != serverHost &&
-            !isPrivateNetworkHost(originalHost)
-
-        if (isExternalUrl) {
+        // External URLs are passed through unchanged without auth headers
+        if (isExternalRequest(originalHost, serverHost)) {
             // External URL - pass through unchanged (no auth, no URL rewriting)
             chain.proceed(original)
         } else {
@@ -290,11 +288,10 @@ object NetworkModule {
     @Named("refreshApi")
     fun provideRefreshApi(
         @Named("refreshClient") client: OkHttpClient,
-        gson: Gson,
-        authRepository: AuthRepository
+        gson: Gson
     ): SapphoApi {
         return Retrofit.Builder()
-            .baseUrl(sanitizeBaseUrl(authRepository.getServerUrlSync()))
+            .baseUrl(PLACEHOLDER_BASE_URL)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
@@ -306,13 +303,12 @@ object NetworkModule {
     fun provideRetrofit(
         okHttpClient: OkHttpClient,
         gson: Gson,
-        @ApplicationContext context: Context,
-        authRepository: AuthRepository
+        @ApplicationContext context: Context
     ): Retrofit {
         // Base URL is only a Retrofit constructor requirement — the
         // serverUrlInterceptor rewrites every request to the stored server URL.
         return Retrofit.Builder()
-            .baseUrl(sanitizeBaseUrl(authRepository.getServerUrlSync()))
+            .baseUrl(PLACEHOLDER_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
