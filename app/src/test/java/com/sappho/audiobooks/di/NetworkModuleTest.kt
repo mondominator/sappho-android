@@ -54,62 +54,53 @@ class NetworkModuleTest {
         assertThat(NetworkModule.isPrivateNetworkHost("172.abc.0.1")).isFalse()
     }
 
-    // --- sanitizeBaseUrl (M7: Retrofit baseUrl must be path-free with trailing slash) ---
+    // --- isExternalRequest (changing the server on the login screen) ---
 
     @Test
-    fun `should return default base url when stored url is null`() {
-        // Given / When
-        val result = NetworkModule.sanitizeBaseUrl(null)
+    fun `retrofit requests are ours even after the server url changed`() {
+        // Given: Retrofit was built at startup; the user then typed a new public server.
+        // The old code built Retrofit on the OLD stored host, took its requests for an
+        // external site and sent the login to the old server (an SSL error).
+        val retrofitHost = NetworkModule.PLACEHOLDER_BASE_URL.toHttpUrl().host
 
-        // Then
-        assertThat(result).isEqualTo("http://192.168.1.100:3002/")
+        // Then: the request is rewritten onto the new server, not passed through
+        assertThat(NetworkModule.isExternalRequest(retrofitHost, "pyro-sappho.bitstorm.ca")).isFalse()
     }
 
     @Test
-    fun `should return default base url when stored url is unparseable`() {
-        val result = NetworkModule.sanitizeBaseUrl("not a url")
-
-        assertThat(result).isEqualTo("http://192.168.1.100:3002/")
+    fun `requests for the current server are ours`() {
+        assertThat(NetworkModule.isExternalRequest("pyro-sappho.bitstorm.ca", "pyro-sappho.bitstorm.ca")).isFalse()
     }
 
     @Test
-    fun `should strip path from stored url`() {
-        // Given: AuthRepository trims trailing slashes, so a sub-path install
-        // is stored as "https://host/sappho" — which crashes Retrofit's baseUrl
-        val result = NetworkModule.sanitizeBaseUrl("https://example.com/sappho")
-
-        // Then: scheme+host only, with the trailing slash Retrofit requires
-        assertThat(result).isEqualTo("https://example.com/")
+    fun `requests for another public host are external`() {
+        assertThat(NetworkModule.isExternalRequest("images.example.com", "pyro-sappho.bitstorm.ca")).isTrue()
     }
 
     @Test
-    fun `should preserve custom port`() {
-        val result = NetworkModule.sanitizeBaseUrl("http://192.168.1.50:3002")
-
-        assertThat(result).isEqualTo("http://192.168.1.50:3002/")
+    fun `private network hosts are treated as ours`() {
+        assertThat(NetworkModule.isExternalRequest("192.168.1.50", "pyro-sappho.bitstorm.ca")).isFalse()
     }
 
     @Test
-    fun `should omit default port for scheme`() {
-        val result = NetworkModule.sanitizeBaseUrl("https://sappho.bitstorm.ca")
-
-        assertThat(result).isEqualTo("https://sappho.bitstorm.ca/")
+    fun `nothing is external before a server url is saved`() {
+        assertThat(NetworkModule.isExternalRequest("images.example.com", null)).isFalse()
     }
 
     @Test
-    fun `should produce retrofit-safe url for deep path with query`() {
-        val result = NetworkModule.sanitizeBaseUrl("https://example.com:8443/a/b/c?x=1")
-
-        assertThat(result).isEqualTo("https://example.com:8443/")
+    fun `the placeholder base url is retrofit-safe`() {
+        // Retrofit requires a trailing slash; .invalid never resolves (RFC 2606)
+        assertThat(NetworkModule.PLACEHOLDER_BASE_URL).endsWith("/")
+        assertThat(NetworkModule.PLACEHOLDER_BASE_URL.toHttpUrl().host).endsWith(".invalid")
     }
 
     // --- rewriteUrlForServer (subpath deployments must not double-append the path) ---
 
     @Test
     fun `should rewrite retrofit-relative request onto subpath server url`() {
-        // Given: Retrofit's baseUrl is sanitized to scheme+host, so its request
+        // Given: Retrofit's base is the path-free placeholder, so its request
         // paths never include the subpath
-        val original = "https://example.com/api/audiobooks/meta/recent".toHttpUrl()
+        val original = "${NetworkModule.PLACEHOLDER_BASE_URL}api/audiobooks/meta/recent".toHttpUrl()
 
         // When
         val result = NetworkModule.rewriteUrlForServer(original, "https://example.com/sappho")
