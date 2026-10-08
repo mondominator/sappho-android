@@ -23,3 +23,20 @@ fun parseApiErrorMessage(response: Response<*>): String? =
     } catch (e: Exception) {
         null
     }
+
+/**
+ * The machine-readable `code` field of a JSON error body such as
+ * `{"error": "...", "code": "REMOTE_UNAVAILABLE"}`, or null when the body is
+ * missing, not JSON (an HTML error page from a proxy, say) or has no code.
+ */
+fun parseApiErrorCode(body: String?): String? {
+    if (body.isNullOrBlank()) return null
+    return try {
+        val json = JsonParser.parseString(body)
+        if (!json.isJsonObject) return null
+        val code = json.asJsonObject.get("code") ?: return null
+        if (code.isJsonPrimitive) code.asString else null
+    } catch (e: RuntimeException) {
+        null
+    }
+}

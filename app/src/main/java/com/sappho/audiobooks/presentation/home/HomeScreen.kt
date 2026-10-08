@@ -38,6 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sappho.audiobooks.presentation.components.CoverSourceTag
+import com.sappho.audiobooks.presentation.components.dimIfRemoteOffline
 import com.sappho.audiobooks.presentation.theme.SapphoAnimatedVisibility
 import com.sappho.audiobooks.presentation.theme.bouncyClickable
 import com.sappho.audiobooks.presentation.theme.accessibleCard
@@ -468,6 +470,7 @@ fun AudiobookCard(
                 modifier = Modifier
                     .width(cardSize)
                     .height(cardSize)
+                    .dimIfRemoteOffline(book)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
@@ -502,6 +505,9 @@ fun AudiobookCard(
                         contentScale = ContentScale.Fit
                     )
                 }
+
+                // Linked-server tag (remote books only)
+                CoverSourceTag(book)
 
                 // Progress Bar with animation
                 if (book.progress != null && book.duration != null) {

@@ -20,6 +20,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sappho.audiobooks.presentation.components.BookSourceTag
+import com.sappho.audiobooks.presentation.components.dimIfRemoteOffline
 import com.sappho.audiobooks.presentation.theme.*
 import com.sappho.audiobooks.presentation.theme.IconSize
 import com.sappho.audiobooks.presentation.theme.Spacing
@@ -233,7 +235,8 @@ private fun SearchResultItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(8.dp),
+            .padding(8.dp)
+            .dimIfRemoteOffline(book),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Cover image
@@ -283,6 +286,7 @@ private fun SearchResultItem(
                 color = SapphoIconDefault,
                 maxLines = 1
             )
+            BookSourceTag(book = book, modifier = Modifier.padding(top = 2.dp))
         }
     }
 }

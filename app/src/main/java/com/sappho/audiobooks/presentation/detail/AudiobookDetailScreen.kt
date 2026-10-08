@@ -1,6 +1,7 @@
 package com.sappho.audiobooks.presentation.detail
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sappho.audiobooks.presentation.components.BookSourceLine
 import com.sappho.audiobooks.domain.model.Progress
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
@@ -168,6 +169,12 @@ fun AudiobookDetailScreen(
     val hasDownloadError = !downloadError.isNullOrBlank() && !isDownloading
     val context = LocalContext.current
 
+    // Books mirrored from a linked server are read-only here: the server
+    // refuses edits, deletes, conversions and file changes (409).
+    val canManageBook = isAdmin && audiobook?.isRemote != true
+    // A downloaded copy still plays while the linked server is offline.
+    val isRemoteOfflineHere = audiobook?.isRemoteOffline == true && !isDownloaded
+
     LaunchedEffect(audiobookId) {
         viewModel.loadAudiobook(audiobookId)
         viewModel.checkAiStatus()
@@ -237,7 +244,7 @@ fun AudiobookDetailScreen(
                         }
 
                         // Edit button (admin only)
-                        if (isAdmin && !isOffline) {
+                        if (canManageBook && !isOffline) {
                             val editHaptic = HapticPatterns.buttonPress()
                             OutlinedButton(
                                 onClick = { 
@@ -474,6 +481,14 @@ fun AudiobookDetailScreen(
                             }
                         }
                     }
+
+                    // Linked-server source line (remote books only)
+                    BookSourceLine(
+                        book = book,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 24.dp, end = 24.dp, top = 16.dp)
+                    )
 
                     // Rating Section (below cover, only when online)
                     if (!isOffline) {
@@ -725,7 +740,7 @@ fun AudiobookDetailScreen(
 
                     // Play/Pause Button with download and overflow menu
                     // Disable button until progress is confirmed (unless book is already loaded in service)
-                    val canPlay = isThisBookLoaded || !isProgressLoading
+                    val canPlay = isThisBookLoaded || (!isProgressLoading && !isRemoteOfflineHere)
                     val playButtonHaptic = HapticPatterns.playButtonPress()
                     val progressCheck = progress
                     val hasProgress = progressCheck != null && (progressCheck.position > 0 || progressCheck.completed == 1)
@@ -948,7 +963,7 @@ fun AudiobookDetailScreen(
                                     // Convert to M4B (for non-M4B files, or multifile M4B that can be consolidated)
                                     val currentFilePath = audiobook?.filePath
                                     val currentIsMultiFile = audiobook?.isMultiFile
-                                    if (currentFilePath != null && (currentIsMultiFile == 1 || !currentFilePath.endsWith(".m4b", ignoreCase = true))) {
+                                    if (!book.isRemote && currentFilePath != null && (currentIsMultiFile == 1 || !currentFilePath.endsWith(".m4b", ignoreCase = true))) {
                                         DropdownMenuItem(
                                             text = { Text(if (isConverting) "Converting..." else "Convert to M4B", color = SapphoText) },
                                             onClick = {
@@ -976,35 +991,37 @@ fun AudiobookDetailScreen(
                                         )
                                     }
 
-                                    // Refresh Metadata
-                                    DropdownMenuItem(
-                                        text = { Text(if (isRefreshingMetadata) "Refreshing..." else "Refresh Metadata", color = SapphoText) },
-                                        onClick = {
-                                            if (!isRefreshingMetadata) {
-                                                showOverflowMenu = false
-                                                viewModel.refreshMetadata()
+                                    // Refresh Metadata (not for linked-server books)
+                                    if (!book.isRemote) {
+                                        DropdownMenuItem(
+                                            text = { Text(if (isRefreshingMetadata) "Refreshing..." else "Refresh Metadata", color = SapphoText) },
+                                            onClick = {
+                                                if (!isRefreshingMetadata) {
+                                                    showOverflowMenu = false
+                                                    viewModel.refreshMetadata()
+                                                }
+                                            },
+                                            enabled = !isRefreshingMetadata,
+                                            leadingIcon = {
+                                                if (isRefreshingMetadata) {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(20.dp),
+                                                        color = SapphoIconDefault,
+                                                        strokeWidth = 2.dp
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Refresh,
+                                                        contentDescription = null,
+                                                        tint = SapphoIconDefault
+                                                    )
+                                                }
                                             }
-                                        },
-                                        enabled = !isRefreshingMetadata,
-                                        leadingIcon = {
-                                            if (isRefreshingMetadata) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(20.dp),
-                                                    color = SapphoIconDefault,
-                                                    strokeWidth = 2.dp
-                                                )
-                                            } else {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Refresh,
-                                                    contentDescription = null,
-                                                    tint = SapphoIconDefault
-                                                )
-                                            }
-                                        }
-                                    )
+                                        )
+                                    }
 
-                                    // Delete (admin only)
-                                    if (isAdmin) {
+                                    // Delete (admin only, local books only)
+                                    if (canManageBook) {
                                         HorizontalDivider(color = SapphoProgressTrack)
                                         DropdownMenuItem(
                                             text = { Text("Delete Audiobook", color = SapphoError) },
@@ -1074,7 +1091,7 @@ fun AudiobookDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isThisBookPlaying) "Pause" else if (progress?.position ?: 0 > 0) "Continue" else "Play",
+                                    text = if (isThisBookPlaying) "Pause" else if (isRemoteOfflineHere && !isThisBookLoaded) "Offline" else if (progress?.position ?: 0 > 0) "Continue" else "Play",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -1556,7 +1573,7 @@ fun AudiobookDetailScreen(
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = if (isAdmin) 4.dp else 12.dp),
+                                                    .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = if (canManageBook) 4.dp else 12.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Column(modifier = Modifier.weight(1f)) {
@@ -1572,7 +1589,7 @@ fun AudiobookDetailScreen(
                                                         fontSize = 12.sp
                                                     )
                                                 }
-                                                if (isAdmin) {
+                                                if (canManageBook) {
                                                     IconButton(
                                                         onClick = { fileToDelete = file },
                                                         modifier = Modifier.size(36.dp)
@@ -1673,7 +1690,7 @@ fun AudiobookDetailScreen(
                 audiobook = audiobook,
                 currentAudiobook = currentAudiobook,
                 currentPosition = currentPosition,
-                isAdmin = isAdmin,
+                isAdmin = canManageBook,
                 isSavingChapters = isSavingChapters,
                 chapterSaveResult = chapterSaveResult,
                 isFetchingChapters = isFetchingChapters,

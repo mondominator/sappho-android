@@ -37,6 +37,15 @@ class StreamErrorsTest {
     }
 
     @Test
+    fun `reads a linked-server code from a relayed error`() {
+        val error = playbackError(
+            httpError(503, """{"error":"Linked server unavailable","code":"REMOTE_UNAVAILABLE","source":{"id":4,"name":"Robert"}}""")
+        )
+
+        assertThat(StreamErrors.httpFailureOf(error)).isEqualTo(HttpFailure(503, "REMOTE_UNAVAILABLE"))
+    }
+
+    @Test
     fun `reads 415 HLS_UNSUPPORTED`() {
         val error = playbackError(httpError(415, """{"code":"HLS_UNSUPPORTED"}"""))
 
