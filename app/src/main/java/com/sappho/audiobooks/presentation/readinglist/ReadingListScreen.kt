@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.sappho.audiobooks.presentation.components.BookSourceTag
+import com.sappho.audiobooks.presentation.components.dimIfRemoteOffline
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.presentation.theme.*
 import com.sappho.audiobooks.util.COVER_WIDTH_THUMBNAIL
@@ -320,7 +322,8 @@ private fun ReadingListRow(
             .clip(RoundedCornerShape(8.dp))
             .background(backgroundColor)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .dimIfRemoteOffline(book),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Number
@@ -419,6 +422,7 @@ private fun ReadingListRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            BookSourceTag(book = book)
         }
 
         // Drag handle (only for custom sort)

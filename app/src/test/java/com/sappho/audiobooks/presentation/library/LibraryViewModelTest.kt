@@ -17,10 +17,12 @@ import com.sappho.audiobooks.data.repository.UserPreferencesRepository
 import com.sappho.audiobooks.domain.model.Audiobook
 import com.sappho.audiobooks.domain.model.AudiobooksResponse
 import com.sappho.audiobooks.domain.model.AuthorInfo
+import com.sappho.audiobooks.domain.model.BookSource
 import com.sappho.audiobooks.domain.model.GenreCategoryData
 import com.sappho.audiobooks.domain.model.GenreInfo
 import com.sappho.audiobooks.domain.model.GenreMappingsResponse
 import com.sappho.audiobooks.domain.model.GenreMetadata
+import com.sappho.audiobooks.domain.model.LinkedSource
 import com.sappho.audiobooks.domain.model.SeriesInfo
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -164,6 +166,111 @@ class LibraryViewModelTest {
         viewModel.allAudiobooks.test {
             assertThat(awaitItem()).hasSize(2)
         }
+    }
+
+    // --- Linked servers: Source filter ---
+
+    @Test
+    fun `no linked sources on an older server hides the filter and sends no source`() = runTest {
+        // Given: a pre-0.16 server has no sources endpoint
+        coEvery { api.getLinkedSources() } returns Response.error(404, "".toResponseBody())
+
+        // When
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then
+        assertThat(viewModel.linkedSources.value).isEmpty()
+        assertThat(viewModel.sourceFilter.value).isEqualTo(LibraryViewModel.SOURCE_ALL)
+        coVerify { api.getAudiobooks(limit = 10000, source = null) }
+    }
+
+    @Test
+    fun `linked sources are exposed for the filter`() = runTest {
+        // Given
+        val sources = listOf(LinkedSource(id = 4, name = "Robert", available = true))
+        coEvery { api.getLinkedSources() } returns Response.success(sources)
+
+        // When
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then
+        assertThat(viewModel.linkedSources.value).isEqualTo(sources)
+    }
+
+    @Test
+    fun `choosing a source reloads all books with that source`() = runTest {
+        // Given
+        coEvery { api.getLinkedSources() } returns
+            Response.success(listOf(LinkedSource(id = 4, name = "Robert", available = true)))
+        val remoteBooks = listOf(createTestBook(9, "Remote").copy(source = BookSource(4, "Robert")))
+        coEvery { api.getAudiobooks(limit = 10000, source = "4") } returns
+            Response.success(AudiobooksResponse(remoteBooks))
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // When
+        viewModel.setSourceFilter("4")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then
+        assertThat(viewModel.sourceFilter.value).isEqualTo("4")
+        assertThat(viewModel.allAudiobooks.value).isEqualTo(remoteBooks)
+        coVerify { api.getAudiobooks(limit = 10000, source = "4") }
+    }
+
+    @Test
+    fun `choosing this server sends source local`() = runTest {
+        // Given
+        coEvery { api.getLinkedSources() } returns
+            Response.success(listOf(LinkedSource(id = 4, name = "Robert", available = true)))
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // When
+        viewModel.setSourceFilter(LibraryViewModel.SOURCE_LOCAL)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then
+        coVerify { api.getAudiobooks(limit = 10000, source = "local") }
+    }
+
+    @Test
+    fun `a filter for a link that disappeared resets to all on refresh`() = runTest {
+        // Given: filtering by link 4
+        coEvery { api.getLinkedSources() } returns
+            Response.success(listOf(LinkedSource(id = 4, name = "Robert", available = true)))
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+        viewModel.setSourceFilter("4")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // When: the link is removed and the library refreshes
+        coEvery { api.getLinkedSources() } returns Response.success(emptyList())
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then
+        assertThat(viewModel.sourceFilter.value).isEqualTo(LibraryViewModel.SOURCE_ALL)
+        coVerify { api.getAudiobooks(limit = 10000, source = null) }
+    }
+
+    @Test
+    fun `source filter options list all, this server, then each link`() {
+        val options = sourceFilterOptions(
+            listOf(
+                LinkedSource(id = 4, name = "Robert", available = true),
+                LinkedSource(id = 7, name = "Office", available = false)
+            )
+        )
+
+        assertThat(options).containsExactly(
+            "all" to "All",
+            "local" to "This server",
+            "4" to "Robert",
+            "7" to "Office (offline)"
+        ).inOrder()
     }
 
     @Test

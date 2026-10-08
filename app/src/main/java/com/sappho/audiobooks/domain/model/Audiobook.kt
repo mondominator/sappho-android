@@ -35,8 +35,36 @@ data class Audiobook(
     @SerializedName("normalized_genre") val normalizedGenre: String? = null,
     @SerializedName("is_queued") val isQueued: Boolean = false,
     @SerializedName("is_available") val isAvailable: Int? = null,
-    @SerializedName("last_seen_at") val lastSeenAt: String? = null
-)
+    @SerializedName("last_seen_at") val lastSeenAt: String? = null,
+    // Linked servers (server 0.16.0+). Older servers omit both: Gson then leaves
+    // them null, which reads as "local and playable". Gson bypasses Kotlin
+    // defaults, so neither field may be a non-null type.
+    val source: BookSource? = null,
+    val available: Boolean? = null
+) {
+    /** Mirrored from a linked server rather than stored on this one. */
+    val isRemote: Boolean get() = source != null
+
+    /** The linked server holding this book cannot serve it right now. */
+    val isRemoteOffline: Boolean get() = isRemote && available == false
+}
+
+/** The linked server a remote book comes from; `name` is the admin-chosen label. */
+data class BookSource(
+    val id: Int,
+    val name: String? = null
+) {
+    val displayName: String get() = name?.takeIf { it.isNotBlank() } ?: "Linked server"
+}
+
+/** An entry of GET /api/linked-servers/sources. */
+data class LinkedSource(
+    val id: Int,
+    val name: String? = null,
+    val available: Boolean? = null
+) {
+    val displayName: String get() = name?.takeIf { it.isNotBlank() } ?: "Linked server"
+}
 
 data class Progress(
     val id: Int? = null,
