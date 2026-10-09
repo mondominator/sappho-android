@@ -2,7 +2,7 @@ package com.sappho.audiobooks.domain.model
 
 /**
  * Represents the state of a file upload operation.
- * Shared across MainViewModel and AdminViewModel.
+ * Used by MainViewModel.
  */
 enum class UploadState {
     IDLE,
