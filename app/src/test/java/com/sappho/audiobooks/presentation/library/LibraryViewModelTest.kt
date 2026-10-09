@@ -22,6 +22,7 @@ import com.sappho.audiobooks.domain.model.GenreCategoryData
 import com.sappho.audiobooks.domain.model.GenreInfo
 import com.sappho.audiobooks.domain.model.GenreMappingsResponse
 import com.sappho.audiobooks.domain.model.GenreMetadata
+import com.sappho.audiobooks.domain.model.LibraryStats
 import com.sappho.audiobooks.domain.model.LinkedSource
 import com.sappho.audiobooks.domain.model.SeriesInfo
 import io.mockk.coEvery
@@ -70,10 +71,24 @@ class LibraryViewModelTest {
         coEvery { api.getGenres() } returns Response.success(emptyList())
         coEvery { api.getSeries() } returns Response.success(emptyList())
         coEvery { api.getAuthors() } returns Response.success(emptyList())
-        coEvery { api.getAudiobooks(limit = any()) } returns Response.success(AudiobooksResponse(emptyList()))
+        coEvery { api.getAudiobooks(any(), any(), any(), any(), any(), any()) } returns Response.success(AudiobooksResponse(emptyList()))
         coEvery { api.getCollections() } returns Response.success(emptyList())
         coEvery { api.getFavorites(any()) } returns Response.success(emptyList())
         coEvery { api.getAiStatus() } returns Response.success(AiStatusResponse(configured = false, provider = null))
+        coEvery { api.getLibraryStats(any()) } returns Response.error(404, "".toResponseBody())
+    }
+
+    /**
+     * Answers GET /api/audiobooks like the server: `limit` clamped to 2000,
+     * `offset` honoured, `total` reported. [bySource] gives each `?source=` its books.
+     */
+    private fun serveLibrary(bySource: Map<String?, Int>) {
+        coEvery { api.getAudiobooks(any(), any(), any(), any(), any(), any()) } answers {
+            val limit = minOf((arg<Int?>(3) ?: 50).coerceAtLeast(1), 2000)
+            val offset = arg<Int?>(5) ?: 0
+            val books = (1..(bySource[arg<String?>(4)] ?: 0)).map { createTestBook(it, "Book $it") }
+            Response.success(AudiobooksResponse(books.drop(offset).take(limit), total = books.size))
+        }
     }
 
     @After
@@ -155,7 +170,7 @@ class LibraryViewModelTest {
     fun `should load all audiobooks on initialization`() = runTest {
         // Given
         val books = listOf(createTestBook(1, "Book 1"), createTestBook(2, "Book 2"))
-        coEvery { api.getAudiobooks(limit = 10000) } returns
+        coEvery { api.getAudiobooks(limit = any(), offset = any()) } returns
             Response.success(AudiobooksResponse(books))
 
         // When
@@ -166,6 +181,55 @@ class LibraryViewModelTest {
         viewModel.allAudiobooks.test {
             assertThat(awaitItem()).hasSize(2)
         }
+    }
+
+    // --- Library size: more books than one request returns ---
+
+    @Test
+    fun `all books loads past the server's 2000-book limit`() = runTest {
+        // Given: 2,364 books (e.g. this server plus linked ones)
+        serveLibrary(mapOf(null to 2364))
+
+        // When
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then
+        assertThat(viewModel.allAudiobooks.value).hasSize(2364)
+    }
+
+    @Test
+    fun `library total comes from stats, not the filtered book list`() = runTest {
+        // Given: the whole library is 2,364 books; 40 of them come from link 4
+        coEvery { api.getLinkedSources() } returns
+            Response.success(listOf(LinkedSource(id = 4, name = "Robert", available = true)))
+        serveLibrary(mapOf(null to 2364, "4" to 40))
+        coEvery { api.getLibraryStats(null) } returns Response.success(LibraryStats(totalBooks = 2364))
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // When: All Books is narrowed to link 4 and the library refreshes
+        viewModel.setSourceFilter("4")
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then: the header keeps counting the whole library
+        assertThat(viewModel.allAudiobooks.value).hasSize(40)
+        assertThat(viewModel.libraryTotal.value).isEqualTo(2364)
+        coVerify { api.getLibraryStats(null) }
+    }
+
+    @Test
+    fun `without stats the library total is the server's count of all books`() = runTest {
+        // Given: an older server with no /meta/stats (404 from setup)
+        serveLibrary(mapOf(null to 2364))
+
+        // When
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Then
+        assertThat(viewModel.libraryTotal.value).isEqualTo(2364)
     }
 
     // --- Linked servers: Source filter ---
@@ -182,7 +246,7 @@ class LibraryViewModelTest {
         // Then
         assertThat(viewModel.linkedSources.value).isEmpty()
         assertThat(viewModel.sourceFilter.value).isEqualTo(LibraryViewModel.SOURCE_ALL)
-        coVerify { api.getAudiobooks(limit = 10000, source = null) }
+        coVerify { api.getAudiobooks(limit = any(), source = null, offset = any()) }
     }
 
     @Test
@@ -205,7 +269,7 @@ class LibraryViewModelTest {
         coEvery { api.getLinkedSources() } returns
             Response.success(listOf(LinkedSource(id = 4, name = "Robert", available = true)))
         val remoteBooks = listOf(createTestBook(9, "Remote").copy(source = BookSource(4, "Robert")))
-        coEvery { api.getAudiobooks(limit = 10000, source = "4") } returns
+        coEvery { api.getAudiobooks(limit = any(), source = "4", offset = any()) } returns
             Response.success(AudiobooksResponse(remoteBooks))
         viewModel = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
@@ -217,7 +281,7 @@ class LibraryViewModelTest {
         // Then
         assertThat(viewModel.sourceFilter.value).isEqualTo("4")
         assertThat(viewModel.allAudiobooks.value).isEqualTo(remoteBooks)
-        coVerify { api.getAudiobooks(limit = 10000, source = "4") }
+        coVerify { api.getAudiobooks(limit = any(), source = "4", offset = any()) }
     }
 
     @Test
@@ -233,7 +297,7 @@ class LibraryViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        coVerify { api.getAudiobooks(limit = 10000, source = "local") }
+        coVerify { api.getAudiobooks(limit = any(), source = "local", offset = any()) }
     }
 
     @Test
@@ -253,7 +317,7 @@ class LibraryViewModelTest {
 
         // Then
         assertThat(viewModel.sourceFilter.value).isEqualTo(LibraryViewModel.SOURCE_ALL)
-        coVerify { api.getAudiobooks(limit = 10000, source = null) }
+        coVerify { api.getAudiobooks(limit = any(), source = null, offset = any()) }
     }
 
     @Test
