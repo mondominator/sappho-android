@@ -14,7 +14,7 @@ Native Android client for the [Sappho](https://github.com/mondominator/sappho) a
 - **Android Auto** — Full browsing and playback while driving
 - **Offline mode** — Download books for listening without connectivity
 - **Catch Me Up** — AI-generated series recaps before starting the next book
-- **Admin tools** — Library scanning, user management, and AI configuration from mobile
+- **Admin tools** — Library scanning and user management from mobile
 
 ## Requirements
 

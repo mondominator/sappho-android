@@ -205,39 +205,9 @@ interface SapphoApi {
     @DELETE("api/profile/avatar")
     suspend fun deleteAvatar(): Response<Unit>
 
-    // Library Settings (Admin only)
-    @GET("api/settings/library")
-    suspend fun getLibrarySettings(): Response<LibrarySettings>
-
-    @PUT("api/settings/library")
-    suspend fun updateLibrarySettings(@Body settings: LibrarySettings): Response<LibrarySettings>
-
-    @POST("api/library/scan")
-    suspend fun scanLibrary(@Query("refresh") refresh: Boolean = false): Response<ScanResult>
-
-    @POST("api/library/force-rescan")
-    suspend fun forceRescanLibrary(): Response<ScanResult>
-
     // Health/Version
     @GET("api/health")
     suspend fun getHealth(): Response<HealthResponse>
-
-    // Admin - Server Settings
-    @GET("api/settings/all")
-    suspend fun getServerSettings(): Response<ServerSettingsResponse>
-
-    @PUT("api/settings/all")
-    suspend fun updateServerSettings(@Body settings: ServerSettingsUpdate): Response<Unit>
-
-    // Admin - AI Settings
-    @GET("api/settings/ai")
-    suspend fun getAiSettings(): Response<AiSettingsResponse>
-
-    @PUT("api/settings/ai")
-    suspend fun updateAiSettings(@Body settings: AiSettingsUpdate): Response<Unit>
-
-    @POST("api/settings/ai/test")
-    suspend fun testAiConnection(@Body settings: AiSettingsUpdate): Response<AiTestResponse>
 
     // Admin - User Management
     @GET("api/users")
@@ -246,19 +216,13 @@ interface SapphoApi {
     @POST("api/users")
     suspend fun createUser(@Body request: CreateUserRequest): Response<UserInfo>
 
-    @PUT("api/users/{id}")
-    suspend fun updateUser(@Path("id") id: Int, @Body request: UpdateUserRequest): Response<UserInfo>
-
     @DELETE("api/users/{id}")
     suspend fun deleteUser(@Path("id") id: Int): Response<Unit>
 
-    @POST("api/users/{id}/disable")
-    suspend fun disableUser(@Path("id") id: Int): Response<Unit>
-
-    @POST("api/users/{id}/enable")
-    suspend fun enableUser(@Path("id") id: Int): Response<Unit>
-
     // Admin - Maintenance
+    @POST("api/maintenance/scan-library")
+    suspend fun scanLibraryMaintenance(): Response<ScanResult>
+
     @POST("api/maintenance/force-rescan")
     suspend fun forceRescan(): Response<ScanResult>
 
@@ -346,78 +310,6 @@ interface SapphoApi {
         @Part("author") author: RequestBody? = null
     ): Response<UploadResponse>
 
-    // Backup Endpoints
-    @GET("api/backup")
-    suspend fun getBackups(): Response<BackupsResponse>
-
-    @POST("api/backup")
-    suspend fun createBackup(): Response<BackupInfo>
-
-    @GET("api/backup/{filename}")
-    @Streaming
-    suspend fun downloadBackup(@Path("filename") filename: String): Response<okhttp3.ResponseBody>
-
-    @DELETE("api/backup/{filename}")
-    suspend fun deleteBackup(@Path("filename") filename: String): Response<Unit>
-
-    @POST("api/backup/restore/{filename}")
-    suspend fun restoreBackup(@Path("filename") filename: String): Response<RestoreResponse>
-
-    @GET("api/backup/retention")
-    suspend fun getBackupRetention(): Response<BackupRetention>
-
-    @PUT("api/backup/retention")
-    suspend fun updateBackupRetention(@Body retention: BackupRetention): Response<BackupRetention>
-
-    @Multipart
-    @POST("api/backup/upload")
-    suspend fun uploadBackup(@Part file: MultipartBody.Part): Response<BackupInfo>
-
-    // Maintenance Endpoints
-    @GET("api/maintenance/logs")
-    suspend fun getLogs(
-        @Query("lines") lines: Int = 100,
-        @Query("level") level: String? = null
-    ): Response<LogsResponse>
-
-    @DELETE("api/maintenance/logs")
-    suspend fun clearLogs(): Response<Unit>
-
-    @GET("api/maintenance/statistics")
-    suspend fun getLibraryStatistics(): Response<LibraryStatistics>
-
-    @GET("api/maintenance/duplicates")
-    suspend fun getDuplicates(): Response<DuplicatesResponse>
-
-    @POST("api/maintenance/duplicates/merge")
-    suspend fun mergeDuplicates(@Body request: MergeDuplicatesRequest): Response<MergeResult>
-
-    @POST("api/maintenance/scan-library")
-    suspend fun scanLibraryMaintenance(): Response<ScanResult>
-
-    @POST("api/maintenance/clear-library")
-    suspend fun clearLibrary(): Response<ClearLibraryResult>
-
-    @GET("api/maintenance/jobs")
-    suspend fun getJobs(): Response<JobsResponse>
-
-    @POST("api/maintenance/jobs/{jobId}/trigger")
-    suspend fun triggerJob(@Path("jobId") jobId: String): Response<TriggerJobResponse>
-
-    // Orphan Directories
-    @GET("api/maintenance/orphan-directories")
-    suspend fun getOrphanDirectories(): Response<OrphanDirectoriesResponse>
-
-    @HTTP(method = "DELETE", path = "api/maintenance/orphan-directories", hasBody = true)
-    suspend fun deleteOrphanDirectories(@Body request: DeleteOrphansRequest): Response<DeleteOrphansResult>
-
-    // Library Organization
-    @GET("api/maintenance/organize/preview")
-    suspend fun getOrganizePreview(): Response<OrganizePreviewResponse>
-
-    @POST("api/maintenance/organize")
-    suspend fun organizeLibrary(): Response<OrganizeResult>
-
     // Collections Endpoints
     @GET("api/collections")
     suspend fun getCollections(): Response<List<Collection>>
@@ -477,19 +369,6 @@ interface SapphoApi {
     @POST("api/audiobooks/batch/delete")
     suspend fun batchDelete(@Body request: BatchDeleteRequest): Response<BatchActionResponse>
 
-    // API Keys
-    @GET("api/api-keys")
-    suspend fun getApiKeys(): Response<List<ApiKey>>
-
-    @POST("api/api-keys")
-    suspend fun createApiKey(@Body request: CreateApiKeyRequest): Response<CreateApiKeyResponse>
-
-    @PUT("api/api-keys/{id}")
-    suspend fun updateApiKey(@Path("id") id: Int, @Body request: UpdateApiKeyRequest): Response<MessageResponse>
-
-    @DELETE("api/api-keys/{id}")
-    suspend fun deleteApiKey(@Path("id") id: Int): Response<MessageResponse>
-
     // Notifications
     @GET("api/notifications")
     suspend fun getNotifications(@Query("limit") limit: Int = 50): Response<List<NotificationItem>>
@@ -512,11 +391,6 @@ data class ProfileUpdateRequest(
 data class PasswordUpdateRequest(
     val currentPassword: String,
     val newPassword: String
-)
-
-data class LibrarySettings(
-    val libraryPath: String,
-    val uploadPath: String
 )
 
 data class ScanResult(
@@ -629,66 +503,6 @@ data class PreviousBookInfo(
     val seriesPosition: Float?
 )
 
-// Admin Settings Data Classes
-data class ServerSettingsResponse(
-    val settings: ServerSettings,
-    val lockedFields: List<String>?
-)
-
-data class ServerSettings(
-    val port: String?,
-    val nodeEnv: String?,
-    val databasePath: String?,
-    val dataDir: String?,
-    val audiobooksDir: String?,
-    val uploadDir: String?,
-    val libraryScanInterval: Int?,
-    val autoBackupInterval: Int?,
-    val backupRetention: Int?,
-    val logBufferSize: Int?
-)
-
-data class ServerSettingsUpdate(
-    val port: String? = null,
-    val nodeEnv: String? = null,
-    val databasePath: String? = null,
-    val dataDir: String? = null,
-    val audiobooksDir: String? = null,
-    val uploadDir: String? = null,
-    val libraryScanInterval: Int? = null
-)
-
-data class AiSettingsResponse(
-    val settings: AiSettings
-)
-
-data class AiSettings(
-    val aiProvider: String?,
-    val openaiApiKey: String?,
-    val openaiModel: String?,
-    val geminiApiKey: String?,
-    val geminiModel: String?,
-    val recapCustomPrompt: String?,
-    val recapOffensiveMode: Boolean?,
-    val recapDefaultPrompt: String?
-)
-
-data class AiSettingsUpdate(
-    val aiProvider: String? = null,
-    val openaiApiKey: String? = null,
-    val openaiModel: String? = null,
-    val geminiApiKey: String? = null,
-    val geminiModel: String? = null,
-    val recapCustomPrompt: String? = null,
-    val recapOffensiveMode: Boolean? = null
-)
-
-data class AiTestResponse(
-    val message: String?,
-    val response: String?,
-    val error: String?
-)
-
 data class FavoriteResponse(
     val success: Boolean,
     @com.google.gson.annotations.SerializedName("is_favorite")
@@ -708,23 +522,29 @@ data class UserInfo(
     @com.google.gson.annotations.SerializedName("account_disabled")
     val accountDisabled: Boolean = false,
     @com.google.gson.annotations.SerializedName("created_at")
-    val createdAt: String?
-)
+    val createdAt: String?,
+    // Kept raw so an older server that omits the key (Kotlin null) is
+    // distinguishable from a user with no listening (JSON null -> JsonNull).
+    // Value is UTC "YYYY-MM-DD HH:MM:SS".
+    @com.google.gson.annotations.SerializedName("last_listened_at")
+    val lastListenedAtRaw: com.google.gson.JsonElement? = null,
+    @com.google.gson.annotations.SerializedName("last_listened_title")
+    val lastListenedTitle: String? = null,
+    @com.google.gson.annotations.SerializedName("last_login_at")
+    val lastLoginAt: String? = null
+) {
+    /** False when the server predates listening activity on GET /api/users. */
+    val reportsListening: Boolean get() = lastListenedAtRaw != null
+
+    val lastListenedAt: String?
+        get() = lastListenedAtRaw?.takeIf { it.isJsonPrimitive }?.asString
+}
 
 data class CreateUserRequest(
     val username: String,
     val password: String,
-    val email: String? = null,
     @com.google.gson.annotations.SerializedName("is_admin")
     val isAdmin: Boolean = false
-)
-
-data class UpdateUserRequest(
-    val username: String? = null,
-    val password: String? = null,
-    val email: String? = null,
-    @com.google.gson.annotations.SerializedName("is_admin")
-    val isAdmin: Boolean? = null
 )
 
 // Rating Data Classes
@@ -788,230 +608,6 @@ data class AudiobookUpdateRequest(
     val abridged: Boolean? = null,
     @com.google.gson.annotations.SerializedName("cover_url")
     val coverUrl: String? = null
-)
-
-// Backup Data Classes
-data class BackupsResponse(
-    val backups: List<BackupInfo>,
-    val status: BackupStatus?
-)
-
-data class BackupStatus(
-    @com.google.gson.annotations.SerializedName("is_running")
-    val isRunning: Boolean?,
-    @com.google.gson.annotations.SerializedName("current_operation")
-    val currentOperation: String?,
-    val progress: Int?
-)
-
-data class BackupInfo(
-    val filename: String,
-    val size: Long,
-    val created: String?,
-    val sizeFormatted: String?,
-    val createdFormatted: String?
-)
-
-data class RestoreResponse(
-    val success: Boolean,
-    val message: String?
-)
-
-data class BackupRetention(
-    @com.google.gson.annotations.SerializedName("max_backups")
-    val maxBackups: Int,
-    @com.google.gson.annotations.SerializedName("auto_backup")
-    val autoBackup: Boolean?,
-    @com.google.gson.annotations.SerializedName("backup_interval_days")
-    val backupIntervalDays: Int?
-)
-
-// Maintenance Data Classes
-data class LogsResponse(
-    val logs: List<LogEntry>,
-    val total: Int?
-)
-
-data class LogEntry(
-    val timestamp: String,
-    val level: String,
-    val message: String,
-    val source: String?
-)
-
-data class LibraryStatistics(
-    val totals: StatTotals?,
-    val byFormat: List<FormatStats>?,
-    val topAuthors: List<AuthorStats>?,
-    val topSeries: List<SeriesStats>?,
-    val topNarrators: List<NarratorStats>?,
-    val addedOverTime: List<MonthlyStats>?,
-    val userStats: List<UserStatEntry>?
-)
-
-data class StatTotals(
-    val books: Int,
-    val size: Long,
-    val duration: Long,
-    val avgDuration: Double?
-)
-
-data class FormatStats(
-    val format: String?,
-    val count: Int,
-    val size: Long
-)
-
-data class AuthorStats(
-    val author: String?,
-    val count: Int,
-    val size: Long?,
-    val duration: Long?
-)
-
-data class SeriesStats(
-    val series: String?,
-    val count: Int,
-    val size: Long?,
-    val duration: Long?
-)
-
-data class NarratorStats(
-    val narrator: String?,
-    val count: Int,
-    val duration: Long?
-)
-
-data class MonthlyStats(
-    val month: String?,
-    val count: Int,
-    val size: Long?
-)
-
-data class UserStatEntry(
-    val username: String?,
-    val booksStarted: Int?,
-    val booksCompleted: Int?,
-    val totalListenTime: Long?
-)
-
-data class DuplicatesResponse(
-    val duplicateGroups: List<DuplicateGroup>?,
-    val totalDuplicates: Int?
-)
-
-data class DuplicateGroup(
-    val id: String,
-    val matchReason: String?,
-    val books: List<DuplicateBook>,
-    val suggestedKeep: Int?
-)
-
-data class JobsResponse(
-    val jobs: Map<String, JobInfo>,
-    val forceRefreshInProgress: Boolean?
-)
-
-data class DuplicateBook(
-    val id: Int,
-    val title: String,
-    val author: String?,
-    @com.google.gson.annotations.SerializedName("file_path")
-    val filePath: String?,
-    @com.google.gson.annotations.SerializedName("created_at")
-    val createdAt: String?
-)
-
-data class MergeDuplicatesRequest(
-    @com.google.gson.annotations.SerializedName("keep_id")
-    val keepId: Int,
-    @com.google.gson.annotations.SerializedName("delete_ids")
-    val deleteIds: List<Int>
-)
-
-data class MergeResult(
-    val success: Boolean,
-    val message: String?,
-    val deleted: Int?
-)
-
-data class ClearLibraryResult(
-    val success: Boolean,
-    val message: String?,
-    val deleted: Int?
-)
-
-data class JobInfo(
-    val id: String = "",  // Set from map key
-    val name: String,
-    val description: String?,
-    val status: String,
-    val interval: String?,
-    @com.google.gson.annotations.SerializedName("lastRun")
-    val lastRun: String?,
-    @com.google.gson.annotations.SerializedName("nextRun")
-    val nextRun: String?,
-    val canTrigger: Boolean?,
-    val lastResult: Any?  // Can be an object with scan results or error info
-)
-
-data class TriggerJobResponse(
-    val success: Boolean,
-    val message: String?
-)
-
-// Orphan Directories Data Classes
-data class OrphanDirectoriesResponse(
-    val orphanDirectories: List<OrphanDirectory>?,
-    val totalCount: Int?,
-    val totalSize: Long?
-)
-
-data class OrphanDirectory(
-    val path: String,
-    val relativePath: String?,
-    val totalSize: Long,
-    val audioFiles: List<String>?,
-    val otherFiles: List<String>?,
-    val audioFileCount: Int?,
-    val otherFileCount: Int?,
-    val orphanType: String?
-)
-
-data class DeleteOrphansRequest(
-    val paths: List<String>
-)
-
-data class DeleteOrphansResult(
-    val success: Boolean,
-    val deleted: Int?,
-    val failed: Int?,
-    val errors: List<String>?
-)
-
-// Library Organization Data Classes
-data class OrganizePreviewResponse(
-    val books: List<OrganizePreviewBook>?
-)
-
-data class OrganizePreviewBook(
-    val id: Int,
-    val title: String,
-    val author: String?,
-    val currentPath: String?,
-    val targetPath: String?
-)
-
-data class OrganizeResult(
-    val success: Boolean,
-    val message: String?,
-    val stats: OrganizeStats?
-)
-
-data class OrganizeStats(
-    val moved: Int?,
-    val skipped: Int?,
-    val errors: Int?
 )
 
 // Collections Data Classes
@@ -1193,51 +789,6 @@ data class BatchDeleteRequest(
 data class BatchActionResponse(
     val success: Boolean,
     val count: Int?
-)
-
-// API Key Data Classes
-data class ApiKey(
-    val id: Int,
-    val name: String,
-    @com.google.gson.annotations.SerializedName("key_prefix")
-    val keyPrefix: String,
-    val permissions: String,
-    @com.google.gson.annotations.SerializedName("last_used_at")
-    val lastUsedAt: String?,
-    @com.google.gson.annotations.SerializedName("expires_at")
-    val expiresAt: String?,
-    @com.google.gson.annotations.SerializedName("is_active")
-    val isActive: Int,
-    @com.google.gson.annotations.SerializedName("created_at")
-    val createdAt: String
-)
-
-data class CreateApiKeyRequest(
-    val name: String,
-    val permissions: String = "read",
-    @com.google.gson.annotations.SerializedName("expires_in_days")
-    val expiresInDays: Int? = null
-)
-
-data class CreateApiKeyResponse(
-    val id: Int,
-    val name: String,
-    val key: String,  // Full key - only shown once!
-    @com.google.gson.annotations.SerializedName("key_prefix")
-    val keyPrefix: String,
-    val permissions: String,
-    @com.google.gson.annotations.SerializedName("expires_at")
-    val expiresAt: String,
-    @com.google.gson.annotations.SerializedName("created_at")
-    val createdAt: String,
-    val message: String?
-)
-
-data class UpdateApiKeyRequest(
-    val name: String? = null,
-    val permissions: String? = null,
-    @com.google.gson.annotations.SerializedName("is_active")
-    val isActive: Int? = null
 )
 
 data class MessageResponse(

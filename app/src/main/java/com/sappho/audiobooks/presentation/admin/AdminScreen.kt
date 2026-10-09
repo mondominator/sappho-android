@@ -1,71 +1,93 @@
 package com.sappho.audiobooks.presentation.admin
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.window.Dialog
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.sappho.audiobooks.domain.model.UploadState
-import com.sappho.audiobooks.presentation.theme.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.launch
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
-import com.sappho.audiobooks.data.remote.*
-import java.text.SimpleDateFormat
-import java.util.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sappho.audiobooks.data.remote.UserInfo
+import com.sappho.audiobooks.presentation.theme.SapphoBackground
+import com.sappho.audiobooks.presentation.theme.SapphoError
+import com.sappho.audiobooks.presentation.theme.SapphoIconDefault
+import com.sappho.audiobooks.presentation.theme.SapphoInfo
+import com.sappho.audiobooks.presentation.theme.SapphoPrimary
+import com.sappho.audiobooks.presentation.theme.SapphoProgressTrack
+import com.sappho.audiobooks.presentation.theme.SapphoSuccess
+import com.sappho.audiobooks.presentation.theme.SapphoSurfaceLight
+import com.sappho.audiobooks.presentation.theme.SapphoTextMuted
+import com.sappho.audiobooks.presentation.theme.SapphoWarning
 
-enum class AdminSection(val title: String, val description: String, val icon: ImageVector) {
-    STATISTICS("Statistics", "Usage analytics", Icons.Outlined.BarChart),
-    LIBRARY("Library", "Scan & organize", Icons.Outlined.LibraryBooks),
-    USERS("Users", "Manage accounts", Icons.Outlined.People),
-    SERVER("Server", "System settings", Icons.Outlined.Dns),
-    AI("AI", "AI features", Icons.Outlined.Psychology),
-    BACKUP("Backup", "Export & restore", Icons.Outlined.Backup),
-    API_KEYS("API Keys", "External access", Icons.Outlined.Key),
-    LOGS("Logs", "System logs", Icons.Outlined.Article)
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Admin screen, matching the iOS AdminView: a "Library" section (scan / force
+ * rescan) and a "Users" section (add, list, delete). Only reachable from the
+ * admin-gated entry in the profile menu.
+ */
 @Composable
 fun AdminScreen(
     onBack: () -> Unit,
-    onBookClick: (Int) -> Unit = {},
     viewModel: AdminViewModel = hiltViewModel()
 ) {
-    var selectedSection by remember { mutableStateOf<AdminSection?>(null) }
+    val users by viewModel.users.collectAsStateWithLifecycle()
+    val isLoadingUsers by viewModel.isLoadingUsers.collectAsStateWithLifecycle()
+    val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+    val scanMessage by viewModel.scanMessage.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    var showCreateUser by remember { mutableStateOf(false) }
+    var selectedUser by remember { mutableStateOf<UserInfo?>(null) }
+    var userToDelete by remember { mutableStateOf<UserInfo?>(null) }
 
     LaunchedEffect(message) {
         message?.let {
@@ -78,1443 +100,106 @@ fun AdminScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = SapphoBackground
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-        ) {
-            if (selectedSection == null) {
-                // Main menu
-                AdminMenuHeader(onBack = onBack)
-                Spacer(modifier = Modifier.height(16.dp))
-                AdminMenuList(onSectionClick = { selectedSection = it })
-            } else {
-                // Section content with back button
-                AdminSectionHeader(
-                    section = selectedSection!!,
-                    onBack = { selectedSection = null }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                AdminSectionContent(
-                    section = selectedSection!!,
-                    viewModel = viewModel,
-                    onBookClick = onBookClick
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AdminMenuHeader(onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Surface(
-            onClick = onBack,
-            shape = RoundedCornerShape(8.dp),
-            color = SapphoSurfaceLight,
-            modifier = Modifier.size(40.dp)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-        Text(
-            text = "Settings",
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-private fun AdminMenuList(onSectionClick: (AdminSection) -> Unit) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        AdminSection.entries.forEach { section ->
-            AdminMenuItem(
-                section = section,
-                onClick = { onSectionClick(section) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun AdminMenuItem(
-    section: AdminSection,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
-        color = SapphoSurfaceLight
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = section.title,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = section.description,
-                    color = SapphoTextMuted,
-                    fontSize = 13.sp
-                )
-            }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = SapphoTextMuted,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun AdminSectionHeader(
-    section: AdminSection,
-    onBack: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Surface(
-            onClick = onBack,
-            shape = RoundedCornerShape(8.dp),
-            color = SapphoSurfaceLight,
-            modifier = Modifier.size(40.dp)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-        Text(
-            text = section.title,
-            color = Color.White,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-private fun AdminSectionContent(
-    section: AdminSection,
-    viewModel: AdminViewModel,
-    onBookClick: (Int) -> Unit
-) {
-    when (section) {
-        AdminSection.STATISTICS -> StatisticsTab(viewModel, onBookClick)
-        AdminSection.LIBRARY -> LibraryTab(viewModel)
-        AdminSection.SERVER -> ServerSettingsTab(viewModel)
-        AdminSection.AI -> AiSettingsTab(viewModel)
-        AdminSection.USERS -> UsersTab(viewModel)
-        AdminSection.API_KEYS -> ApiKeysTab(viewModel)
-        AdminSection.BACKUP -> BackupTab(viewModel)
-        AdminSection.LOGS -> LogsTab(viewModel)
-    }
-}
-
-// ============ Library Tab ============
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LibraryTab(viewModel: AdminViewModel) {
-    val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
-    val duplicates by viewModel.duplicates.collectAsStateWithLifecycle()
-    val jobs by viewModel.jobs.collectAsStateWithLifecycle()
-    val orphanDirectories by viewModel.orphanDirectories.collectAsStateWithLifecycle()
-    val organizePreview by viewModel.organizePreview.collectAsStateWithLifecycle()
-    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
-    val isLoading = loadingSection == "serverSettings" || loadingSection == "library"
-    var showEditDialog by remember { mutableStateOf(false) }
-    var selectedDuplicateGroup by remember { mutableStateOf<DuplicateGroup?>(null) }
-    var showOrganizePreview by remember { mutableStateOf(false) }
-    var selectedOrphans by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadServerSettings()
-        viewModel.loadDuplicates()
-        viewModel.loadJobs()
-        viewModel.loadOrphanDirectories()
-    }
-
-    LaunchedEffect(loadingSection) {
-        if (loadingSection != "library") isRefreshing = false
-    }
-
-    val pullToRefreshState = rememberPullToRefreshState()
-
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.refreshLibraryTab()
-        },
-        state = pullToRefreshState,
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullToRefreshState,
-                isRefreshing = isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter),
-                containerColor = SapphoSurfaceLight,
-                color = SapphoInfo
-            )
-        },
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-        AdminSectionCard(title = "Library Actions") {
-            ActionButton(
-                text = "Scan Library",
-                description = "Scan for new audiobooks",
-                icon = Icons.Outlined.Search,
-                onClick = { viewModel.scanLibrary() }
-            )
-            ActionButton(
-                text = "Refresh Library",
-                description = "Re-import all audiobooks (preserves progress)",
-                icon = Icons.Outlined.Refresh,
-                onClick = { viewModel.forceRescan() }
-            )
-            ActionButton(
-                text = "Reorganize Library",
-                description = "Move files to Author/Series/Book structure",
-                icon = Icons.Outlined.DriveFileMove,
-                onClick = {
-                    viewModel.loadOrganizePreview()
-                    showOrganizePreview = true
-                }
-            )
-        }
-
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
-            }
-        } else {
-            serverSettings?.let { response ->
-                val settings = response.settings
-                val lockedFields = response.lockedFields ?: emptyList()
-
-                AdminSectionCard(
-                    title = "Library Paths",
-                    icon = Icons.Outlined.Folder,
-                    action = {
-                        IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
-                        }
-                    }
-                ) {
-                    InfoRow(
-                        label = "Audiobooks Directory",
-                        value = settings.audiobooksDir ?: "Not set",
-                        locked = "audiobooksDir" in lockedFields
-                    )
-                    InfoRow(
-                        label = "Upload Directory",
-                        value = settings.uploadDir ?: "Not set",
-                        locked = "uploadDir" in lockedFields
-                    )
-                    InfoRow(
-                        label = "Scan Interval",
-                        value = settings.libraryScanInterval?.let { "$it minutes" } ?: "Not set",
-                        locked = "libraryScanInterval" in lockedFields
-                    )
-                }
-            }
-        }
-
-        // Duplicates section
-        AdminSectionCard(
-            title = if (duplicates.isEmpty()) "Duplicates" else "Duplicates (${duplicates.size} groups)",
-            icon = Icons.Outlined.ContentCopy
-        ) {
-            if (duplicates.isEmpty()) {
-                Text(
-                    "No duplicate audiobooks detected",
-                    color = SapphoTextMuted,
-                    fontSize = 13.sp
-                )
-            } else {
-                duplicates.forEach { group ->
-                    DuplicateGroupCard(
-                        group = group,
-                        onClick = { selectedDuplicateGroup = group }
-                    )
-                }
-            }
-        }
-
-        // Jobs section
-        if (jobs.isNotEmpty()) {
-            AdminSectionCard(title = "Scheduled Jobs", icon = Icons.Outlined.Schedule) {
-                jobs.forEach { job ->
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = SapphoProgressTrack.copy(alpha = 0.5f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(job.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                    job.description?.let { desc ->
-                                        Text(desc, color = SapphoIconDefault, fontSize = 12.sp)
-                                    }
-                                }
-                                if (job.canTrigger == true) {
-                                    Button(
-                                        onClick = { viewModel.triggerJob(job.id) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                        modifier = Modifier.height(32.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Outlined.PlayArrow,
-                                            contentDescription = "Trigger",
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Run", fontSize = 12.sp)
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                val statusColor = when (job.status.lowercase()) {
-                                    "running" -> SapphoSuccess
-                                    "scheduled" -> SapphoInfo
-                                    "idle" -> SapphoIconDefault
-                                    else -> SapphoIconDefault
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = statusColor.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        job.status.uppercase(),
-                                        color = statusColor,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                                job.interval?.let {
-                                    Text("Interval: $it", color = SapphoTextMuted, fontSize = 11.sp)
-                                }
-                            }
-                            job.lastRun?.let { lastRun ->
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("Last run: ${formatBackupDate(lastRun)}", color = SapphoTextMuted, fontSize = 11.sp)
-                            }
-                            job.lastResult?.let { result ->
-                                Text("Result: $result", color = SapphoIconDefault, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                            job.nextRun?.let { nextRun ->
-                                Text("Next: ${formatBackupDate(nextRun)}", color = SapphoInfo, fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Orphan Directories section
-        AdminSectionCard(
-            title = if (orphanDirectories.isEmpty()) "Orphan Directories" else "Orphan Directories (${orphanDirectories.size})",
-            icon = Icons.Outlined.FolderOff,
-            action = {
-                if (selectedOrphans.isNotEmpty()) {
-                    Button(
-                        onClick = {
-                            viewModel.deleteOrphanDirectories(selectedOrphans.toList())
-                            selectedOrphans = emptySet()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SapphoError),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Delete (${selectedOrphans.size})", fontSize = 12.sp)
-                    }
-                }
-            }
-        ) {
-            if (orphanDirectories.isEmpty()) {
-                Text(
-                    "No orphan directories found",
-                    color = SapphoTextMuted,
-                    fontSize = 13.sp
-                )
-            } else {
-                Text(
-                    "Directories containing files not tracked in the library",
-                    color = SapphoTextMuted,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                orphanDirectories.forEach { orphan ->
-                    OrphanDirectoryCard(
-                        orphan = orphan,
-                        isSelected = orphan.path in selectedOrphans,
-                        onToggleSelect = {
-                            selectedOrphans = if (orphan.path in selectedOrphans) {
-                                selectedOrphans - orphan.path
-                            } else {
-                                selectedOrphans + orphan.path
-                            }
-                        }
-                    )
-                }
-            }
-        }
-        }
-    }
-
-    // Edit Dialog
-    if (showEditDialog) {
-        serverSettings?.let { response ->
-            EditLibrarySettingsDialog(
-                settings = response.settings,
-                lockedFields = response.lockedFields ?: emptyList(),
-                onDismiss = { showEditDialog = false },
-                onSave = { update ->
-                    viewModel.updateServerSettings(update)
-                    showEditDialog = false
-                }
-            )
-        }
-    }
-
-    // Duplicate Merge Dialog
-    selectedDuplicateGroup?.let { group ->
-        DuplicateMergeDialog(
-            group = group,
-            onDismiss = { selectedDuplicateGroup = null },
-            onMerge = { keepId, deleteIds ->
-                viewModel.mergeDuplicates(keepId, deleteIds)
-                selectedDuplicateGroup = null
-            }
-        )
-    }
-
-    // Organize Preview Dialog
-    if (showOrganizePreview) {
-        OrganizePreviewDialog(
-            books = organizePreview,
-            isLoading = loadingSection == "organize",
-            onDismiss = { showOrganizePreview = false },
-            onConfirm = {
-                viewModel.organizeLibrary()
-                showOrganizePreview = false
-            }
-        )
-    }
-}
-
-@Composable
-private fun OrphanDirectoryCard(
-    orphan: OrphanDirectory,
-    isSelected: Boolean,
-    onToggleSelect: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable(onClick = onToggleSelect),
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) SapphoError.copy(alpha = 0.2f) else SapphoProgressTrack.copy(alpha = 0.5f)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = { onToggleSelect() },
-                colors = CheckboxDefaults.colors(
-                    checkedColor = SapphoError,
-                    uncheckedColor = SapphoIconDefault
-                )
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    orphan.relativePath ?: orphan.path,
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    orphan.audioFileCount?.let { count ->
-                        Text("$count audio files", color = SapphoIconDefault, fontSize = 11.sp)
-                    }
-                    Text(formatFileSize(orphan.totalSize), color = SapphoTextMuted, fontSize = 11.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun OrganizePreviewDialog(
-    books: List<OrganizePreviewBook>,
-    isLoading: Boolean,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Reorganize Library", color = Color.White) },
-        text = {
-            Column {
-                if (isLoading) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
-                    }
-                } else if (books.isEmpty()) {
-                    Text(
-                        "All audiobooks are already in their correct locations.",
-                        color = SapphoIconDefault
-                    )
-                } else {
-                    Text(
-                        "${books.size} audiobook(s) will be moved:",
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 300.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(books) { book ->
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = SapphoProgressTrack.copy(alpha = 0.5f)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(book.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                    book.author?.let {
-                                        Text(it, color = SapphoIconDefault, fontSize = 12.sp)
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text("From:", color = SapphoTextMuted, fontSize = 10.sp)
-                                    Text(
-                                        book.currentPath ?: "Unknown",
-                                        color = SapphoIconDefault,
-                                        fontSize = 11.sp,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("To:", color = SapphoTextMuted, fontSize = 10.sp)
-                                    Text(
-                                        book.targetPath ?: "Unknown",
-                                        color = SapphoInfo,
-                                        fontSize = 11.sp,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            if (!isLoading && books.isNotEmpty()) {
-                TextButton(onClick = onConfirm) {
-                    Text("Reorganize", color = SapphoInfo)
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-@Composable
-private fun EditLibrarySettingsDialog(
-    settings: ServerSettings,
-    lockedFields: List<String>,
-    onDismiss: () -> Unit,
-    onSave: (ServerSettingsUpdate) -> Unit
-) {
-    var audiobooksDir by remember { mutableStateOf(settings.audiobooksDir ?: "") }
-    var uploadDir by remember { mutableStateOf(settings.uploadDir ?: "") }
-    var scanInterval by remember { mutableStateOf(settings.libraryScanInterval?.toString() ?: "5") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Library Settings", color = Color.White) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if ("audiobooksDir" !in lockedFields) {
-                    OutlinedTextField(
-                        value = audiobooksDir,
-                        onValueChange = { audiobooksDir = it },
-                        label = { Text("Audiobooks Directory") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = adminTextFieldColors()
-                    )
-                } else {
-                    LockedField("Audiobooks Directory", settings.audiobooksDir ?: "")
-                }
-
-                if ("uploadDir" !in lockedFields) {
-                    OutlinedTextField(
-                        value = uploadDir,
-                        onValueChange = { uploadDir = it },
-                        label = { Text("Upload Directory") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = adminTextFieldColors()
-                    )
-                } else {
-                    LockedField("Upload Directory", settings.uploadDir ?: "")
-                }
-
-                if ("libraryScanInterval" !in lockedFields) {
-                    OutlinedTextField(
-                        value = scanInterval,
-                        onValueChange = { scanInterval = it },
-                        label = { Text("Scan Interval (minutes)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = adminTextFieldColors()
-                    )
-                } else {
-                    LockedField("Scan Interval", "${settings.libraryScanInterval ?: 5} minutes")
-                }
-
-                if (lockedFields.isNotEmpty()) {
-                    Text(
-                        "Locked fields are set via docker-compose and cannot be changed here.",
-                        color = SapphoIconDefault,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onSave(ServerSettingsUpdate(
-                        audiobooksDir = if ("audiobooksDir" !in lockedFields) audiobooksDir else null,
-                        uploadDir = if ("uploadDir" !in lockedFields) uploadDir else null,
-                        libraryScanInterval = if ("libraryScanInterval" !in lockedFields) scanInterval.toIntOrNull() else null
-                    ))
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-@Composable
-private fun LockedField(label: String, value: String) {
-    Column {
-        Text(label, color = SapphoIconDefault, fontSize = 12.sp)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(Icons.Outlined.Lock, contentDescription = "Locked", tint = SapphoTextMuted, modifier = Modifier.size(14.dp))
-            Text(value, color = SapphoTextMuted, fontSize = 14.sp)
-        }
-    }
-}
-
-// ============ Server Settings Tab ============
-@Composable
-private fun ServerSettingsTab(viewModel: AdminViewModel) {
-    val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
-    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
-    val isLoading = loadingSection == "serverSettings"
-    var showEditDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadServerSettings()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
-            }
-        } else {
-            serverSettings?.let { response ->
-                val settings = response.settings
-                val lockedFields = response.lockedFields ?: emptyList()
-
-                AdminSectionCard(
-                    title = "Server Configuration",
-                    icon = Icons.Outlined.Settings,
-                    action = {
-                        IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
-                        }
-                    }
-                ) {
-                    InfoRow(label = "Port", value = settings.port ?: "3000", locked = "port" in lockedFields)
-                    InfoRow(label = "Environment", value = settings.nodeEnv ?: "production", locked = "nodeEnv" in lockedFields)
-                    InfoRow(label = "Database Path", value = settings.databasePath ?: "Not set", locked = "databasePath" in lockedFields)
-                    InfoRow(label = "Data Directory", value = settings.dataDir ?: "Not set", locked = "dataDir" in lockedFields)
-                }
-            } ?: run {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No server settings available", color = SapphoIconDefault)
-                }
-            }
-        }
-    }
-
-    // Edit Dialog
-    if (showEditDialog) {
-        serverSettings?.let { response ->
-            EditServerSettingsDialog(
-                settings = response.settings,
-                lockedFields = response.lockedFields ?: emptyList(),
-                onDismiss = { showEditDialog = false },
-                onSave = { update ->
-                    viewModel.updateServerSettings(update)
-                    showEditDialog = false
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun EditServerSettingsDialog(
-    settings: ServerSettings,
-    lockedFields: List<String>,
-    onDismiss: () -> Unit,
-    onSave: (ServerSettingsUpdate) -> Unit
-) {
-    var port by remember { mutableStateOf(settings.port ?: "3001") }
-    var nodeEnv by remember { mutableStateOf(settings.nodeEnv ?: "production") }
-    var databasePath by remember { mutableStateOf(settings.databasePath ?: "") }
-    var dataDir by remember { mutableStateOf(settings.dataDir ?: "") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Server Settings", color = Color.White) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if ("port" !in lockedFields) {
-                    OutlinedTextField(
-                        value = port,
-                        onValueChange = { port = it },
-                        label = { Text("Port") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = adminTextFieldColors()
-                    )
-                } else {
-                    LockedField("Port", settings.port ?: "3001")
-                }
-
-                if ("nodeEnv" !in lockedFields) {
-                    Text("Environment", color = SapphoIconDefault, fontSize = 12.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("development", "production").forEach { env ->
-                            Surface(
-                                modifier = Modifier.clickable { nodeEnv = env },
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (nodeEnv == env) SapphoInfo else SapphoProgressTrack
-                            ) {
-                                Text(
-                                    env.replaceFirstChar { it.uppercase() },
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    LockedField("Environment", settings.nodeEnv ?: "production")
-                }
-
-                if ("databasePath" !in lockedFields) {
-                    OutlinedTextField(
-                        value = databasePath,
-                        onValueChange = { databasePath = it },
-                        label = { Text("Database Path") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = adminTextFieldColors()
-                    )
-                } else {
-                    LockedField("Database Path", settings.databasePath ?: "")
-                }
-
-                if ("dataDir" !in lockedFields) {
-                    OutlinedTextField(
-                        value = dataDir,
-                        onValueChange = { dataDir = it },
-                        label = { Text("Data Directory") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = adminTextFieldColors()
-                    )
-                } else {
-                    LockedField("Data Directory", settings.dataDir ?: "")
-                }
-
-                if (lockedFields.isNotEmpty()) {
-                    Text(
-                        "Locked fields are set via docker-compose and cannot be changed here.",
-                        color = SapphoIconDefault,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Text(
-                    "Note: Some changes require a server restart to take effect.",
-                    color = SapphoWarning,
-                    fontSize = 12.sp
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onSave(ServerSettingsUpdate(
-                        port = if ("port" !in lockedFields) port else null,
-                        nodeEnv = if ("nodeEnv" !in lockedFields) nodeEnv else null,
-                        databasePath = if ("databasePath" !in lockedFields) databasePath else null,
-                        dataDir = if ("dataDir" !in lockedFields) dataDir else null
-                    ))
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-// ============ AI Settings Tab ============
-@Composable
-private fun AiSettingsTab(viewModel: AdminViewModel) {
-    val aiSettings by viewModel.aiSettings.collectAsStateWithLifecycle()
-    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
-    val isLoading = loadingSection == "aiSettings"
-    var showProviderDialog by remember { mutableStateOf(false) }
-    var showRecapDialog by remember { mutableStateOf(false) }
-    var testResult by remember { mutableStateOf<AiTestResponse?>(null) }
-    // Track if initial load is done (separate from loading indicator)
-    var hasLoaded by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadAiSettings()
-    }
-
-    // Mark as loaded once loading completes
-    LaunchedEffect(isLoading) {
-        if (!isLoading && !hasLoaded) {
-            hasLoaded = true
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        val settings = aiSettings
-        if (settings != null) {
-            // AI Provider settings with its own edit button
-            AdminSectionCard(
-                title = "AI Provider",
-                icon = Icons.Outlined.Psychology,
-                action = {
-                    IconButton(onClick = { showProviderDialog = true }) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
-                    }
-                }
-            ) {
-                InfoRow(
-                    label = "Provider",
-                    value = settings.aiProvider?.uppercase() ?: "Not configured"
-                )
-                if (settings.aiProvider == "openai") {
-                    InfoRow(label = "Model", value = settings.openaiModel ?: "gpt-3.5-turbo")
-                    InfoRow(
-                        label = "API Key",
-                        value = if (settings.openaiApiKey != null) "****configured****" else "Not set"
-                    )
-                } else if (settings.aiProvider == "gemini") {
-                    InfoRow(label = "Model", value = settings.geminiModel ?: "gemini-pro")
-                    InfoRow(
-                        label = "API Key",
-                        value = if (settings.geminiApiKey != null) "****configured****" else "Not set"
-                    )
-                }
-            }
-
-            // Recap Settings with its own edit button
-            AdminSectionCard(
-                title = "Recap Settings",
-                icon = Icons.Outlined.AutoStories,
-                action = {
-                    IconButton(onClick = { showRecapDialog = true }) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
-                    }
-                }
-            ) {
-                InfoRow(
-                    label = "Offensive Mode",
-                    value = if (settings.recapOffensiveMode == true) "Enabled" else "Disabled"
-                )
-                if (settings.recapCustomPrompt != null) {
-                    Text(
-                        "Custom Prompt:",
-                        color = SapphoIconDefault,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        settings.recapCustomPrompt,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Button(
-                onClick = {
-                    viewModel.testAiConnection(
-                        AiSettingsUpdate(
-                            aiProvider = settings.aiProvider,
-                            openaiApiKey = settings.openaiApiKey,
-                            openaiModel = settings.openaiModel,
-                            geminiApiKey = settings.geminiApiKey,
-                            geminiModel = settings.geminiModel
-                        )
-                    ) { result ->
-                        testResult = result
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = SapphoProgressTrack)
-            ) {
-                Icon(Icons.Outlined.Science, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Test AI Connection")
-            }
-
-            testResult?.let { result ->
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (result.error == null) SapphoSuccess.copy(alpha = 0.2f)
-                    else SapphoError.copy(alpha = 0.2f)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = if (result.error == null) "Test Successful" else "Test Failed",
-                            color = if (result.error == null) SapphoSuccess else SapphoError,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = result.error ?: result.response ?: result.message ?: "",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-        } else if (isLoading) {
-            // Still loading
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
-            }
-        } else if (hasLoaded) {
-            // Loaded but no settings - show configuration option
-            AdminSectionCard(
-                title = "AI Not Configured",
-                icon = Icons.Outlined.Psychology
-            ) {
-                Text(
-                    "AI features are not configured. Configure AI to enable recap generation and other AI-powered features.",
-                    color = SapphoIconDefault,
-                    fontSize = 14.sp
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { showProviderDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
-                ) {
-                    Icon(Icons.Outlined.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Configure AI")
-                }
-            }
-        }
-    }
-
-    // AI Provider Edit Dialog
-    if (showProviderDialog) {
-        val settings = aiSettings ?: AiSettings(
-            aiProvider = null,
-            openaiApiKey = null,
-            openaiModel = "gpt-3.5-turbo",
-            geminiApiKey = null,
-            geminiModel = "gemini-pro",
-            recapCustomPrompt = null,
-            recapOffensiveMode = false,
-            recapDefaultPrompt = null
-        )
-        EditAiProviderDialog(
-            settings = settings,
-            onDismiss = { showProviderDialog = false },
-            onSave = { update ->
-                viewModel.updateAiSettings(update)
-                showProviderDialog = false
-            }
-        )
-    }
-
-    // Recap Settings Edit Dialog
-    if (showRecapDialog) {
-        val settings = aiSettings ?: AiSettings(
-            aiProvider = null,
-            openaiApiKey = null,
-            openaiModel = "gpt-3.5-turbo",
-            geminiApiKey = null,
-            geminiModel = "gemini-pro",
-            recapCustomPrompt = null,
-            recapOffensiveMode = false,
-            recapDefaultPrompt = null
-        )
-        EditRecapSettingsDialog(
-            settings = settings,
-            onDismiss = { showRecapDialog = false },
-            onSave = { update ->
-                viewModel.updateAiSettings(update)
-                showRecapDialog = false
-            }
-        )
-    }
-}
-
-@Composable
-private fun EditAiProviderDialog(
-    settings: AiSettings,
-    onDismiss: () -> Unit,
-    onSave: (AiSettingsUpdate) -> Unit
-) {
-    var provider by remember { mutableStateOf(settings.aiProvider ?: "") }
-    var openaiApiKey by remember { mutableStateOf(settings.openaiApiKey ?: "") }
-    var openaiModel by remember { mutableStateOf(settings.openaiModel ?: "gpt-3.5-turbo") }
-    var geminiApiKey by remember { mutableStateOf(settings.geminiApiKey ?: "") }
-    var geminiModel by remember { mutableStateOf(settings.geminiModel ?: "gemini-pro") }
-    var showApiKey by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit AI Provider", color = Color.White) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text("AI Provider", color = SapphoIconDefault, fontSize = 12.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("openai", "gemini", "").forEach { p ->
-                        val label = when(p) {
-                            "openai" -> "OpenAI"
-                            "gemini" -> "Gemini"
-                            else -> "None"
-                        }
-                        Surface(
-                            modifier = Modifier.clickable { provider = p },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (provider == p) SapphoInfo else SapphoProgressTrack
-                        ) {
-                            Text(
-                                label,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = Color.White,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-                }
-
-                if (provider == "openai") {
-                    OutlinedTextField(
-                        value = openaiApiKey,
-                        onValueChange = { openaiApiKey = it },
-                        label = { Text("OpenAI API Key") },
-                        visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { showApiKey = !showApiKey }) {
-                                Icon(
-                                    if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = null,
-                                    tint = SapphoIconDefault
-                                )
-                            }
-                        },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = adminTextFieldColors()
-                    )
-                    OutlinedTextField(
-                        value = openaiModel,
-                        onValueChange = { openaiModel = it },
-                        label = { Text("Model") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = adminTextFieldColors()
-                    )
-                } else if (provider == "gemini") {
-                    OutlinedTextField(
-                        value = geminiApiKey,
-                        onValueChange = { geminiApiKey = it },
-                        label = { Text("Gemini API Key") },
-                        visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { showApiKey = !showApiKey }) {
-                                Icon(
-                                    if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = null,
-                                    tint = SapphoIconDefault
-                                )
-                            }
-                        },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = adminTextFieldColors()
-                    )
-                    OutlinedTextField(
-                        value = geminiModel,
-                        onValueChange = { geminiModel = it },
-                        label = { Text("Model") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = adminTextFieldColors()
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSave(AiSettingsUpdate(
-                        aiProvider = provider.ifBlank { null },
-                        openaiApiKey = openaiApiKey.ifBlank { null },
-                        openaiModel = openaiModel.ifBlank { null },
-                        geminiApiKey = geminiApiKey.ifBlank { null },
-                        geminiModel = geminiModel.ifBlank { null },
-                        recapCustomPrompt = settings.recapCustomPrompt,
-                        recapOffensiveMode = settings.recapOffensiveMode
-                    ))
-                }
-            ) {
-                Text("Save", color = SapphoInfo)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-@Composable
-private fun EditRecapSettingsDialog(
-    settings: AiSettings,
-    onDismiss: () -> Unit,
-    onSave: (AiSettingsUpdate) -> Unit
-) {
-    var customPrompt by remember { mutableStateOf(settings.recapCustomPrompt ?: "") }
-    var offensiveMode by remember { mutableStateOf(settings.recapOffensiveMode ?: false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Recap Settings", color = Color.White) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Checkbox(
-                        checked = offensiveMode,
-                        onCheckedChange = { offensiveMode = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = SapphoInfo,
-                            uncheckedColor = SapphoTextMuted
-                        )
-                    )
-                    Text("Offensive Mode (uncensored recaps)", color = Color.White)
-                }
-
-                OutlinedTextField(
-                    value = customPrompt,
-                    onValueChange = { customPrompt = it },
-                    label = { Text("Custom Prompt (optional)") },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
-                    colors = adminTextFieldColors(),
-                    maxLines = 5
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSave(AiSettingsUpdate(
-                        aiProvider = settings.aiProvider,
-                        openaiApiKey = settings.openaiApiKey,
-                        openaiModel = settings.openaiModel,
-                        geminiApiKey = settings.geminiApiKey,
-                        geminiModel = settings.geminiModel,
-                        recapCustomPrompt = customPrompt.ifBlank { null },
-                        recapOffensiveMode = offensiveMode
-                    ))
-                }
-            ) {
-                Text("Save", color = SapphoInfo)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-// ============ Users Tab ============
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun UsersTab(viewModel: AdminViewModel) {
-    val users by viewModel.users.collectAsStateWithLifecycle()
-    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var editingUser by remember { mutableStateOf<UserInfo?>(null) }
-    var userToDelete by remember { mutableStateOf<UserInfo?>(null) }
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadUsers()
-    }
-
-    LaunchedEffect(loadingSection) {
-        if (loadingSection != "users") isRefreshing = false
-    }
-
-    val pullToRefreshState = rememberPullToRefreshState()
-
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.refreshUsers()
-        },
-        state = pullToRefreshState,
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullToRefreshState,
-                isRefreshing = isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter),
-                containerColor = SapphoSurfaceLight,
-                color = SapphoInfo
-            )
-        },
-        modifier = Modifier.fillMaxSize()
-    ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item { AdminHeader(onBack = onBack) }
+
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "User Management",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
+                AdminSectionCard(title = "Library") {
+                    AdminActionRow(
+                        text = "Scan for New Books",
+                        icon = Icons.Default.Refresh,
+                        tint = SapphoPrimary,
+                        busy = isScanning,
+                        onClick = viewModel::scanLibrary
                     )
-                    Button(
-                        onClick = { showCreateDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Add User")
+                    AdminActionRow(
+                        text = "Force Full Rescan",
+                        icon = Icons.Default.Sync,
+                        tint = SapphoWarning,
+                        busy = isScanning,
+                        onClick = viewModel::forceRescan
+                    )
+                    scanMessage?.let {
+                        Text(
+                            text = it,
+                            color = SapphoSuccess,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
                     }
                 }
             }
 
-            items(users) { user ->
-                UserCard(
+            item {
+                AdminSectionCard(title = "Users") {
+                    AdminActionRow(
+                        text = "Add New User",
+                        icon = Icons.Default.PersonAdd,
+                        tint = SapphoPrimary,
+                        onClick = { showCreateUser = true }
+                    )
+                    if (isLoadingUsers && users.isEmpty()) {
+                        Row(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text("Loading users...", color = SapphoTextMuted, fontSize = 14.sp)
+                        }
+                    }
+                }
+            }
+
+            items(users, key = { it.id }) { user ->
+                AdminUserRow(
                     user = user,
-                    onEdit = { editingUser = user },
-                    onDelete = { userToDelete = user },
-                    onToggleEnabled = { viewModel.toggleUserEnabled(user) }
+                    onClick = { selectedUser = user },
+                    onDelete = { userToDelete = user }
                 )
             }
         }
     }
 
-    // Create User Dialog
-    if (showCreateDialog) {
+    if (showCreateUser) {
         CreateUserDialog(
-            onDismiss = { showCreateDialog = false },
-            onCreate = { request ->
-                viewModel.createUser(request) { showCreateDialog = false }
+            onDismiss = { showCreateUser = false },
+            onCreate = { username, password, isAdmin, onResult ->
+                viewModel.createUser(username, password, isAdmin) { error ->
+                    onResult(error)
+                    if (error == null) showCreateUser = false
+                }
             }
         )
     }
 
-    // Edit User Dialog
-    editingUser?.let { user ->
-        EditUserDialog(
+    selectedUser?.let { user ->
+        UserDetailDialog(
             user = user,
-            onDismiss = { editingUser = null },
-            onUpdate = { request ->
-                viewModel.updateUser(user.id, request) { editingUser = null }
+            onDismiss = { selectedUser = null },
+            onDelete = {
+                selectedUser = null
+                userToDelete = user
             }
         )
     }
 
-    // Delete Confirmation Dialog
     userToDelete?.let { user ->
         AlertDialog(
             onDismissRequest = { userToDelete = null },
             title = { Text("Delete User", color = Color.White) },
             text = { Text("Are you sure you want to delete ${user.username}?", color = SapphoIconDefault) },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteUser(user.id)
-                        userToDelete = null
-                    }
-                ) {
+                TextButton(onClick = {
+                    viewModel.deleteUser(user.id)
+                    userToDelete = null
+                }) {
                     Text("Delete", color = SapphoError)
                 }
             },
@@ -1529,2425 +214,288 @@ private fun UsersTab(viewModel: AdminViewModel) {
 }
 
 @Composable
-private fun UserCard(
-    user: UserInfo,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onToggleEnabled: () -> Unit
-) {
-    val isEnabled = !user.accountDisabled
-
-    Surface(
+private fun AdminHeader(onBack: () -> Unit) {
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = SapphoSurfaceLight
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            onClick = onBack,
+            shape = RoundedCornerShape(8.dp),
+            color = SapphoSurfaceLight,
+            modifier = Modifier.size(40.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = user.username,
-                        color = if (isEnabled) Color.White else SapphoTextMuted,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    if (user.isAdmin == 1) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = SapphoSuccess.copy(alpha = 0.2f)
-                        ) {
-                            Text(
-                                "Admin",
-                                color = SapphoSuccess,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    if (!isEnabled) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = SapphoError.copy(alpha = 0.2f)
-                        ) {
-                            Text(
-                                "Disabled",
-                                color = SapphoError,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-                user.email?.let { email ->
-                    Text(
-                        text = email,
-                        color = SapphoIconDefault,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(
-                    onClick = onToggleEnabled,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        if (isEnabled) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
-                        contentDescription = if (isEnabled) "Disable" else "Enable",
-                        tint = if (isEnabled) SapphoSuccess else SapphoTextMuted,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                IconButton(
-                    onClick = onEdit,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = SapphoInfo)
-                }
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = SapphoError)
-                }
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun CreateUserDialog(
-    onDismiss: () -> Unit,
-    onCreate: (CreateUserRequest) -> Unit
-) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var isAdmin by remember { mutableStateOf(false) }
-    var showPassword by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Create User", color = Color.White) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("Username") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = adminTextFieldColors()
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { showPassword = !showPassword }) {
-                            Icon(
-                                if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                tint = SapphoIconDefault
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = adminTextFieldColors()
-                )
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email (optional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = adminTextFieldColors()
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Checkbox(
-                        checked = isAdmin,
-                        onCheckedChange = { isAdmin = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = SapphoInfo,
-                            uncheckedColor = SapphoTextMuted
-                        )
-                    )
-                    Text("Administrator", color = Color.White)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onCreate(CreateUserRequest(username, password, email.ifBlank { null }, isAdmin))
-                },
-                enabled = username.isNotBlank() && password.isNotBlank()
-            ) {
-                Text("Create", color = SapphoInfo)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-@Composable
-private fun EditUserDialog(
-    user: UserInfo,
-    onDismiss: () -> Unit,
-    onUpdate: (UpdateUserRequest) -> Unit
-) {
-    var username by remember { mutableStateOf(user.username) }
-    var password by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf(user.email ?: "") }
-    var isAdmin by remember { mutableStateOf(user.isAdmin == 1) }
-    var showPassword by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit User", color = Color.White) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("Username") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = adminTextFieldColors()
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("New Password (leave blank to keep current)") },
-                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { showPassword = !showPassword }) {
-                            Icon(
-                                if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                tint = SapphoIconDefault
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = adminTextFieldColors()
-                )
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = adminTextFieldColors()
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Checkbox(
-                        checked = isAdmin,
-                        onCheckedChange = { isAdmin = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = SapphoInfo,
-                            uncheckedColor = SapphoTextMuted
-                        )
-                    )
-                    Text("Administrator", color = Color.White)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onUpdate(
-                        UpdateUserRequest(
-                            username = username.takeIf { it != user.username },
-                            password = password.ifBlank { null },
-                            email = email.ifBlank { null },
-                            isAdmin = isAdmin
-                        )
-                    )
-                },
-                enabled = username.isNotBlank()
-            ) {
-                Text("Update", color = SapphoInfo)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-// ============ API Keys Tab ============
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ApiKeysTab(viewModel: AdminViewModel) {
-    val apiKeys by viewModel.apiKeys.collectAsStateWithLifecycle()
-    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var keyToDelete by remember { mutableStateOf<ApiKey?>(null) }
-    var newlyCreatedKey by remember { mutableStateOf<CreateApiKeyResponse?>(null) }
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadApiKeys()
-    }
-
-    LaunchedEffect(loadingSection) {
-        if (loadingSection != "apiKeys") isRefreshing = false
-    }
-
-    val pullToRefreshState = rememberPullToRefreshState()
-
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.refreshApiKeys()
-        },
-        state = pullToRefreshState,
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullToRefreshState,
-                isRefreshing = isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter),
-                containerColor = SapphoSurfaceLight,
-                color = SapphoInfo
-            )
-        },
-        modifier = Modifier.fillMaxSize()
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "API Keys",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Button(
-                        onClick = { showCreateDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Create Key")
-                    }
-                }
-            }
-
-            item {
-                Text(
-                    "API keys allow external applications to access your library. " +
-                    "Keep your keys secure and revoke any that are compromised.",
-                    color = SapphoIconDefault,
-                    fontSize = 13.sp
-                )
-            }
-
-            if (loadingSection == "apiKeys" && apiKeys.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
-                    }
-                }
-            } else if (apiKeys.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Outlined.Key,
-                                contentDescription = null,
-                                tint = SapphoTextMuted,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "No API keys yet",
-                                color = SapphoTextMuted,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(apiKeys) { apiKey ->
-                    ApiKeyCard(
-                        apiKey = apiKey,
-                        onToggleActive = { viewModel.toggleApiKeyActive(apiKey) },
-                        onDelete = { keyToDelete = apiKey }
-                    )
-                }
-            }
-        }
-    }
-
-    // Create API Key Dialog
-    if (showCreateDialog) {
-        CreateApiKeyDialog(
-            onDismiss = { showCreateDialog = false },
-            onCreate = { name, permissions, expiresInDays ->
-                viewModel.createApiKey(name, permissions, expiresInDays) { response ->
-                    showCreateDialog = false
-                    newlyCreatedKey = response
-                }
-            }
-        )
-    }
-
-    // Show newly created key dialog (only time full key is visible)
-    newlyCreatedKey?.let { response ->
-        NewApiKeyDialog(
-            response = response,
-            onDismiss = { newlyCreatedKey = null }
-        )
-    }
-
-    // Delete Confirmation Dialog
-    keyToDelete?.let { apiKey ->
-        AlertDialog(
-            onDismissRequest = { keyToDelete = null },
-            title = { Text("Delete API Key", color = Color.White) },
-            text = { Text("Are you sure you want to delete '${apiKey.name}'? This action cannot be undone.", color = SapphoIconDefault) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteApiKey(apiKey.id)
-                        keyToDelete = null
-                    }
-                ) {
-                    Text("Delete", color = SapphoError)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { keyToDelete = null }) {
-                    Text("Cancel", color = SapphoIconDefault)
-                }
-            },
-            containerColor = SapphoSurfaceLight
+        Text(
+            text = "Admin",
+            color = Color.White,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
         )
     }
 }
 
 @Composable
-private fun ApiKeyCard(
-    apiKey: ApiKey,
-    onToggleActive: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val isActive = apiKey.isActive == 1
-    val dateFormat = remember { SimpleDateFormat("MMM d", Locale.getDefault()) }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = SapphoSurfaceLight
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            // Header row: Name + Status badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = apiKey.name,
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = "${apiKey.keyPrefix}...",
-                        color = SapphoIconDefault,
-                        fontSize = 12.sp
-                    )
-                }
-                // Permission badge
-                val permissionColor = when (apiKey.permissions.lowercase()) {
-                    "read" -> SapphoSuccess
-                    "write" -> SapphoWarning
-                    "admin" -> SapphoError
-                    else -> SapphoIconDefault
-                }
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = permissionColor.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        apiKey.permissions.replaceFirstChar { it.uppercase() },
-                        color = permissionColor,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                // Active badge
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = if (isActive) SapphoSuccess.copy(alpha = 0.2f) else SapphoError.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        if (isActive) "Active" else "Off",
-                        color = if (isActive) SapphoSuccess else SapphoError,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Actions row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Date info
-                Text(
-                    text = try {
-                        "Created ${dateFormat.format(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(apiKey.createdAt) ?: Date())}"
-                    } catch (e: Exception) { "" },
-                    color = SapphoTextMuted,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(end = 8.dp)
-                )
-                // Action buttons
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onToggleActive,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            if (isActive) Icons.Outlined.ToggleOn else Icons.Outlined.ToggleOff,
-                            contentDescription = if (isActive) "Deactivate" else "Activate",
-                            tint = if (isActive) SapphoSuccess else SapphoTextMuted,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = "Delete",
-                            tint = SapphoError,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CreateApiKeyDialog(
-    onDismiss: () -> Unit,
-    onCreate: (name: String, permissions: String, expiresInDays: Int?) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var permissions by remember { mutableStateOf("read") }
-    var expiresInDays by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
-
-    val permissionOptions = listOf("read", "write", "admin")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Create API Key", color = Color.White) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Key Name") },
-                    placeholder = { Text("e.g., Android App") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = SapphoInfo,
-                        unfocusedBorderColor = SapphoProgressTrack
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
-                ) {
-                    OutlinedTextField(
-                        value = permissions.replaceFirstChar { it.uppercase() },
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Permissions") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = SapphoInfo,
-                            unfocusedBorderColor = SapphoProgressTrack
-                        ),
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                        modifier = Modifier.background(SapphoProgressTrack)
-                    ) {
-                        permissionOptions.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option.replaceFirstChar { it.uppercase() }, color = Color.White) },
-                                onClick = {
-                                    permissions = option
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = expiresInDays,
-                    onValueChange = { expiresInDays = it.filter { c -> c.isDigit() } },
-                    label = { Text("Expires In (days)") },
-                    placeholder = { Text("Leave empty for no expiration") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = SapphoInfo,
-                        unfocusedBorderColor = SapphoProgressTrack
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        onCreate(name, permissions, expiresInDays.toIntOrNull())
-                    }
-                },
-                enabled = name.isNotBlank()
-            ) {
-                Text("Create", color = SapphoInfo)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-@Composable
-private fun NewApiKeyDialog(
-    response: CreateApiKeyResponse,
-    onDismiss: () -> Unit
-) {
-    var copied by remember { mutableStateOf(false) }
-    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = SapphoSuccess)
-                Text("API Key Created", color = Color.White)
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(
-                    "Your new API key has been created. Copy it now - you won't be able to see it again!",
-                    color = SapphoStarFilled,
-                    fontSize = 13.sp
-                )
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = SapphoBackground
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            response.key,
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = {
-                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(response.key))
-                                copied = true
-                            }
-                        ) {
-                            Icon(
-                                if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                                contentDescription = "Copy",
-                                tint = if (copied) SapphoSuccess else SapphoInfo
-                            )
-                        }
-                    }
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Name: ${response.name}", color = SapphoIconDefault, fontSize = 12.sp)
-                    Text("Permissions: ${response.permissions.replaceFirstChar { it.uppercase() }}", color = SapphoIconDefault, fontSize = 12.sp)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Done", color = SapphoInfo)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-// ============ Backup Tab ============
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BackupTab(viewModel: AdminViewModel) {
-    val backups by viewModel.backups.collectAsStateWithLifecycle()
-    val serverSettings by viewModel.serverSettings.collectAsStateWithLifecycle()
-    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
-    var backupToDelete by remember { mutableStateOf<BackupInfo?>(null) }
-    var backupToRestore by remember { mutableStateOf<BackupInfo?>(null) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        viewModel.loadBackups()
-        viewModel.loadServerSettings()
-    }
-
-    LaunchedEffect(loadingSection) {
-        if (loadingSection != "backups") isRefreshing = false
-    }
-
-    val pullToRefreshState = rememberPullToRefreshState()
-
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.refreshBackups()
-        },
-        state = pullToRefreshState,
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullToRefreshState,
-                isRefreshing = isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter),
-                containerColor = SapphoSurfaceLight,
-                color = SapphoInfo
-            )
-        },
-        modifier = Modifier.fillMaxSize()
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Backups",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Button(
-                        onClick = { viewModel.createBackup() },
-                        colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Create Backup")
-                    }
-                }
-            }
-
-            // Retention Settings Card
-            item {
-                serverSettings?.settings?.let { settings ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = SapphoSurfaceLight
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.Settings,
-                                        contentDescription = null,
-                                        tint = SapphoInfo,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Text(
-                                        "Backup Settings",
-                                        color = Color.White,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-
-                            // Display current settings
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        "Retention",
-                                        color = SapphoIconDefault,
-                                        fontSize = 11.sp
-                                    )
-                                    Text(
-                                        "${settings.backupRetention ?: 7} backups",
-                                        color = Color.White,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        "Auto Backup",
-                                        color = SapphoIconDefault,
-                                        fontSize = 11.sp
-                                    )
-                                    val autoBackupEnabled = (settings.autoBackupInterval ?: 0) > 0
-                                    Text(
-                                        if (autoBackupEnabled) "Every ${settings.autoBackupInterval}h" else "Disabled",
-                                        color = if (autoBackupEnabled) SapphoSuccess else SapphoTextMuted,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (backups.isEmpty()) {
-                item {
-                    Text(
-                        "No backups found",
-                        color = SapphoIconDefault,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
-                }
-            } else {
-                items(backups) { backup ->
-                    BackupCard(
-                        backup = backup,
-                        onRestore = { backupToRestore = backup },
-                        onDelete = { backupToDelete = backup }
-                    )
-                }
-            }
-        }
-    }
-
-    // Delete Confirmation
-    backupToDelete?.let { backup ->
-        AlertDialog(
-            onDismissRequest = { backupToDelete = null },
-            title = { Text("Delete Backup", color = Color.White) },
-            text = { Text("Are you sure you want to delete ${backup.filename}?", color = SapphoIconDefault) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteBackup(backup.filename)
-                        backupToDelete = null
-                    }
-                ) {
-                    Text("Delete", color = SapphoError)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { backupToDelete = null }) {
-                    Text("Cancel", color = SapphoIconDefault)
-                }
-            },
-            containerColor = SapphoSurfaceLight
-        )
-    }
-
-    // Restore Confirmation
-    backupToRestore?.let { backup ->
-        AlertDialog(
-            onDismissRequest = { backupToRestore = null },
-            title = { Text("Restore Backup", color = Color.White) },
-            text = {
-                Text(
-                    "Are you sure you want to restore ${backup.filename}? This will overwrite the current database.",
-                    color = SapphoIconDefault
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.restoreBackup(backup.filename)
-                        backupToRestore = null
-                    }
-                ) {
-                    Text("Restore", color = SapphoWarning)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { backupToRestore = null }) {
-                    Text("Cancel", color = SapphoIconDefault)
-                }
-            },
-            containerColor = SapphoSurfaceLight
-        )
-    }
-}
-
-@Composable
-private fun BackupCard(
-    backup: BackupInfo,
-    onRestore: () -> Unit,
-    onDelete: () -> Unit
-) {
-    // Parse backup filename to extract date: sappho_backup_2024-01-15_14-30-25.db
-    val displayName = remember(backup.filename) {
-        try {
-            val regex = Regex("""sappho_backup_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})\.db""")
-            val match = regex.find(backup.filename)
-            if (match != null) {
-                val (year, month, day, hour, minute, _) = match.destructured
-                val monthNames = listOf("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-                val monthName = monthNames.getOrElse(month.toIntOrNull() ?: 0) { "???" }
-                val hourInt = hour.toIntOrNull() ?: 0
-                val amPm = if (hourInt >= 12) "PM" else "AM"
-                val hour12 = when {
-                    hourInt == 0 -> 12
-                    hourInt > 12 -> hourInt - 12
-                    else -> hourInt
-                }
-                "$monthName $day, $year at $hour12:$minute $amPm"
-            } else {
-                backup.filename
-            }
-        } catch (e: Exception) {
-            backup.filename
-        }
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = SapphoSurfaceLight
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = displayName,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        text = backup.sizeFormatted ?: formatFileSize(backup.size),
-                        color = SapphoIconDefault,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onRestore) {
-                    Icon(Icons.Outlined.Restore, contentDescription = "Restore", tint = SapphoWarning)
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = SapphoError)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DuplicateGroupCard(
-    group: DuplicateGroup,
-    onClick: () -> Unit
+private fun AdminSectionCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        color = SapphoProgressTrack.copy(alpha = 0.5f)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = group.books.firstOrNull()?.title ?: "Unknown",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = SapphoWarning.copy(alpha = 0.2f)
-                    ) {
-                        Text(
-                            "${group.books.size} copies",
-                            color = SapphoWarning,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    group.matchReason?.let { reason ->
-                        Text(
-                            text = reason,
-                            color = SapphoTextMuted,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = "View",
-                tint = SapphoTextMuted,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun DuplicateMergeDialog(
-    group: DuplicateGroup,
-    onDismiss: () -> Unit,
-    onMerge: (keepId: Int, deleteIds: List<Int>) -> Unit
-) {
-    var selectedKeepId by remember { mutableStateOf(group.suggestedKeep ?: group.books.firstOrNull()?.id) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column {
-                Text("Merge Duplicates", color = Color.White)
-                Text(
-                    "Select the copy to keep. Others will be deleted.",
-                    color = SapphoIconDefault,
-                    fontSize = 12.sp
-                )
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                group.books.forEach { book ->
-                    val isSelected = selectedKeepId == book.id
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { selectedKeepId = book.id },
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSelected) SapphoInfo.copy(alpha = 0.2f) else SapphoProgressTrack,
-                        border = if (isSelected) androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            SapphoInfo
-                        ) else null
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = { selectedKeepId = book.id },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = SapphoInfo,
-                                    unselectedColor = SapphoTextMuted
-                                )
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = book.title,
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                book.author?.let { author ->
-                                    Text(
-                                        text = "by $author",
-                                        color = SapphoIconDefault,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                                book.filePath?.let { path ->
-                                    Text(
-                                        text = path.substringAfterLast("/"),
-                                        color = SapphoTextMuted,
-                                        fontSize = 11.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                book.createdAt?.let { created ->
-                                    Text(
-                                        text = "Added: ${formatBackupDate(created)}",
-                                        color = SapphoTextMuted,
-                                        fontSize = 10.sp
-                                    )
-                                }
-                            }
-                            if (group.suggestedKeep == book.id) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = SapphoSuccess.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        "Suggested",
-                                        color = SapphoSuccess,
-                                        fontSize = 9.sp,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Warning
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    color = SapphoError.copy(alpha = 0.1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Outlined.Warning,
-                            contentDescription = null,
-                            tint = SapphoError,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            "This will permanently delete ${group.books.size - 1} duplicate(s). Files will also be removed from disk.",
-                            color = SapphoError,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    selectedKeepId?.let { keepId ->
-                        val deleteIds = group.books.filter { it.id != keepId }.map { it.id }
-                        onMerge(keepId, deleteIds)
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = SapphoError),
-                enabled = selectedKeepId != null
-            ) {
-                Text("Merge & Delete")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SapphoIconDefault)
-            }
-        },
-        containerColor = SapphoSurfaceLight
-    )
-}
-
-// ============ Logs Tab ============
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LogsTab(viewModel: AdminViewModel) {
-    val logs by viewModel.logs.collectAsStateWithLifecycle()
-    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
-    val isLoading = loadingSection == "logs"
-    var selectedLevel by remember { mutableStateOf<String?>(null) }
-    var autoRefresh by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-    var showClearConfirmation by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    // Initial load
-    LaunchedEffect(Unit) {
-        viewModel.loadLogs(level = selectedLevel)
-    }
-
-    // Filter change - force refresh
-    LaunchedEffect(selectedLevel) {
-        viewModel.refreshLogs(level = selectedLevel)
-    }
-
-    // Reset refreshing when loading completes
-    LaunchedEffect(loadingSection) {
-        if (loadingSection != "logs") isRefreshing = false
-    }
-
-    // Auto-refresh every 5 seconds when enabled
-    LaunchedEffect(autoRefresh) {
-        if (autoRefresh) {
-            while (true) {
-                kotlinx.coroutines.delay(5000)
-                viewModel.refreshLogs(level = selectedLevel)
-            }
-        }
-    }
-
-    // Filter logs by search query
-    val filteredLogs = remember(logs, searchQuery) {
-        if (searchQuery.isBlank()) logs
-        else logs.filter { log ->
-            log.message.contains(searchQuery, ignoreCase = true) ||
-            log.source?.contains(searchQuery, ignoreCase = true) == true
-        }
-    }
-
-    val pullToRefreshState = rememberPullToRefreshState()
-
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.refreshLogs(level = selectedLevel)
-        },
-        state = pullToRefreshState,
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullToRefreshState,
-                isRefreshing = isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter),
-                containerColor = SapphoSurfaceLight,
-                color = SapphoInfo
-            )
-        },
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Server Logs",
-                color = Color.White,
-                style = MaterialTheme.typography.titleLarge
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Auto-refresh toggle
-                Surface(
-                    modifier = Modifier.clickable { autoRefresh = !autoRefresh },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (autoRefresh) SapphoSuccess.copy(alpha = 0.2f) else SapphoProgressTrack
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Autorenew,
-                            contentDescription = "Auto-refresh",
-                            tint = if (autoRefresh) SapphoSuccess else SapphoIconDefault,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            "Auto",
-                            color = if (autoRefresh) SapphoSuccess else SapphoIconDefault,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-                IconButton(onClick = { viewModel.refreshLogs(level = selectedLevel) }) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "Refresh", tint = SapphoInfo)
-                }
-                IconButton(onClick = { showClearConfirmation = true }) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Clear", tint = SapphoError)
-                }
-            }
-        }
-
-        // Search field
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("Search logs...", color = SapphoTextMuted) },
-            leadingIcon = {
-                Icon(Icons.Outlined.Search, contentDescription = null, tint = SapphoTextMuted)
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = SapphoTextMuted)
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = adminTextFieldColors(),
-            shape = RoundedCornerShape(8.dp)
-        )
-
-        // Level filter chips
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(null to "All", "info" to "Info", "warn" to "Warn", "error" to "Error").forEach { (level, label) ->
-                FilterChip(
-                    selected = selectedLevel == level,
-                    onClick = { selectedLevel = level },
-                    label = { Text(label) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = SapphoInfo,
-                        selectedLabelColor = Color.White,
-                        containerColor = SapphoProgressTrack,
-                        labelColor = SapphoIconDefault
-                    )
-                )
-            }
-        }
-
-        // Search results count
-        if (searchQuery.isNotEmpty()) {
-            Text(
-                "${filteredLogs.size} of ${logs.size} logs match",
-                color = SapphoIconDefault,
-                fontSize = 12.sp
-            )
-        }
-
-        if (isLoading && logs.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
-            }
-        } else if (filteredLogs.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (searchQuery.isNotEmpty()) "No logs match your search" else "No logs available",
-                    color = SapphoIconDefault
-                )
-            }
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                items(filteredLogs) { log ->
-                    LogEntryCard(log)
-                }
-            }
-        }
-        }
-    }
-
-    // Clear Logs Confirmation Dialog
-    if (showClearConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showClearConfirmation = false },
-            title = { Text("Clear Logs", color = Color.White) },
-            text = { Text("Are you sure you want to clear all logs? This action cannot be undone.", color = SapphoIconDefault) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.clearLogs()
-                        showClearConfirmation = false
-                    }
-                ) {
-                    Text("Clear", color = SapphoError)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearConfirmation = false }) {
-                    Text("Cancel", color = SapphoIconDefault)
-                }
-            },
-            containerColor = SapphoSurfaceLight
-        )
-    }
-}
-
-@Composable
-private fun LogEntryCard(log: LogEntry) {
-    val levelColor = when (log.level.lowercase()) {
-        "error" -> SapphoError
-        "warn" -> SapphoWarning
-        "info" -> SapphoInfo
-        else -> SapphoIconDefault
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = SapphoSurfaceLight
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = levelColor.copy(alpha = 0.2f)
-            ) {
-                Text(
-                    text = log.level.uppercase().take(4),
-                    color = levelColor,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = log.message,
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = formatBackupDate(log.timestamp),
-                    color = SapphoTextMuted,
-                    fontSize = 11.sp
-                )
-            }
-        }
-    }
-}
-
-// ============ Statistics Tab ============
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun StatisticsTab(viewModel: AdminViewModel, onBookClick: (Int) -> Unit) {
-    val statistics by viewModel.statistics.collectAsStateWithLifecycle()
-    val loadingSection by viewModel.loadingSection.collectAsStateWithLifecycle()
-    val isLoading = loadingSection == "statistics"
-    var isRefreshing by remember { mutableStateOf(false) }
-    var selectedFormat by remember { mutableStateOf<FormatStats?>(null) }
-    val formatBooks by viewModel.formatBooks.collectAsStateWithLifecycle()
-    val isLoadingFormatBooks by viewModel.isLoadingFormatBooks.collectAsStateWithLifecycle()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadStatistics()
-    }
-
-    // Reset refreshing when loading completes
-    LaunchedEffect(isLoading) {
-        if (!isLoading) isRefreshing = false
-    }
-
-    val pullToRefreshState = rememberPullToRefreshState()
-
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            viewModel.refreshStatistics()
-        },
-        state = pullToRefreshState,
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullToRefreshState,
-                isRefreshing = isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter),
-                containerColor = SapphoSurfaceLight,
-                color = SapphoInfo
-            )
-        },
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (isLoading && !isRefreshing) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(32.dp))
-                }
-            } else {
-            statistics?.let { stats ->
-                // Totals row
-                stats.totals?.let { totals ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatCard(
-                            modifier = Modifier.weight(1f),
-                            value = totals.books.toString(),
-                            label = "Audiobooks",
-                            icon = Icons.Outlined.LibraryBooks,
-                            color = SapphoInfo
-                        )
-                        StatCard(
-                            modifier = Modifier.weight(1f),
-                            value = formatFileSize(totals.size),
-                            label = "Total Size",
-                            icon = Icons.Outlined.Storage,
-                            color = LegacyPurple
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatCard(
-                            modifier = Modifier.weight(1f),
-                            value = formatDuration(totals.duration),
-                            label = "Total Duration",
-                            icon = Icons.Outlined.Timer,
-                            color = LibraryGradients.pink[0]
-                        )
-                        StatCard(
-                            modifier = Modifier.weight(1f),
-                            value = formatDuration(totals.avgDuration?.toLong() ?: 0),
-                            label = "Avg Duration",
-                            icon = Icons.Outlined.AvTimer,
-                            color = LibraryGradients.cyan[0]
-                        )
-                    }
-                }
-
-                // Top Authors
-                stats.topAuthors?.let { authors ->
-                    if (authors.isNotEmpty()) {
-                        AdminSectionCard(title = "Top Authors", icon = Icons.Outlined.Person) {
-                            authors.take(10).forEach { author ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        author.author ?: "Unknown",
-                                        color = Color.White,
-                                        fontSize = 14.sp,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(
-                                        "${author.count} books",
-                                        color = SapphoIconDefault,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                            }
-                        }
-                    }
-                }
-
-                // Top Series
-                stats.topSeries?.let { series ->
-                    if (series.isNotEmpty()) {
-                        AdminSectionCard(title = "Top Series", icon = Icons.Outlined.Collections) {
-                            series.take(10).forEach { s ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        s.series ?: "Unknown",
-                                        color = Color.White,
-                                        fontSize = 14.sp,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(
-                                        "${s.count} books",
-                                        color = SapphoIconDefault,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                            }
-                        }
-                    }
-                }
-
-                // Storage by Format
-                stats.byFormat?.let { formats ->
-                    if (formats.isNotEmpty()) {
-                        val totalSize = formats.sumOf { it.size }
-                        AdminSectionCard(title = "Storage by Format", icon = Icons.Outlined.PieChart) {
-                            formats.forEachIndexed { index, format ->
-                                if (index > 0) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                }
-                                val percentage = if (totalSize > 0) (format.size * 100 / totalSize).toInt() else 0
-                                Surface(
-                                    onClick = {
-                                        selectedFormat = format
-                                        viewModel.loadBooksByFormat(format.format ?: "")
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = SapphoBackground.copy(alpha = 0.5f)
-                                ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text(
-                                                    format.format?.uppercase() ?: "Unknown",
-                                                    color = Color.White,
-                                                    fontSize = 15.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                Surface(
-                                                    shape = RoundedCornerShape(4.dp),
-                                                    color = SapphoInfo.copy(alpha = 0.2f)
-                                                ) {
-                                                    Text(
-                                                        "${format.count} books",
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                        color = SapphoInfo,
-                                                        fontSize = 11.sp
-                                                    )
-                                                }
-                                            }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                Text(
-                                                    formatFileSize(format.size),
-                                                    color = SapphoIconDefault,
-                                                    fontSize = 13.sp
-                                                )
-                                                Icon(
-                                                    Icons.Default.KeyboardArrowRight,
-                                                    contentDescription = "View books",
-                                                    tint = SapphoIconMuted,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        // Progress bar showing percentage of total
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(4.dp)
-                                                .clip(RoundedCornerShape(2.dp))
-                                                .background(SapphoProgressTrack)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth(percentage / 100f)
-                                                    .height(4.dp)
-                                                    .background(SapphoInfo)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // User Stats
-                stats.userStats?.let { users ->
-                    if (users.isNotEmpty()) {
-                        AdminSectionCard(title = "User Activity", icon = Icons.Outlined.People) {
-                            users.forEachIndexed { index, user ->
-                                if (index > 0) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = SapphoBackground.copy(alpha = 0.5f)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(12.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                Icon(
-                                                    Icons.Outlined.Person,
-                                                    contentDescription = null,
-                                                    tint = SapphoInfo,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Text(
-                                                    user.username ?: "Unknown",
-                                                    color = Color.White,
-                                                    fontSize = 15.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
-                                            Text(
-                                                formatDuration(user.totalListenTime ?: 0),
-                                                color = SapphoInfo,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                        ) {
-                                            Column {
-                                                Text("Started", color = SapphoTextMuted, fontSize = 11.sp)
-                                                Text(
-                                                    "${user.booksStarted ?: 0}",
-                                                    color = SapphoIconDefault,
-                                                    fontSize = 14.sp
-                                                )
-                                            }
-                                            Column {
-                                                Text("Finished", color = SapphoTextMuted, fontSize = 11.sp)
-                                                Text(
-                                                    "${user.booksCompleted ?: 0}",
-                                                    color = SapphoSuccess,
-                                                    fontSize = 14.sp
-                                                )
-                                            }
-                                            val completion = if ((user.booksStarted ?: 0) > 0) {
-                                                ((user.booksCompleted ?: 0) * 100) / (user.booksStarted ?: 1)
-                                            } else 0
-                                            Column {
-                                                Text("Completion", color = SapphoTextMuted, fontSize = 11.sp)
-                                                Text(
-                                                    "$completion%",
-                                                    color = if (completion >= 50) SapphoSuccess else SapphoWarning,
-                                                    fontSize = 14.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } ?: run {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No statistics available", color = SapphoIconDefault)
-                }
-            }
-        }
-        }
-    }
-
-    // Format Books Dialog
-    selectedFormat?.let { format ->
-        FormatBooksDialog(
-            format = format,
-            books = formatBooks,
-            isLoading = isLoadingFormatBooks,
-            onDismiss = {
-                selectedFormat = null
-                viewModel.clearFormatBooks()
-            },
-            onBookClick = { book ->
-                selectedFormat = null
-                viewModel.clearFormatBooks()
-                onBookClick(book.id)
-            }
-        )
-    }
-}
-
-@Composable
-private fun FormatBooksDialog(
-    format: FormatStats,
-    books: List<com.sappho.audiobooks.domain.model.Audiobook>,
-    isLoading: Boolean,
-    onDismiss: () -> Unit,
-    onBookClick: (com.sappho.audiobooks.domain.model.Audiobook) -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.8f),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SapphoSurfaceLight)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            "${format.format?.uppercase() ?: "Unknown"} Books",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "${format.count} books • ${formatFileSize(format.size)}",
-                            color = SapphoIconDefault,
-                            fontSize = 13.sp
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = SapphoIconDefault
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Content
-                if (isLoading) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = SapphoInfo)
-                    }
-                } else if (books.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "No books found",
-                            color = SapphoIconDefault,
-                            fontSize = 14.sp
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(books) { book ->
-                            Surface(
-                                onClick = { onBookClick(book) },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                color = SapphoBackground.copy(alpha = 0.5f)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            book.title,
-                                            color = Color.White,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        book.author?.let { author ->
-                                            Text(
-                                                author,
-                                                color = SapphoIconDefault,
-                                                fontSize = 12.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                    Icon(
-                                        Icons.Default.KeyboardArrowRight,
-                                        contentDescription = "View",
-                                        tint = SapphoIconMuted,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============ Helper Components ============
-@Composable
-private fun AdminSectionCard(
-    title: String,
-    modifier: Modifier = Modifier,
-    description: String? = null,
-    icon: ImageVector? = null,
-    action: @Composable (() -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = SapphoProgressTrack,
-                shape = RoundedCornerShape(12.dp)
-            ),
+            .border(width = 1.dp, color = SapphoProgressTrack, shape = RoundedCornerShape(12.dp)),
         shape = RoundedCornerShape(12.dp),
         color = SapphoSurfaceLight
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = if (description != null) 4.dp else 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    icon?.let {
-                        Icon(
-                            imageVector = it,
-                            contentDescription = null,
-                            tint = SapphoInfo,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Text(
-                        text = title,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
-                }
-                action?.invoke()
-            }
-            if (description != null) {
-                Text(
-                    text = description,
-                    fontSize = 13.sp,
-                    color = SapphoTextMuted,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-            }
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
             content()
         }
     }
 }
 
 @Composable
-private fun InfoRow(label: String, value: String, locked: Boolean = false) {
+private fun AdminActionRow(
+    text: String,
+    icon: ImageVector,
+    tint: Color,
+    busy: Boolean = false,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .clickable(enabled = !busy, onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(label, color = SapphoIconDefault, fontSize = 14.sp)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            if (locked) {
-                Icon(
-                    Icons.Outlined.Lock,
-                    contentDescription = "Locked",
-                    tint = SapphoTextMuted,
-                    modifier = Modifier.size(12.dp)
-                )
-            }
-            Text(
-                value,
-                color = if (locked) SapphoTextMuted else Color.White,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 200.dp)
-            )
+        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        Text(
+            text = text,
+            color = if (busy) SapphoTextMuted else Color.White,
+            fontSize = 15.sp,
+            modifier = Modifier.weight(1f)
+        )
+        if (busy) {
+            CircularProgressIndicator(color = SapphoInfo, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
         }
     }
 }
 
 @Composable
-private fun ActionButton(
-    text: String,
-    description: String,
-    icon: ImageVector,
-    color: Color = SapphoInfo,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        color = Color.Transparent
-    ) {
-        Row(
-            modifier = Modifier.padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(24.dp)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                Text(description, color = SapphoTextMuted, fontSize = 13.sp)
-            }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = SapphoTextMuted,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+private fun Badge(text: String, color: Color) {
+    Surface(shape = RoundedCornerShape(8.dp), color = color.copy(alpha = 0.2f)) {
+        Text(
+            text = text,
+            color = color,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+        )
     }
 }
 
 @Composable
-private fun StatCard(
-    modifier: Modifier = Modifier,
-    value: String,
-    label: String,
-    icon: ImageVector,
-    color: Color
+private fun AdminUserRow(
+    user: UserInfo,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Surface(
-        modifier = modifier
-            .border(
-                width = 1.dp,
-                color = SapphoProgressTrack,
-                shape = RoundedCornerShape(10.dp)
-            ),
-        shape = RoundedCornerShape(10.dp),
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
         color = SapphoSurfaceLight
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = SapphoIconDefault
-            )
-        }
-    }
-}
-
-@Composable
-private fun adminTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White,
-    unfocusedTextColor = Color.White,
-    focusedBorderColor = SapphoInfo,
-    unfocusedBorderColor = SapphoProgressTrack,
-    focusedLabelColor = SapphoInfo,
-    unfocusedLabelColor = SapphoIconDefault,
-    cursorColor = SapphoInfo
-)
-
-// ============ Utility Functions ============
-private fun formatFileSize(bytes: Long): String {
-    return when {
-        bytes >= 1_073_741_824 -> String.format(java.util.Locale.US, "%.1f GB", bytes / 1_073_741_824.0)
-        bytes >= 1_048_576 -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1_048_576.0)
-        bytes >= 1_024 -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1_024.0)
-        else -> "$bytes B"
-    }
-}
-
-private fun formatDuration(seconds: Long): String {
-    val hours = seconds / 3600
-    return when {
-        hours >= 24 -> {
-            val days = hours / 24
-            "${days}d ${hours % 24}h"
-        }
-        hours > 0 -> "${hours}h ${(seconds % 3600) / 60}m"
-        else -> "${seconds / 60}m"
-    }
-}
-
-private fun formatBackupDate(dateString: String): String {
-    return try {
-        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-        val outputFormat = SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault())
-        val date = inputFormat.parse(dateString.split(".")[0])
-        outputFormat.format(date ?: Date())
-    } catch (e: Exception) {
-        dateString
-    }
-}
-
-// ============ Upload Dialog ============
-@Composable
-private fun UploadDialog(
-    viewModel: AdminViewModel,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val uploadState by viewModel.uploadState.collectAsStateWithLifecycle()
-    val uploadProgress by viewModel.uploadProgress.collectAsStateWithLifecycle()
-    val uploadResult by viewModel.uploadResult.collectAsStateWithLifecycle()
-
-    var selectedFiles by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var title by remember { mutableStateOf("") }
-    var author by remember { mutableStateOf("") }
-    var narrator by remember { mutableStateOf("") }
-
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris ->
-        selectedFiles = uris
-    }
-
-    AlertDialog(
-        onDismissRequest = {
-            if (uploadState != UploadState.UPLOADING) {
-                viewModel.clearUploadResult()
-                onDismiss()
-            }
-        },
-        title = { Text("Upload Audiobooks", color = Color.White) },
-        text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = "Supported: MP3, M4A, M4B, FLAC, OGG, WAV",
-                    color = SapphoIconDefault,
-                    fontSize = 12.sp
-                )
-
-                // File picker button
-                Button(
-                    onClick = { filePickerLauncher.launch(arrayOf("audio/*")) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo),
-                    shape = RoundedCornerShape(8.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Select Files")
+                    Text(text = user.username, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    if (user.isAdmin == 1) Badge("Admin", SapphoPrimary)
+                    if (user.accountDisabled) Badge("Disabled", SapphoError)
                 }
-
-                // Selected files display
-                if (selectedFiles.isNotEmpty()) {
-                    Text(
-                        text = "${selectedFiles.size} file(s) selected",
-                        color = SapphoSuccess,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    selectedFiles.take(5).forEach { uri ->
-                        val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "Unknown file"
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.AudioFile, contentDescription = null, tint = SapphoIconDefault, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(fileName, color = SapphoTextLight, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                    if (selectedFiles.size > 5) {
-                        Text("...and ${selectedFiles.size - 5} more", color = SapphoTextMuted, fontSize = 11.sp)
-                    }
-
-                    TextButton(onClick = { selectedFiles = emptyList() }) {
-                        Text("Clear selection", color = SapphoError, fontSize = 12.sp)
-                    }
-
-                    // Optional metadata
-                    Text("Optional metadata (leave blank to auto-detect)", color = SapphoTextMuted, fontSize = 11.sp)
-
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = { Text("Title") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = adminTextFieldColors()
-                    )
-
-                    OutlinedTextField(
-                        value = author,
-                        onValueChange = { author = it },
-                        label = { Text("Author") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = adminTextFieldColors()
-                    )
-
-                    OutlinedTextField(
-                        value = narrator,
-                        onValueChange = { narrator = it },
-                        label = { Text("Narrator") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = adminTextFieldColors()
-                    )
+                user.email?.takeIf { it.isNotBlank() }?.let {
+                    Text(text = it, color = SapphoTextMuted, fontSize = 13.sp)
                 }
+                UserActivityFormatter.listeningLine(user)?.let { ListeningRow(it) }
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Outlined.Delete, contentDescription = "Delete ${user.username}", tint = SapphoError)
+            }
+        }
+    }
+}
 
-                // Upload progress
-                if (uploadState == UploadState.UPLOADING) {
-                    LinearProgressIndicator(
-                        progress = uploadProgress,
-                        modifier = Modifier.fillMaxWidth(),
-                        color = SapphoInfo
-                    )
-                    Text(
-                        "Uploading... ${(uploadProgress * 100).toInt()}%",
-                        color = SapphoIconDefault,
-                        fontSize = 12.sp
-                    )
-                }
+/** "Listened to <title> · <when>": the title ellipsizes so the time always stays visible. */
+@Composable
+private fun ListeningRow(line: ListeningLine) {
+    when (line) {
+        ListeningLine.NoneYet -> Text(line.text, color = SapphoTextMuted, fontSize = 12.sp, maxLines = 1)
+        is ListeningLine.Listened -> Row {
+            Text(
+                text = line.lead,
+                color = SapphoTextMuted,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Text(text = " · ${line.time}", color = SapphoTextMuted, fontSize = 12.sp, maxLines = 1)
+        }
+    }
+}
 
-                // Upload result
-                uploadResult?.let { result ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (result.success) SapphoSuccess.copy(alpha = 0.1f) else SapphoError.copy(alpha = 0.1f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                if (result.success) Icons.Outlined.CheckCircle else Icons.Outlined.Error,
-                                contentDescription = null,
-                                tint = if (result.success) SapphoSuccess else SapphoError,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                result.message ?: if (result.success) "Upload complete" else "Upload failed",
-                                color = if (result.success) SapphoSuccess else SapphoError,
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
+@Composable
+private fun UserDetailDialog(
+    user: UserInfo,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(user.username, color = Color.White) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DetailRow("Role", if (user.isAdmin == 1) "Admin" else "Member")
+                user.email?.takeIf { it.isNotBlank() }?.let { DetailRow("Email", it) }
+                if (user.accountDisabled) DetailRow("Status", "Disabled")
+                UserActivityFormatter.listeningLine(user)?.let { line ->
+                    Text(line.text, color = Color.White, fontSize = 14.sp)
                 }
+                DetailRow("Last login", UserActivityFormatter.lastLoginLabel(user))
             }
         },
         confirmButton = {
-            if (selectedFiles.isNotEmpty() && uploadResult == null) {
-                Button(
-                    onClick = {
-                        viewModel.uploadAudiobooks(
-                            context = context,
-                            uris = selectedFiles,
-                            title = title.ifBlank { null },
-                            author = author.ifBlank { null },
-                            narrator = narrator.ifBlank { null }
-                        )
-                    },
-                    enabled = uploadState != UploadState.UPLOADING,
-                    colors = ButtonDefaults.buttonColors(containerColor = SapphoSuccess)
-                ) {
-                    Text("Upload")
-                }
-            } else if (uploadResult != null) {
-                Button(
-                    onClick = {
-                        selectedFiles = emptyList()
-                        title = ""
-                        author = ""
-                        narrator = ""
-                        viewModel.clearUploadResult()
-                        onDismiss()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SapphoInfo)
-                ) {
-                    Text("Done")
-                }
-            }
+            TextButton(onClick = onDismiss) { Text("Done", color = SapphoInfo) }
         },
         dismissButton = {
-            if (uploadState != UploadState.UPLOADING && uploadResult == null) {
-                TextButton(onClick = onDismiss) {
-                    Text("Cancel", color = SapphoIconDefault)
-                }
-            }
+            TextButton(onClick = onDelete) { Text("Delete User", color = SapphoError) }
         },
         containerColor = SapphoSurfaceLight
     )
 }
 
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = SapphoIconDefault, fontSize = 14.sp)
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(value, color = Color.White, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun CreateUserDialog(
+    onDismiss: () -> Unit,
+    onCreate: (username: String, password: String, isAdmin: Boolean, onResult: (String?) -> Unit) -> Unit
+) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var isAdmin by remember { mutableStateOf(false) }
+    var showPassword by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        focusedBorderColor = SapphoInfo,
+        unfocusedBorderColor = SapphoProgressTrack,
+        focusedLabelColor = SapphoInfo,
+        unfocusedLabelColor = SapphoIconDefault,
+        cursorColor = SapphoInfo
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New User", color = Color.White) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    singleLine = true,
+                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showPassword = !showPassword }) {
+                            Icon(
+                                if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (showPassword) "Hide password" else "Show password",
+                                tint = SapphoIconDefault
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Administrator", color = Color.White)
+                    Switch(
+                        checked = isAdmin,
+                        onCheckedChange = { isAdmin = it },
+                        colors = SwitchDefaults.colors(checkedTrackColor = SapphoInfo)
+                    )
+                }
+                errorMessage?.let { Text(it, color = SapphoError, fontSize = 13.sp) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    isSubmitting = true
+                    errorMessage = null
+                    onCreate(username, password, isAdmin) { error ->
+                        isSubmitting = false
+                        errorMessage = error
+                    }
+                },
+                enabled = username.isNotBlank() && password.isNotBlank() && !isSubmitting
+            ) {
+                Text(if (isSubmitting) "Creating..." else "Create", color = SapphoInfo)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = SapphoIconDefault) }
+        },
+        containerColor = SapphoSurfaceLight
+    )
+}
