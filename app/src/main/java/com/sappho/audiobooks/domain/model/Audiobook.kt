@@ -203,5 +203,13 @@ data class GenreMetadata(
 )
 
 data class AudiobooksResponse(
-    val audiobooks: List<Audiobook>
+    val audiobooks: List<Audiobook>,
+    // Matching books on the server, ignoring limit/offset. Null on servers that don't send it.
+    val total: Int? = null
+)
+
+/** GET /api/audiobooks/meta/stats (server 0.11.4+; 404 before). */
+data class LibraryStats(
+    val totalBooks: Int,
+    val totalDuration: Long? = null
 )

@@ -107,6 +107,14 @@ class LibraryViewModel @Inject constructor(
     private val _allAudiobooks = MutableStateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>>(emptyList())
     val allAudiobooks: StateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>> = _allAudiobooks.asStateFlow()
 
+    // Books in the whole library (every source), for the Library header. Null until known.
+    private val _libraryTotal = MutableStateFlow<Int?>(null)
+    val libraryTotal: StateFlow<Int?> = _libraryTotal.asStateFlow()
+
+    // Server's count from the last unfiltered All Books load; the header's fallback
+    // on servers without /meta/stats.
+    private var unfilteredTotal: Int? = null
+
     // Linked servers (server 0.16.0+). Empty on older servers and when none
     // are linked, which hides the Source filter.
     private val _linkedSources = MutableStateFlow<List<LinkedSource>>(emptyList())
@@ -603,21 +611,36 @@ class LibraryViewModel @Inject constructor(
             // "all" is the server default; leave it off so older servers see the same request as before.
             val filter = _sourceFilter.value
             val source = filter.takeUnless { it == SOURCE_ALL }
-            val audiobooksResponse = api.getAudiobooks(limit = 10000, source = source)
+            // Paged: one big request is clamped to 2000 books by the server.
+            val catalog = com.sappho.audiobooks.data.remote.fetchAllAudiobooks(api, source)
             // The filter changed while this request was in flight: the newer load wins.
             if (filter != _sourceFilter.value) return
-            if (audiobooksResponse.isSuccessful) {
-                val audiobooks = audiobooksResponse.body()?.audiobooks ?: emptyList()
-                _allAudiobooks.value = audiobooks
-                Log.d("LibraryViewModel", "Loaded ${audiobooks.size} audiobooks (source=${source ?: SOURCE_ALL})")
+            if (catalog != null) {
+                _allAudiobooks.value = catalog.books
+                if (source == null) unfilteredTotal = catalog.total
+                Log.d("LibraryViewModel", "Loaded ${catalog.books.size} of ${catalog.total} audiobooks (source=${source ?: SOURCE_ALL})")
             } else {
-                Log.e("LibraryViewModel", "Audiobooks request failed: ${audiobooksResponse.code()} - ${audiobooksResponse.errorBody()?.string()}")
+                Log.e("LibraryViewModel", "Audiobooks request failed")
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.e("LibraryViewModel", "Error loading audiobooks", e)
         }
+    }
+
+    /** Whole-library count from /meta/stats; older servers fall back to the All Books total. */
+    private suspend fun loadLibraryTotal() {
+        val fromStats = try {
+            val response = api.getLibraryStats()
+            if (response.isSuccessful) response.body()?.totalBooks else null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("LibraryViewModel", "Error loading library stats", e)
+            null
+        }
+        (fromStats ?: unfilteredTotal)?.let { _libraryTotal.value = it }
     }
 
     fun loadCategories() {
@@ -662,6 +685,7 @@ class LibraryViewModel @Inject constructor(
 
                 // Load all audiobooks for All Books view
                 loadAllAudiobooks()
+                loadLibraryTotal()
 
                 _uiState.value = LibraryUiState.Success
             } catch (e: CancellationException) {

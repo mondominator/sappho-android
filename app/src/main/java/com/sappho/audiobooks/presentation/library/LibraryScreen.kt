@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,6 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -162,6 +165,7 @@ fun LibraryScreen(
     val authors by viewModel.authors.collectAsStateWithLifecycle()
     val genres by viewModel.genres.collectAsStateWithLifecycle()
     val allBooks by viewModel.allAudiobooks.collectAsStateWithLifecycle()
+    val libraryTotal by viewModel.libraryTotal.collectAsStateWithLifecycle()
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     val readingList by viewModel.readingList.collectAsStateWithLifecycle()
 
@@ -207,7 +211,8 @@ fun LibraryScreen(
         when (currentView) {
             LibraryView.CATEGORIES -> {
                 CategoriesView(
-                    totalBooks = allBooks.size,
+                    // The server's count: allBooks follows the Source filter.
+                    totalBooks = libraryTotal ?: allBooks.size,
                     seriesCount = series.size,
                     authorsCount = authors.size,
                     genresCount = genres.size,
@@ -3264,44 +3269,18 @@ fun AllBooksView(
                 }
             }
 
-            // Filters (hide in selection mode)
             if (!isSelectionMode) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Progress Filter
-                    FilterOptionDropdown(
-                        currentOption = filterOption,
-                        onOptionSelect = { viewModel.userPreferences.setLibraryFilterOption(it) },
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // Sort Filter
-                    SortOptionDropdown(
-                        currentOption = sortOption,
-                        onOptionSelect = { viewModel.userPreferences.setLibrarySortOption(it) },
-                        isAscending = sortAscending,
-                        onAscendingToggle = { viewModel.userPreferences.setLibrarySortAscending(it) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // Source filter: only when this server has linked servers
-            if (!isSelectionMode && linkedSources.isNotEmpty()) {
-                val sourceOptions = sourceFilterOptions(linkedSources)
-                FilterDropdown(
-                    label = "Source",
-                    value = sourceOptions.firstOrNull { it.first == sourceFilter }?.second
-                        ?: sourceOptions.first().second,
-                    options = sourceOptions,
-                    onSelect = { viewModel.setSourceFilter(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp)
+                AllBooksFilterRow(
+                    filterOption = filterOption,
+                    onFilterSelect = { viewModel.userPreferences.setLibraryFilterOption(it) },
+                    sortOption = sortOption,
+                    onSortSelect = { viewModel.userPreferences.setLibrarySortOption(it) },
+                    sortAscending = sortAscending,
+                    onAscendingToggle = { viewModel.userPreferences.setLibrarySortAscending(it) },
+                    linkedSources = linkedSources,
+                    sourceFilter = sourceFilter,
+                    onSourceSelect = { viewModel.setSourceFilter(it) },
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
 
@@ -3379,6 +3358,52 @@ fun AllBooksView(
     }
 }
 
+/**
+ * Show / Sort / Source for All Books, in one row. Each control is as wide as
+ * its label (one line, never wrapped mid-word); the row scrolls sideways when
+ * a narrow phone can't fit them all. Source appears only with linked servers.
+ */
+@Composable
+fun AllBooksFilterRow(
+    filterOption: com.sappho.audiobooks.data.repository.LibraryFilterOption,
+    onFilterSelect: (com.sappho.audiobooks.data.repository.LibraryFilterOption) -> Unit,
+    sortOption: com.sappho.audiobooks.data.repository.LibrarySortOption,
+    onSortSelect: (com.sappho.audiobooks.data.repository.LibrarySortOption) -> Unit,
+    sortAscending: Boolean,
+    onAscendingToggle: (Boolean) -> Unit,
+    linkedSources: List<com.sappho.audiobooks.domain.model.LinkedSource>,
+    sourceFilter: String,
+    onSourceSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        FilterOptionDropdown(currentOption = filterOption, onOptionSelect = onFilterSelect)
+
+        SortOptionDropdown(
+            currentOption = sortOption,
+            onOptionSelect = onSortSelect,
+            isAscending = sortAscending,
+            onAscendingToggle = onAscendingToggle
+        )
+
+        if (linkedSources.isNotEmpty()) {
+            val sourceOptions = sourceFilterOptions(linkedSources)
+            FilterDropdown(
+                label = "Source",
+                value = sourceOptions.firstOrNull { it.first == sourceFilter }?.second
+                    ?: sourceOptions.first().second,
+                options = sourceOptions,
+                onSelect = onSourceSelect
+            )
+        }
+    }
+}
+
 @Composable
 fun FilterOptionDropdown(
     currentOption: com.sappho.audiobooks.data.repository.LibraryFilterOption,
@@ -3388,38 +3413,8 @@ fun FilterOptionDropdown(
     var expanded by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
-        Text(
-            text = "Show",
-            fontSize = 12.sp,
-            color = SapphoIconDefault,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(SapphoSurfaceDark)
-                .clickable { expanded = true }
-                .padding(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = currentOption.displayName,
-                    fontSize = 14.sp,
-                    color = Color.White
-                )
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = SapphoIconDefault,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
+        FilterLabel("Show")
+        DropdownTrigger(value = currentOption.displayName, onClick = { expanded = true })
 
         DropdownMenu(
             expanded = expanded,
@@ -3450,49 +3445,18 @@ fun SortOptionDropdown(
     var expanded by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
-        Text(
-            text = "Sort",
-            fontSize = 12.sp,
-            color = SapphoIconDefault,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
+        FilterLabel("Sort")
         Row(
-            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Sort option dropdown
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(SapphoSurfaceDark)
-                    .clickable { expanded = true }
-                    .padding(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = currentOption.displayName,
-                        fontSize = 14.sp,
-                        color = Color.White
-                    )
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = SapphoIconDefault,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
+            DropdownTrigger(value = currentOption.displayName, onClick = { expanded = true })
 
             // Ascending/Descending toggle button
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(TRIGGER_HEIGHT)
                     .clip(RoundedCornerShape(8.dp))
                     .background(SapphoSurfaceDark)
                     .clickable { onAscendingToggle(!isAscending) },
@@ -3830,6 +3794,59 @@ internal fun sourceFilterOptions(sources: List<com.sappho.audiobooks.domain.mode
         source.id.toString() to if (source.available == false) "${source.displayName} (offline)" else source.displayName
     }
 
+private val TRIGGER_HEIGHT = 44.dp
+
+@Composable
+private fun FilterLabel(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        color = SapphoIconDefault,
+        maxLines = 1,
+        modifier = Modifier.padding(bottom = 4.dp)
+    )
+}
+
+/**
+ * The closed state of a filter dropdown: the current value on one line and a
+ * chevron. Sized to its text so a label never wraps; [maxTextWidth] ellipsises
+ * values that can be arbitrarily long. (No weight here: the row around it
+ * scrolls, so there is no finite width to share out.)
+ */
+@Composable
+private fun DropdownTrigger(
+    value: String,
+    onClick: () -> Unit,
+    maxTextWidth: Dp = Dp.Unspecified
+) {
+    Row(
+        modifier = Modifier
+            .height(TRIGGER_HEIGHT)
+            .clip(RoundedCornerShape(8.dp))
+            .background(SapphoSurfaceDark)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            color = Color.White,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = maxTextWidth)
+        )
+        Icon(
+            imageVector = Icons.Default.KeyboardArrowDown,
+            contentDescription = null,
+            tint = SapphoIconDefault,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
 @Composable
 fun FilterDropdown(
     label: String,
@@ -3841,38 +3858,9 @@ fun FilterDropdown(
     var expanded by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = SapphoIconDefault,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(SapphoSurfaceDark)
-                .clickable { expanded = true }
-                .padding(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = value,
-                    fontSize = 14.sp,
-                    color = Color.White
-                )
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = SapphoIconDefault,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
+        FilterLabel(label)
+        // Capped so a long linked-server name ends in "…" instead of stretching the row.
+        DropdownTrigger(value = value, onClick = { expanded = true }, maxTextWidth = 180.dp)
 
         DropdownMenu(
             expanded = expanded,
