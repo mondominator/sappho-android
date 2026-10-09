@@ -1,356 +1,144 @@
 package com.sappho.audiobooks.presentation.admin
 
-import android.content.Context
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sappho.audiobooks.data.remote.*
-import com.sappho.audiobooks.domain.model.UploadState
+import com.sappho.audiobooks.data.remote.CreateUserRequest
+import com.sappho.audiobooks.data.remote.SapphoApi
+import com.sappho.audiobooks.data.remote.ScanResult
+import com.sappho.audiobooks.data.remote.ScanStats
+import com.sappho.audiobooks.data.remote.UserInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.File
+import retrofit2.Response
 import javax.inject.Inject
 
+/**
+ * Admin screen state. Mirrors the iOS AdminView: library scan / force rescan,
+ * and user management (list, add, delete).
+ */
 @HiltViewModel
 class AdminViewModel @Inject constructor(
     private val api: SapphoApi
 ) : ViewModel() {
 
-    // Track which sections have been loaded
-    private val loadedSections = mutableSetOf<String>()
-
-    // Server Settings
-    private val _serverSettings = MutableStateFlow<ServerSettingsResponse?>(null)
-    val serverSettings: StateFlow<ServerSettingsResponse?> = _serverSettings
-
-    // AI Settings
-    private val _aiSettings = MutableStateFlow<AiSettings?>(null)
-    val aiSettings: StateFlow<AiSettings?> = _aiSettings
-
-    // Users
     private val _users = MutableStateFlow<List<UserInfo>>(emptyList())
     val users: StateFlow<List<UserInfo>> = _users
 
-    // Backups
-    private val _backups = MutableStateFlow<List<BackupInfo>>(emptyList())
-    val backups: StateFlow<List<BackupInfo>> = _backups
+    private val _isLoadingUsers = MutableStateFlow(true)
+    val isLoadingUsers: StateFlow<Boolean> = _isLoadingUsers
 
-    private val _backupRetention = MutableStateFlow<BackupRetention?>(null)
-    val backupRetention: StateFlow<BackupRetention?> = _backupRetention
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning
 
-    // Maintenance
-    private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
-    val logs: StateFlow<List<LogEntry>> = _logs
+    /** Result of the last scan/rescan, shown inline under the Library buttons. */
+    private val _scanMessage = MutableStateFlow<String?>(null)
+    val scanMessage: StateFlow<String?> = _scanMessage
 
-    private val _statistics = MutableStateFlow<LibraryStatistics?>(null)
-    val statistics: StateFlow<LibraryStatistics?> = _statistics
-
-    // Format books for drill-down
-    private val _formatBooks = MutableStateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>>(emptyList())
-    val formatBooks: StateFlow<List<com.sappho.audiobooks.domain.model.Audiobook>> = _formatBooks
-
-    private val _isLoadingFormatBooks = MutableStateFlow(false)
-    val isLoadingFormatBooks: StateFlow<Boolean> = _isLoadingFormatBooks
-
-    private val _duplicates = MutableStateFlow<List<DuplicateGroup>>(emptyList())
-    val duplicates: StateFlow<List<DuplicateGroup>> = _duplicates
-
-    private val _jobs = MutableStateFlow<List<JobInfo>>(emptyList())
-    val jobs: StateFlow<List<JobInfo>> = _jobs
-
-    // Orphan Directories
-    private val _orphanDirectories = MutableStateFlow<List<OrphanDirectory>>(emptyList())
-    val orphanDirectories: StateFlow<List<OrphanDirectory>> = _orphanDirectories
-
-    // Organization Preview
-    private val _organizePreview = MutableStateFlow<List<OrganizePreviewBook>>(emptyList())
-    val organizePreview: StateFlow<List<OrganizePreviewBook>> = _organizePreview
-
-    // API Keys
-    private val _apiKeys = MutableStateFlow<List<ApiKey>>(emptyList())
-    val apiKeys: StateFlow<List<ApiKey>> = _apiKeys
-
-    // Loading states per section to avoid global spinner
-    private val _loadingSection = MutableStateFlow<String?>(null)
-    val loadingSection: StateFlow<String?> = _loadingSection
-
-    // Keep for backwards compatibility
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
-
+    /** One-shot error/confirmation text for the snackbar. */
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
 
-    // Upload state
-    private val _uploadState = MutableStateFlow(UploadState.IDLE)
-    val uploadState: StateFlow<UploadState> = _uploadState
-
-    private val _uploadProgress = MutableStateFlow(0f)
-    val uploadProgress: StateFlow<Float> = _uploadProgress
-
-    private val _uploadResult = MutableStateFlow<UploadResultData?>(null)
-    val uploadResult: StateFlow<UploadResultData?> = _uploadResult
+    init {
+        loadUsers()
+    }
 
     fun clearMessage() {
         _message.value = null
     }
 
-    fun clearUploadResult() {
-        _uploadResult.value = null
-        _uploadState.value = UploadState.IDLE
-    }
+    // ============ Library ============
 
-    // ============ Server Settings ============
-    fun loadServerSettings() {
-        // Only load once per session (prevents flickering)
-        if ("serverSettings" in loadedSections) return
-        loadedSections.add("serverSettings")
+    fun scanLibrary() = runScan(
+        call = { api.scanLibraryMaintenance() },
+        success = { stats -> "Scan complete: ${stats?.imported ?: 0} imported, ${stats?.skipped ?: 0} skipped" },
+        failure = "Scan failed"
+    )
 
+    fun forceRescan() = runScan(
+        call = { api.forceRescan() },
+        success = { stats -> "Rescan complete: ${stats?.metadataRefreshed ?: 0} refreshed" },
+        failure = "Rescan failed"
+    )
+
+    private fun runScan(
+        call: suspend () -> Response<ScanResult>,
+        success: (ScanStats?) -> String,
+        failure: String
+    ) {
+        if (_isScanning.value) return
         viewModelScope.launch {
-            _loadingSection.value = "serverSettings"
+            _isScanning.value = true
+            _scanMessage.value = null
             try {
-                val response = api.getServerSettings()
-                if (response.isSuccessful) {
-                    _serverSettings.value = response.body()
+                val response = call()
+                _scanMessage.value = if (response.isSuccessful) {
+                    success(response.body()?.stats)
                 } else {
-                    android.util.Log.e("AdminViewModel", "Server settings error: ${response.code()}")
+                    "$failure (HTTP ${response.code()})"
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Server settings exception", e)
-                _message.value = "Failed to load server settings"
+                _scanMessage.value = "$failure: ${e.message}"
             } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshServerSettings() {
-        viewModelScope.launch {
-            _loadingSection.value = "serverSettings"
-            try {
-                val response = api.getServerSettings()
-                if (response.isSuccessful) {
-                    _serverSettings.value = response.body()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Failed to load server settings"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun updateServerSettings(settings: ServerSettingsUpdate) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.updateServerSettings(settings)
-                if (response.isSuccessful) {
-                    _message.value = "Server settings updated"
-                    refreshServerSettings()
-                } else {
-                    _message.value = "Failed to update settings"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // ============ AI Settings ============
-    fun loadAiSettings() {
-        if ("aiSettings" in loadedSections) return
-        loadedSections.add("aiSettings")
-
-        viewModelScope.launch {
-            _loadingSection.value = "aiSettings"
-            try {
-                val response = api.getAiSettings()
-                if (response.isSuccessful) {
-                    _aiSettings.value = response.body()?.settings
-                } else {
-                    android.util.Log.e("AdminViewModel", "AI settings error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "AI settings exception", e)
-                _message.value = "Failed to load AI settings"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshAiSettings() {
-        viewModelScope.launch {
-            _loadingSection.value = "aiSettings"
-            try {
-                val response = api.getAiSettings()
-                if (response.isSuccessful) {
-                    _aiSettings.value = response.body()?.settings
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Failed to load AI settings"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun updateAiSettings(settings: AiSettingsUpdate) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.updateAiSettings(settings)
-                if (response.isSuccessful) {
-                    _message.value = "AI settings updated"
-                    refreshAiSettings()
-                } else {
-                    _message.value = "Failed to update AI settings"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun testAiConnection(settings: AiSettingsUpdate, onResult: (AiTestResponse) -> Unit) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.testAiConnection(settings)
-                if (response.isSuccessful) {
-                    response.body()?.let { onResult(it) }
-                } else {
-                    _message.value = "AI test failed"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
+                _isScanning.value = false
             }
         }
     }
 
     // ============ Users ============
+
     fun loadUsers() {
-        if ("users" in loadedSections) return
-        loadedSections.add("users")
-
         viewModelScope.launch {
-            _loadingSection.value = "users"
+            _isLoadingUsers.value = true
             try {
                 val response = api.getUsers()
                 if (response.isSuccessful) {
                     _users.value = response.body() ?: emptyList()
                 } else {
-                    android.util.Log.e("AdminViewModel", "Users error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Users exception", e)
-                _message.value = "Failed to load users"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshUsers() {
-        viewModelScope.launch {
-            _loadingSection.value = "users"
-            try {
-                val response = api.getUsers()
-                if (response.isSuccessful) {
-                    _users.value = response.body() ?: emptyList()
+                    _message.value = "Failed to load users"
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _message.value = "Failed to load users"
             } finally {
-                _loadingSection.value = null
+                _isLoadingUsers.value = false
             }
         }
     }
 
-    fun createUser(request: CreateUserRequest, onSuccess: () -> Unit) {
+    /**
+     * Creates a user. [onResult] gets null on success, or an error message so the
+     * dialog can stay open and show it inline (same as iOS CreateUserSheet).
+     */
+    fun createUser(username: String, password: String, isAdmin: Boolean, onResult: (String?) -> Unit) {
         viewModelScope.launch {
-            _isLoading.value = true
             try {
-                val response = api.createUser(request)
+                val response = api.createUser(CreateUserRequest(username, password, isAdmin))
                 if (response.isSuccessful) {
-                    _message.value = "User created"
-                    refreshUsers()
-                    onSuccess()
+                    loadUsers()
+                    onResult(null)
                 } else {
-                    _message.value = "Failed to create user"
+                    onResult("Failed to create user (HTTP ${response.code()})")
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun updateUser(id: Int, request: UpdateUserRequest, onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.updateUser(id, request)
-                if (response.isSuccessful) {
-                    _message.value = "User updated"
-                    refreshUsers()
-                    onSuccess()
-                } else {
-                    _message.value = "Failed to update user"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
+                onResult(e.message ?: "Failed to create user")
             }
         }
     }
 
     fun deleteUser(id: Int) {
         viewModelScope.launch {
-            _isLoading.value = true
             try {
                 val response = api.deleteUser(id)
                 if (response.isSuccessful) {
-                    _message.value = "User deleted"
-                    refreshUsers()
+                    loadUsers()
                 } else {
                     _message.value = "Failed to delete user"
                 }
@@ -358,878 +146,7 @@ class AdminViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
             }
         }
-    }
-
-    fun toggleUserEnabled(user: UserInfo) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = if (user.accountDisabled) {
-                    api.enableUser(user.id)
-                } else {
-                    api.disableUser(user.id)
-                }
-                if (response.isSuccessful) {
-                    _message.value = if (user.accountDisabled) "User enabled" else "User disabled"
-                    refreshUsers()
-                } else {
-                    _message.value = "Failed to update user status"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // ============ Backups ============
-    fun loadBackups() {
-        if ("backups" in loadedSections) return
-        loadedSections.add("backups")
-
-        viewModelScope.launch {
-            _loadingSection.value = "backups"
-            try {
-                val response = api.getBackups()
-                if (response.isSuccessful) {
-                    _backups.value = response.body()?.backups ?: emptyList()
-                } else {
-                    android.util.Log.e("AdminViewModel", "Backups error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Backups exception", e)
-                _message.value = "Failed to load backups"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun loadBackupRetention() {
-        if ("backupRetention" in loadedSections) return
-        loadedSections.add("backupRetention")
-
-        viewModelScope.launch {
-            try {
-                val response = api.getBackupRetention()
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    _backupRetention.value = body
-                } else {
-                    android.util.Log.e("AdminViewModel", "Backup retention failed: ${response.code()} - ${response.message()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Backup retention exception", e)
-            }
-        }
-    }
-
-    fun refreshBackups() {
-        viewModelScope.launch {
-            _loadingSection.value = "backups"
-            try {
-                val response = api.getBackups()
-                if (response.isSuccessful) {
-                    _backups.value = response.body()?.backups ?: emptyList()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Failed to load backups"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun createBackup() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.createBackup()
-                if (response.isSuccessful) {
-                    _message.value = "Backup created"
-                    refreshBackups()
-                } else {
-                    _message.value = "Failed to create backup"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun deleteBackup(filename: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.deleteBackup(filename)
-                if (response.isSuccessful) {
-                    _message.value = "Backup deleted"
-                    refreshBackups()
-                } else {
-                    _message.value = "Failed to delete backup"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun restoreBackup(filename: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.restoreBackup(filename)
-                if (response.isSuccessful) {
-                    _message.value = response.body()?.message ?: "Backup restored"
-                } else {
-                    _message.value = "Failed to restore backup"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun updateBackupRetention(retention: BackupRetention) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.updateBackupRetention(retention)
-                if (response.isSuccessful) {
-                    _message.value = "Retention settings updated"
-                    _backupRetention.value = response.body()
-                } else {
-                    _message.value = "Failed to update retention"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // ============ Maintenance ============
-    fun loadLogs(lines: Int = 100, level: String? = null) {
-        if ("logs" in loadedSections) return
-        loadedSections.add("logs")
-
-        viewModelScope.launch {
-            _loadingSection.value = "logs"
-            try {
-                val response = api.getLogs(lines, level)
-                if (response.isSuccessful) {
-                    _logs.value = response.body()?.logs ?: emptyList()
-                } else {
-                    android.util.Log.e("AdminViewModel", "Logs error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Logs exception", e)
-                _message.value = "Failed to load logs"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshLogs(lines: Int = 100, level: String? = null) {
-        viewModelScope.launch {
-            _loadingSection.value = "logs"
-            try {
-                val response = api.getLogs(lines, level)
-                if (response.isSuccessful) {
-                    _logs.value = response.body()?.logs ?: emptyList()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Failed to load logs"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun clearLogs() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.clearLogs()
-                if (response.isSuccessful) {
-                    _message.value = "Logs cleared"
-                    _logs.value = emptyList()
-                } else {
-                    _message.value = "Failed to clear logs"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun loadStatistics() {
-        if ("statistics" in loadedSections) return
-        loadedSections.add("statistics")
-
-        viewModelScope.launch {
-            _loadingSection.value = "statistics"
-            try {
-                val response = api.getLibraryStatistics()
-                if (response.isSuccessful) {
-                    _statistics.value = response.body()
-                } else {
-                    android.util.Log.e("AdminViewModel", "Statistics error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Statistics exception", e)
-                _message.value = "Failed to load statistics"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshStatistics() {
-        viewModelScope.launch {
-            _loadingSection.value = "statistics"
-            try {
-                val response = api.getLibraryStatistics()
-                if (response.isSuccessful) {
-                    _statistics.value = response.body()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Statistics refresh exception", e)
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun loadBooksByFormat(format: String) {
-        viewModelScope.launch {
-            _isLoadingFormatBooks.value = true
-            _formatBooks.value = emptyList()
-            try {
-                // Fetch all audiobooks and filter by format extension
-                val response = api.getAudiobooks(limit = 500)
-                if (response.isSuccessful) {
-                    val allBooks = response.body()?.audiobooks ?: emptyList()
-                    // Filter books by file extension matching the format
-                    val formatLower = format.lowercase()
-                    val filteredBooks = allBooks.filter { book ->
-                        // Check if any file in the book matches the format
-                        // Since we don't have file extension in Audiobook, we use a heuristic
-                        // Books with format typically have files ending in .mp3, .m4b, etc.
-                        true // For now, show all books - server needs format field to filter properly
-                    }
-                    _formatBooks.value = allBooks.take(50) // Limit to 50 for performance
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Load format books exception", e)
-            } finally {
-                _isLoadingFormatBooks.value = false
-            }
-        }
-    }
-
-    fun clearFormatBooks() {
-        _formatBooks.value = emptyList()
-    }
-
-    fun refreshLibraryTab() {
-        viewModelScope.launch {
-            _loadingSection.value = "library"
-            try {
-                // Refresh server settings
-                val settingsResponse = api.getServerSettings()
-                if (settingsResponse.isSuccessful) {
-                    _serverSettings.value = settingsResponse.body()
-                }
-
-                // Refresh duplicates
-                val duplicatesResponse = api.getDuplicates()
-                if (duplicatesResponse.isSuccessful) {
-                    _duplicates.value = duplicatesResponse.body()?.duplicateGroups ?: emptyList()
-                }
-
-                // Refresh jobs
-                val jobsResponse = api.getJobs()
-                if (jobsResponse.isSuccessful) {
-                    val jobsMap = jobsResponse.body()?.jobs ?: emptyMap()
-                    _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
-                }
-
-                // Refresh orphan directories
-                val orphansResponse = api.getOrphanDirectories()
-                if (orphansResponse.isSuccessful) {
-                    _orphanDirectories.value = orphansResponse.body()?.orphanDirectories ?: emptyList()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Library tab refresh exception", e)
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun loadDuplicates() {
-        if ("duplicates" in loadedSections) return
-        loadedSections.add("duplicates")
-
-        viewModelScope.launch {
-            _loadingSection.value = "duplicates"
-            try {
-                val response = api.getDuplicates()
-                if (response.isSuccessful) {
-                    _duplicates.value = response.body()?.duplicateGroups ?: emptyList()
-                } else {
-                    android.util.Log.e("AdminViewModel", "Duplicates error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Duplicates exception", e)
-                _message.value = "Failed to load duplicates"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshDuplicates() {
-        viewModelScope.launch {
-            _loadingSection.value = "duplicates"
-            try {
-                val response = api.getDuplicates()
-                if (response.isSuccessful) {
-                    _duplicates.value = response.body()?.duplicateGroups ?: emptyList()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Failed to load duplicates"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun mergeDuplicates(keepId: Int, deleteIds: List<Int>) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.mergeDuplicates(MergeDuplicatesRequest(keepId, deleteIds))
-                if (response.isSuccessful) {
-                    _message.value = response.body()?.message ?: "Duplicates merged"
-                    refreshDuplicates()
-                } else {
-                    _message.value = "Failed to merge duplicates"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun loadJobs() {
-        if ("jobs" in loadedSections) return
-        loadedSections.add("jobs")
-
-        viewModelScope.launch {
-            _loadingSection.value = "jobs"
-            try {
-                val response = api.getJobs()
-                if (response.isSuccessful) {
-                    // Convert map to list - the key becomes the job id
-                    val jobsMap = response.body()?.jobs ?: emptyMap()
-                    _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
-                } else {
-                    android.util.Log.e("AdminViewModel", "Jobs error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Jobs exception", e)
-                _message.value = "Failed to load jobs"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshJobs() {
-        viewModelScope.launch {
-            _loadingSection.value = "jobs"
-            try {
-                val response = api.getJobs()
-                if (response.isSuccessful) {
-                    val jobsMap = response.body()?.jobs ?: emptyMap()
-                    _jobs.value = jobsMap.map { (key, job) -> job.copy(id = key) }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Failed to refresh jobs"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun triggerJob(jobId: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.triggerJob(jobId)
-                if (response.isSuccessful) {
-                    _message.value = response.body()?.message ?: "Job triggered successfully"
-                    refreshJobs()
-                } else {
-                    _message.value = "Failed to trigger job"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // Orphan Directories
-    fun loadOrphanDirectories() {
-        if ("orphans" in loadedSections) return
-        loadedSections.add("orphans")
-
-        viewModelScope.launch {
-            _loadingSection.value = "orphans"
-            try {
-                val response = api.getOrphanDirectories()
-                if (response.isSuccessful) {
-                    _orphanDirectories.value = response.body()?.orphanDirectories ?: emptyList()
-                } else {
-                    android.util.Log.e("AdminViewModel", "Orphans error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Orphans exception", e)
-                _message.value = "Failed to load orphan directories"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshOrphanDirectories() {
-        viewModelScope.launch {
-            _loadingSection.value = "orphans"
-            try {
-                val response = api.getOrphanDirectories()
-                if (response.isSuccessful) {
-                    _orphanDirectories.value = response.body()?.orphanDirectories ?: emptyList()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Failed to refresh orphan directories"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun deleteOrphanDirectories(paths: List<String>) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.deleteOrphanDirectories(DeleteOrphansRequest(paths))
-                if (response.isSuccessful) {
-                    val result = response.body()
-                    _message.value = "Deleted ${result?.deleted ?: 0} directories"
-                    refreshOrphanDirectories()
-                } else {
-                    _message.value = "Failed to delete orphan directories"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // Library Organization
-    fun loadOrganizePreview() {
-        viewModelScope.launch {
-            _loadingSection.value = "organize"
-            try {
-                val response = api.getOrganizePreview()
-                if (response.isSuccessful) {
-                    _organizePreview.value = response.body()?.books ?: emptyList()
-                } else {
-                    android.util.Log.e("AdminViewModel", "Organize preview error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Organize preview exception", e)
-                _message.value = "Failed to load organization preview"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun organizeLibrary() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.organizeLibrary()
-                if (response.isSuccessful) {
-                    val stats = response.body()?.stats
-                    _message.value = "Organized: ${stats?.moved ?: 0} moved, ${stats?.skipped ?: 0} skipped, ${stats?.errors ?: 0} errors"
-                    _organizePreview.value = emptyList()
-                } else {
-                    _message.value = "Failed to organize library"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun scanLibrary() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.scanLibraryMaintenance()
-                if (response.isSuccessful) {
-                    val stats = response.body()?.stats
-                    _message.value = "Scan complete: ${stats?.imported ?: 0} imported, ${stats?.skipped ?: 0} skipped"
-                } else {
-                    _message.value = "Failed to scan library"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun forceRescan() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.forceRescan()
-                if (response.isSuccessful) {
-                    val stats = response.body()?.stats
-                    _message.value = "Rescan complete: ${stats?.metadataRefreshed ?: 0} refreshed"
-                } else {
-                    _message.value = "Failed to rescan library"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun clearLibrary(onConfirmed: () -> Unit) {
-        // This requires confirmation from UI before calling
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.clearLibrary()
-                if (response.isSuccessful) {
-                    _message.value = response.body()?.message ?: "Library cleared"
-                    onConfirmed()
-                } else {
-                    _message.value = "Failed to clear library"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // ============ API Keys ============
-    fun loadApiKeys() {
-        if ("apiKeys" in loadedSections) return
-        loadedSections.add("apiKeys")
-
-        viewModelScope.launch {
-            _loadingSection.value = "apiKeys"
-            try {
-                val response = api.getApiKeys()
-                if (response.isSuccessful) {
-                    _apiKeys.value = response.body() ?: emptyList()
-                } else {
-                    android.util.Log.e("AdminViewModel", "API keys error: ${response.code()}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "API keys exception", e)
-                _message.value = "Failed to load API keys"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun refreshApiKeys() {
-        viewModelScope.launch {
-            _loadingSection.value = "apiKeys"
-            try {
-                val response = api.getApiKeys()
-                if (response.isSuccessful) {
-                    _apiKeys.value = response.body() ?: emptyList()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Failed to load API keys"
-            } finally {
-                _loadingSection.value = null
-            }
-        }
-    }
-
-    fun createApiKey(name: String, permissions: String, expiresInDays: Int?, onSuccess: (CreateApiKeyResponse) -> Unit) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val request = CreateApiKeyRequest(name, permissions, expiresInDays)
-                val response = api.createApiKey(request)
-                if (response.isSuccessful) {
-                    response.body()?.let { createResponse ->
-                        _message.value = "API key created"
-                        refreshApiKeys()
-                        onSuccess(createResponse)
-                    }
-                } else {
-                    _message.value = "Failed to create API key"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun toggleApiKeyActive(apiKey: ApiKey) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val newActiveState = if (apiKey.isActive == 1) 0 else 1
-                val request = UpdateApiKeyRequest(isActive = newActiveState)
-                val response = api.updateApiKey(apiKey.id, request)
-                if (response.isSuccessful) {
-                    _message.value = if (newActiveState == 1) "API key activated" else "API key deactivated"
-                    refreshApiKeys()
-                } else {
-                    _message.value = "Failed to update API key"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun deleteApiKey(id: Int) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val response = api.deleteApiKey(id)
-                if (response.isSuccessful) {
-                    _message.value = "API key deleted"
-                    refreshApiKeys()
-                } else {
-                    _message.value = "Failed to delete API key"
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _message.value = "Error: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    // ============ Upload ============
-    fun uploadAudiobooks(
-        context: Context,
-        uris: List<Uri>,
-        title: String?,
-        author: String?,
-        narrator: String?
-    ) {
-        if (uris.isEmpty()) return
-
-        viewModelScope.launch {
-            _uploadState.value = UploadState.UPLOADING
-            _uploadProgress.value = 0f
-            _uploadResult.value = null
-
-            try {
-                val totalFiles = uris.size
-                var successCount = 0
-                var failCount = 0
-
-                uris.forEachIndexed { index, uri ->
-                    try {
-                        // Copy file from URI to temp file for uploading
-                        val inputStream = context.contentResolver.openInputStream(uri)
-                        val fileName = getFileNameFromUri(context, uri) ?: "audiobook_${System.currentTimeMillis()}.mp3"
-                        val tempFile = File(context.cacheDir, fileName)
-
-                        inputStream?.use { input ->
-                            tempFile.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-
-                        // Create multipart request
-                        val requestFile = tempFile.asRequestBody("audio/*".toMediaTypeOrNull())
-                        val filePart = MultipartBody.Part.createFormData("audiobook", fileName, requestFile)
-
-                        // Upload with optional metadata
-                        val response = api.uploadAudiobook(
-                            file = filePart,
-                            title = title?.toRequestBody("text/plain".toMediaTypeOrNull()),
-                            author = author?.toRequestBody("text/plain".toMediaTypeOrNull()),
-                            narrator = narrator?.toRequestBody("text/plain".toMediaTypeOrNull())
-                        )
-
-                        // Clean up temp file
-                        tempFile.delete()
-
-                        if (response.isSuccessful) {
-                            successCount++
-                        } else {
-                            failCount++
-                            android.util.Log.e("AdminViewModel", "Upload failed: ${response.code()}")
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        failCount++
-                        android.util.Log.e("AdminViewModel", "Upload error for file", e)
-                    }
-
-                    _uploadProgress.value = (index + 1).toFloat() / totalFiles
-                }
-
-                // Set result
-                _uploadState.value = if (failCount == 0) UploadState.SUCCESS else UploadState.ERROR
-                _uploadResult.value = UploadResultData(
-                    success = failCount == 0,
-                    message = if (failCount == 0) {
-                        "Successfully uploaded $successCount file(s)"
-                    } else {
-                        "Uploaded $successCount file(s), $failCount failed"
-                    }
-                )
-
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                android.util.Log.e("AdminViewModel", "Upload error", e)
-                _uploadState.value = UploadState.ERROR
-                _uploadResult.value = UploadResultData(
-                    success = false,
-                    message = "Upload failed: ${e.message}"
-                )
-            }
-        }
-    }
-
-    private fun getFileNameFromUri(context: Context, uri: Uri): String? {
-        var fileName: String? = null
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (nameIndex >= 0) {
-                    fileName = cursor.getString(nameIndex)
-                }
-            }
-        }
-        return fileName
     }
 }
-
-data class UploadResultData(
-    val success: Boolean,
-    val message: String?
-)
