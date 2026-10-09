@@ -53,8 +53,13 @@ interface SapphoApi {
         @Query("sort") sort: String? = null,
         @Query("limit") limit: Int? = null,
         // Linked servers: "local", a link id, or null for all (older servers ignore it).
-        @Query("source") source: String? = null
+        @Query("source") source: String? = null,
+        @Query("offset") offset: Int? = null
     ): Response<AudiobooksResponse>
+
+    // Library totals without fetching the books. Honours `source`. 404 on older servers.
+    @GET("api/audiobooks/meta/stats")
+    suspend fun getLibraryStats(@Query("source") source: String? = null): Response<LibraryStats>
 
     // Enabled linked servers, for the Source filter. 404 on servers before 0.16.0.
     @GET("api/linked-servers/sources")
