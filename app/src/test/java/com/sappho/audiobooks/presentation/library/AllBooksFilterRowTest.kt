@@ -1,5 +1,9 @@
 package com.sappho.audiobooks.presentation.library
 
+import android.app.Application
+import android.content.ComponentName
+import androidx.activity.ComponentActivity
+import androidx.test.core.app.ApplicationProvider
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
@@ -23,8 +27,12 @@ import com.sappho.audiobooks.data.repository.LibrarySortOption
 import com.sappho.audiobooks.domain.model.LinkedSource
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows
 import org.robolectric.annotation.GraphicsMode
 
 /** The All Books filter row on a narrow phone: labels stay on one line. */
@@ -33,8 +41,22 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AllBooksFilterRowTest {
 
-    @get:Rule
     val rule = createComposeRule()
+
+    // The compose rule hosts content in a ComponentActivity that only the debug
+    // manifest declares (ui-test-manifest is debugImplementation). Register it
+    // with Robolectric first so testReleaseUnitTest can launch it too.
+    @get:Rule
+    val rules: RuleChain = RuleChain
+        .outerRule(object : TestWatcher() {
+            override fun starting(description: Description) {
+                val app = ApplicationProvider.getApplicationContext<Application>()
+                Shadows.shadowOf(app.packageManager).addActivityIfNotPresent(
+                    ComponentName(app.packageName, ComponentActivity::class.java.name)
+                )
+            }
+        })
+        .around(rule)
 
     private val robert = LinkedSource(id = 4, name = "Robert", available = true)
 
