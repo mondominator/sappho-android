@@ -115,8 +115,8 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // Hilt (Dependency Injection)
-    implementation("com.google.dagger:hilt-android:2.54")
-    ksp("com.google.dagger:hilt-android-compiler:2.54")
+    implementation("com.google.dagger:hilt-android:2.60.1")
+    ksp("com.google.dagger:hilt-android-compiler:2.60.1")
 
     // Retrofit (Networking)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
@@ -184,8 +184,8 @@ dependencies {
     testImplementation("androidx.compose.ui:ui-test-manifest")
     
     // Hilt testing
-    testImplementation("com.google.dagger:hilt-android-testing:2.48.1")
-    kspTest("com.google.dagger:hilt-android-compiler:2.48.1")
+    testImplementation("com.google.dagger:hilt-android-testing:2.60.1")
+    kspTest("com.google.dagger:hilt-android-compiler:2.60.1")
     
     // Android Instrumentation Tests
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
@@ -194,8 +194,8 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test:runner:1.6.1")
     androidTestImplementation("androidx.test:rules:1.6.1")
-    androidTestImplementation("com.google.dagger:hilt-android-testing:2.48.1")
-    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.48.1")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.60.1")
+    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.60.1")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
