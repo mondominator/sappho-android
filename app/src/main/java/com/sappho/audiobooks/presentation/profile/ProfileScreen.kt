@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -264,10 +265,13 @@ fun ProfileScreen(
                     )
 
                     // Admin/Member since date
+                    // Parse the server timestamp with a fixed locale (it's a machine
+                    // format); display it in the user's current, observable locale.
+                    val displayLocale = LocalLocale.current.platformLocale
                     val memberSinceText = user?.createdAt?.let { createdAt ->
                         try {
-                            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-                            val outputFormat = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+                            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                            val outputFormat = SimpleDateFormat("MMM yyyy", displayLocale)
                             val parsed = inputFormat.parse(createdAt.split(".")[0])
                             outputFormat.format(parsed ?: Date())
                         } catch (e: Exception) { null }

@@ -1678,8 +1678,7 @@ class AudioPlaybackService : MediaLibraryService(), LocalPlayback {
             .addAction(playPauseIcon, playPauseText, playPauseIntent)
             .addAction(R.drawable.ic_forward_15, "Forward", skipForwardIntent)
             .setStyle(
-                androidx.media.app.NotificationCompat.MediaStyle()
-                    .setMediaSession(session.sessionCompatToken)
+                MediaStyleNotificationHelper.MediaStyle(session)
                     .setShowActionsInCompactView(0, 1, 2)
             )
 
