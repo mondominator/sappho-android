@@ -231,7 +231,10 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "**/*Activity.*"
     )
 
-    val kotlinDebugTree = fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug")
+    // AGP 9 built-in Kotlin writes classes here (was tmp/kotlin-classes/debug).
+    val kotlinDebugTree = fileTree("${layout.buildDirectory.get()}/intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes") {
+        exclude(fileFilter)
+    }
     val classDirectoriesTree = files(listOf(kotlinDebugTree))
 
     classDirectories.setFrom(classDirectoriesTree)
