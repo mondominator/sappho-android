@@ -136,7 +136,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:$media3Version")
 
     // Google Cast
-    implementation("com.google.android.gms:play-services-cast-framework:22.0.0")
+    implementation("com.google.android.gms:play-services-cast-framework:23.0.0")
 
     // In-App Updates
     implementation("com.google.android.play:app-update:2.1.0")
