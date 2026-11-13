@@ -202,4 +202,19 @@ class TokenAuthenticatorTest {
 
         response.close()
     }
+
+    @Test
+    fun `does not try a refresh when the login request itself is rejected`() {
+        // A stale session's refresh token is still stored when the user signs in again
+        every { authRepository.getTokenSync() } returns null
+        every { authRepository.getRefreshTokenSync() } returns "old-session-refresh"
+        mockWebServer.enqueue(MockResponse().setResponseCode(401).setBody("""{"error":"Invalid username or password"}"""))
+
+        val request = Request.Builder().url(mockWebServer.url("/api/auth/login"))
+            .post(okhttp3.RequestBody.create(null, "{}")).build()
+        client.newCall(request).execute().use { assertThat(it.code).isEqualTo(401) }
+
+        assertThat(mockWebServer.requestCount).isEqualTo(1)
+        verify(exactly = 0) { authRepository.clearToken() }
+    }
 }

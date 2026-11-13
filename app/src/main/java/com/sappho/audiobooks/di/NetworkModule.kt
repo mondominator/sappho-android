@@ -227,7 +227,8 @@ object NetworkModule {
                 statusCode = response.code,
                 requestHost = chain.request().url.host,
                 serverHost = authRepository.getServerUrlSync()?.toHttpUrlOrNull()?.host,
-                errorCode = parseApiErrorCode(response.peekBody(ERROR_BODY_PEEK_BYTES).string())
+                errorCode = parseApiErrorCode(response.peekBody(ERROR_BODY_PEEK_BYTES).string()),
+                requestPath = chain.request().url.encodedPath
             )
             // Token expired or invalid - trigger auth error
             if (shouldLogout) authRepository.triggerAuthError()

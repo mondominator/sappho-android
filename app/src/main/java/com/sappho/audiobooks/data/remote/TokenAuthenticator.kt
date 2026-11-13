@@ -3,6 +3,7 @@ package com.sappho.audiobooks.data.remote
 import android.util.Log
 import com.sappho.audiobooks.data.repository.AuthRepository
 import java.io.IOException
+import com.sappho.audiobooks.util.AuthErrorPolicy
 import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
@@ -28,6 +29,12 @@ class TokenAuthenticator(
 
     @Synchronized
     override fun authenticate(route: Route?, response: Response): Request? {
+        // A 401 from login/MFA/refresh means wrong credentials: refreshing an
+        // old session's token and retrying the login would be wrong.
+        if (AuthErrorPolicy.isCredentialRequest(response.request.url.encodedPath)) {
+            return null
+        }
+
         // Bail out if we've already retried once — avoids infinite refresh loops.
         if (responseCount(response) >= 2) {
             Log.d(TAG, "Already retried once after refresh; giving up")

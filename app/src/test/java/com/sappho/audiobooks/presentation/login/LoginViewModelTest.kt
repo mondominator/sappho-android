@@ -184,4 +184,14 @@ class LoginViewModelTest {
         // Then
         assertThat(viewModel.serverUrl.value).isEqualTo("https://")
     }
+
+    @Test
+    fun `login trims the username the keyboard padded`() = runTest {
+        coEvery { api.login(any()) } returns Response.error(401, "{}".toResponseBody())
+
+        viewModel.login("  RKeron ", "pw")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { api.login(LoginRequest("RKeron", "pw")) }
+    }
 }

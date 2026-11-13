@@ -97,4 +97,18 @@ class AuthErrorInterceptorTest {
 
         assertThat(readBody).isEqualTo(body)
     }
+
+    @Test
+    fun `401 from the login endpoint is a wrong password, not a session expiry`() {
+        // A wrong (or wrongly cased) username/password used to fire the
+        // session-expired path and reset the login screen, wiping the error.
+        for (path in listOf("/api/auth/login", "/api/auth/verify-mfa", "/api/auth/ldap/login", "/api/auth/refresh")) {
+            mockWebServer.enqueue(MockResponse().setResponseCode(401).setBody("""{"error":"Invalid username or password"}"""))
+            val request = Request.Builder().url(mockWebServer.url(path))
+                .post(okhttp3.RequestBody.create(null, "{}")).build()
+            client.newCall(request).execute().use { assertThat(it.code).isEqualTo(401) }
+        }
+
+        verify(exactly = 0) { authRepository.triggerAuthError() }
+    }
 }
