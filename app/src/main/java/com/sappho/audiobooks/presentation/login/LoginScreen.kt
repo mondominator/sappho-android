@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
@@ -247,7 +248,12 @@ fun LoginScreen(
                         unfocusedLabelColor = SapphoTextLight,
                         cursorColor = SapphoInfo
                     ),
+                    // No auto-capitalise or autocorrect: phones turned "rkeron"
+                    // into "Rkeron", and older servers matched names exactly.
                     keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = false,
+                        keyboardType = KeyboardType.Ascii,
                         imeAction = ImeAction.Next
                     ),
                     keyboardActions = KeyboardActions(

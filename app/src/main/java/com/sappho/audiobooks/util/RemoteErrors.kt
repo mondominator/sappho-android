@@ -41,13 +41,33 @@ object RemoteErrors {
 object AuthErrorPolicy {
     private const val HTTP_UNAUTHORIZED = 401
 
+    /**
+     * Endpoints whose 401 means "these credentials are wrong", not "your
+     * session expired". A wrong password on the login screen used to fire the
+     * session-expired path, which navigated to a fresh login screen and wiped
+     * the "Invalid username or password" message, so the app looked like it
+     * just reset.
+     */
+    private val CREDENTIAL_PATHS = setOf(
+        "/api/auth/login",
+        "/api/auth/verify-mfa",
+        "/api/auth/ldap/login",
+        "/api/auth/register",
+        "/api/auth/refresh",
+    )
+
+    fun isCredentialRequest(requestPath: String?): Boolean =
+        requestPath != null && requestPath.trimEnd('/') in CREDENTIAL_PATHS
+
     fun shouldLogout(
         statusCode: Int,
         requestHost: String,
         serverHost: String?,
-        errorCode: String? = null
+        errorCode: String? = null,
+        requestPath: String? = null
     ): Boolean {
         if (statusCode != HTTP_UNAUTHORIZED) return false
+        if (isCredentialRequest(requestPath)) return false
         if (RemoteErrors.isRemoteError(errorCode)) return false
         return serverHost == null || requestHost.equals(serverHost, ignoreCase = true)
     }

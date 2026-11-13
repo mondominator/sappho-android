@@ -33,7 +33,9 @@ class LoginViewModel @Inject constructor(
         _serverUrl.value = url
     }
 
-    fun login(username: String, password: String) {
+    fun login(rawUsername: String, password: String) {
+        // Keyboards add a trailing space after a suggested word.
+        val username = rawUsername.trim()
         if (serverUrl.value.isBlank()) {
             _uiState.value = LoginUiState.Error("Please enter server URL")
             return
