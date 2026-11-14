@@ -163,7 +163,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     // Reorderable (Drag-and-drop for LazyColumn)
-    implementation("sh.calvin.reorderable:reorderable:3.0.0")
+    implementation("sh.calvin.reorderable:reorderable:3.1.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
