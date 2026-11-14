@@ -14,8 +14,8 @@ android {
         applicationId = "com.sappho.audiobooks"
         minSdk = 26
         targetSdk = 36
-        versionCode = 113
-        versionName = "0.9.95"
+        versionCode = 114
+        versionName = "0.9.96"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

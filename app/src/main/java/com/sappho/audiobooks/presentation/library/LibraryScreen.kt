@@ -12,6 +12,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -189,6 +192,16 @@ fun LibraryScreen(
     var selectedAuthor by rememberSaveable { mutableStateOf(initialAuthor) }
     var selectedGenre by rememberSaveable { mutableStateOf<String?>(null) }
 
+    // The Series/Authors/Genres lists keep their scroll position while one of
+    // their books is open, so Back returns to the same place. Opening a list
+    // from the categories starts it at the top again.
+    var seriesVisit by rememberSaveable { mutableIntStateOf(0) }
+    var authorsVisit by rememberSaveable { mutableIntStateOf(0) }
+    var genresVisit by rememberSaveable { mutableIntStateOf(0) }
+    val seriesListState = rememberSaveable(seriesVisit, saver = LazyListState.Saver) { LazyListState() }
+    val authorsListState = rememberSaveable(authorsVisit, saver = LazyListState.Saver) { LazyListState() }
+    val genresListState = rememberSaveable(genresVisit, saver = LazyListState.Saver) { LazyListState() }
+
     // Handle system back button to navigate within Library views
     BackHandler(enabled = currentView != LibraryView.CATEGORIES) {
         currentViewName = when (currentView) {
@@ -218,9 +231,9 @@ fun LibraryScreen(
                     genresCount = genres.size,
                     collectionsCount = collections.size,
                     readingListCount = readingList.size,
-                    onSeriesClick = { currentViewName = LibraryView.SERIES.name },
-                    onAuthorsClick = { currentViewName = LibraryView.AUTHORS.name },
-                    onGenresClick = { currentViewName = LibraryView.GENRES.name },
+                    onSeriesClick = { seriesVisit++; currentViewName = LibraryView.SERIES.name },
+                    onAuthorsClick = { authorsVisit++; currentViewName = LibraryView.AUTHORS.name },
+                    onGenresClick = { genresVisit++; currentViewName = LibraryView.GENRES.name },
                     onAllBooksClick = { currentViewName = LibraryView.ALL_BOOKS.name },
                     onCollectionsClick = onCollectionsClick,
                     onReadingListClick = onReadingListClick,
@@ -237,7 +250,8 @@ fun LibraryScreen(
                     onSeriesClick = { seriesName ->
                         selectedSeries = seriesName
                         currentViewName = LibraryView.SERIES_BOOKS.name
-                    }
+                    },
+                    listState = seriesListState
                 )
             }
             LibraryView.SERIES_BOOKS -> {
@@ -268,7 +282,8 @@ fun LibraryScreen(
                     onAuthorClick = { author ->
                         selectedAuthor = author
                         currentViewName = LibraryView.AUTHOR_BOOKS.name
-                    }
+                    },
+                    listState = authorsListState
                 )
             }
             LibraryView.AUTHOR_BOOKS -> {
@@ -293,7 +308,8 @@ fun LibraryScreen(
                     onGenreClick = { genre ->
                         selectedGenre = genre
                         currentViewName = LibraryView.GENRE_BOOKS.name
-                    }
+                    },
+                    listState = genresListState
                 )
             }
             LibraryView.GENRE_BOOKS -> {
@@ -640,7 +656,8 @@ fun SeriesListView(
     allBooks: List<com.sappho.audiobooks.domain.model.Audiobook>,
     serverUrl: String?,
     onBackClick: () -> Unit,
-    onSeriesClick: (String) -> Unit
+    onSeriesClick: (String) -> Unit,
+    listState: LazyListState = rememberLazyListState()
 ) {
     Column(
         modifier = Modifier
@@ -676,6 +693,7 @@ fun SeriesListView(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.padding(horizontal = Spacing.M),
             verticalArrangement = Arrangement.spacedBy(Spacing.S)
         ) {
@@ -876,7 +894,8 @@ fun AuthorsListView(
     allBooks: List<com.sappho.audiobooks.domain.model.Audiobook>,
     serverUrl: String?,
     onBackClick: () -> Unit,
-    onAuthorClick: (String) -> Unit
+    onAuthorClick: (String) -> Unit,
+    listState: LazyListState = rememberLazyListState()
 ) {
     Column(
         modifier = Modifier
@@ -912,6 +931,7 @@ fun AuthorsListView(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -1040,7 +1060,8 @@ fun GenresListView(
     allBooks: List<com.sappho.audiobooks.domain.model.Audiobook>,
     serverUrl: String?,
     onBackClick: () -> Unit,
-    onGenreClick: (String) -> Unit
+    onGenreClick: (String) -> Unit,
+    listState: LazyListState = rememberLazyListState()
 ) {
     // Colors and icons are now fetched from server via LibraryViewModel
 
@@ -1078,6 +1099,7 @@ fun GenresListView(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
